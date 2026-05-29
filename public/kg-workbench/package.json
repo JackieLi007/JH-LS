@@ -1,0 +1,8 @@
+{
+  "name": "fmea-kg-frontend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "serve": "python -m http.server 5173 -d ."
+  }
+}

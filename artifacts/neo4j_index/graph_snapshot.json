@@ -1,0 +1,2676 @@
+{
+  "nodes": [
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:0",
+      "name": "总体",
+      "type": "总体",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "总体",
+        "source_type": "table",
+        "id": "E_42789f6051741479",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "总体"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:1",
+      "name": "总体功能",
+      "type": "总体功能",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "总体功能",
+        "source_type": "table",
+        "id": "E_6fac03dfb63f4d98",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "总体功能"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:2",
+      "name": "系统",
+      "type": "系统",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "系统",
+        "source_type": "table",
+        "id": "E_3129ccfe3ff309ed",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "系统"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:3",
+      "name": "总体级故障模式",
+      "type": "总体级故障模式",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "总体级故障模式",
+        "source_type": "table",
+        "id": "E_2ac494c65be9d124",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "总体级故障模式"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:4",
+      "name": "单机级故障模式",
+      "type": "单机级故障模式",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "单机级故障模式",
+        "source_type": "table",
+        "id": "E_8d2a96d7dcdab2a0",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机级故障模式"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:5",
+      "name": "单机级故障现象",
+      "type": "单机级故障现象",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "单机级故障现象",
+        "source_type": "table",
+        "id": "E_b31d0a7249383fb5",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机级故障现象"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:6",
+      "name": "系统级故障模式",
+      "type": "系统级故障模式",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "系统级故障模式",
+        "source_type": "table",
+        "id": "E_f54fcda74fe0a868",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "系统级故障模式"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:7",
+      "name": "系统级故障现象",
+      "type": "系统级故障现象",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "系统级故障现象",
+        "source_type": "table",
+        "id": "E_5fbb33c3ecff5a5e",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "系统级故障现象"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:8",
+      "name": "总体级故障现象",
+      "type": "总体级故障现象",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "总体级故障现象",
+        "source_type": "table",
+        "id": "E_c347f980fcaab1e8",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "总体级故障现象"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:9",
+      "name": "发动机",
+      "type": "系统",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "发动机",
+        "source_type": "table",
+        "id": "E_92e351d3022c84ae",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "系统"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:10",
+      "name": "A发动机摇摆软管",
+      "type": "单机",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "A发动机摇摆软管",
+        "source_type": "table",
+        "id": "E_3343e698731d3106",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:11",
+      "name": "外管组件",
+      "type": "零部组件",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "外管组件",
+        "source_type": "table",
+        "id": "E_57cf0e61d1b582b2",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "零部组件"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:12",
+      "name": "承载介质压力",
+      "type": "单机功能",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "承载介质压力",
+        "source_type": "table",
+        "id": "E_09cd25cd7469ca8d",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机功能"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:13",
+      "name": "介质外漏",
+      "type": "单机级故障模式",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "是否单点": "是",
+        "严酷度等级": [
+          "Ⅱ类(严重的)",
+          "Ⅲ类(轻度的)"
+        ],
+        "设计措施": [
+          "1",
+          "3"
+        ],
+        "name": "介质外漏",
+        "发生阶段": "飞行阶段",
+        "source_type": "table",
+        "id": "E_e78f62798b790ce3",
+        "发生概率": "E类(极少)",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机级故障模式"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:14",
+      "name": "结构破坏",
+      "type": "组件级故障模式",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "结构破坏",
+        "source_type": "table",
+        "id": "E_ebfa3ab09e596e2d",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "组件级故障模式"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:15",
+      "name": "A发动机比冲过小",
+      "type": "系统级故障模式",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "A发动机比冲过小",
+        "source_type": "table",
+        "id": "E_001be51be33dba95",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "系统级故障模式"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:16",
+      "name": "损失运载能力，可能造成轨道精度损失，但基本具备进入近地停泊轨道能力。",
+      "type": "总体级故障模式",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "损失运载能力，可能造成轨道精度损失，但基本具备进入近地停泊轨道能力。",
+        "source_type": "table",
+        "id": "E_2e06a578243e2c02",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "总体级故障模式"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:17",
+      "name": "内管组件",
+      "type": "零部组件",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "内管组件",
+        "source_type": "table",
+        "id": "E_ddb134c8f4a05a71",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "零部组件"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:18",
+      "name": "补偿摇摆时泵入口位置变化",
+      "type": "单机功能",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "补偿摇摆时泵入口位置变化",
+        "source_type": "table",
+        "id": "E_8e327138ca49dae2",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机功能"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:19",
+      "name": "形变能力不足",
+      "type": "单机级故障模式",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "是否单点": "是",
+        "严酷度等级": "Ⅲ类(轻度的)",
+        "设计措施": "2",
+        "name": "形变能力不足",
+        "发生阶段": "飞行阶段",
+        "source_type": "table",
+        "id": "E_3db8dbb925966226",
+        "发生概率": "E类(极少)",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机级故障模式"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:20",
+      "name": "疲劳失稳",
+      "type": "组件级故障模式",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "疲劳失稳",
+        "source_type": "table",
+        "id": "E_1a92631d30cf137d",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "组件级故障模式"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:21",
+      "name": "A发动机无法摇摆",
+      "type": "系统级故障模式",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "A发动机无法摇摆",
+        "source_type": "table",
+        "id": "E_80de7bdbbdc5fb81",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "系统级故障模式"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:22",
+      "name": "单台发动机无法调姿，影响姿控精度和入轨精度。",
+      "type": "总体级故障模式",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "单台发动机无法调姿，影响姿控精度和入轨精度。",
+        "source_type": "table",
+        "id": "E_bdde7de22e8edbc9",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "总体级故障模式"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:23",
+      "name": "A发动机点火室吹除单向阀",
+      "type": "单机",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "A发动机点火室吹除单向阀",
+        "source_type": "table",
+        "id": "E_96e1539267f375ea",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:24",
+      "name": "壳体",
+      "type": "零部组件",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "壳体",
+        "source_type": "table",
+        "id": "E_62ce741ed83318f3",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "零部组件"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:25",
+      "name": "压差打开，单向流动",
+      "type": "单机功能",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "压差打开，单向流动",
+        "source_type": "table",
+        "id": "E_5de22590d6e74815",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机功能"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:26",
+      "name": "打不开",
+      "type": "单机级故障模式",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "是否单点": [
+          "是",
+          "否"
+        ],
+        "严酷度等级": [
+          "Ⅱ类(严重的)",
+          "Ⅰ类(灾难的)"
+        ],
+        "设计措施": [
+          "2",
+          "3"
+        ],
+        "name": "打不开",
+        "发生阶段": "飞行阶段",
+        "source_type": "table",
+        "id": "E_f201ae26bdaa9726",
+        "发生概率": [
+          "E类(极少)",
+          "D类(很少)"
+        ],
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机级故障模式"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:27",
+      "name": "导向失效",
+      "type": "组件级故障模式",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "导向失效",
+        "source_type": "table",
+        "id": "E_eb39e39604605faa",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "组件级故障模式"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:28",
+      "name": "A发动机一次起动失败",
+      "type": "系统级故障模式",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "A发动机一次起动失败",
+        "source_type": "table",
+        "id": "E_94e60d0466feb2ac",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "系统级故障模式"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:29",
+      "name": "A发动机无法提供推力，无法入轨，火箭进入停泊轨道，任务失败。",
+      "type": "总体级故障模式",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "A发动机无法提供推力，无法入轨，火箭进入停泊轨道，任务失败。",
+        "source_type": "table",
+        "id": "E_6f37ef7df0a80061",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "总体级故障模式"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:30",
+      "name": "A发动机冷泄阀",
+      "type": "单机",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "A发动机冷泄阀",
+        "source_type": "table",
+        "id": "E_9d56923370849757",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:31",
+      "name": "弹簧",
+      "type": "零部组件",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "弹簧",
+        "source_type": "table",
+        "id": "E_de2e57244be55529",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "零部组件"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:32",
+      "name": "失稳或断裂",
+      "type": "组件级故障模式",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "失稳或断裂",
+        "source_type": "table",
+        "id": "E_323c35774dd53a78",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "组件级故障模式"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:33",
+      "name": "A发动机起动推力同步性超差",
+      "type": "系统级故障模式",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "A发动机起动推力同步性超差",
+        "source_type": "table",
+        "id": "E_dd7ff8fc107491c4",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "系统级故障模式"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:34",
+      "name": "起动段产生姿态干扰力，影响起动段的姿态控制。",
+      "type": "总体级故障模式",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "起动段产生姿态干扰力，影响起动段的姿态控制。",
+        "source_type": "table",
+        "id": "E_4b6af00e5a5d2193",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "总体级故障模式"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:35",
+      "name": "C3增压输送系统",
+      "type": "系统",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "C3增压输送系统",
+        "source_type": "table",
+        "id": "E_49db9e27a7ddbcf2",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "系统"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:36",
+      "name": "C3氧安溢阀",
+      "type": "单机",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "C3氧安溢阀",
+        "source_type": "table",
+        "id": "E_6dbf17d95c1c94cb",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:37",
+      "name": "副弹簧",
+      "type": "零部组件",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "副弹簧",
+        "source_type": "table",
+        "id": "E_f573e47632e2f3c6",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "零部组件"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:38",
+      "name": "承载",
+      "type": "单机功能",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "承载",
+        "source_type": "table",
+        "id": "E_19801729c6d79b7f",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机功能"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:39",
+      "name": "结构破坏",
+      "type": "单机级故障模式",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "是否单点": "是",
+        "严酷度等级": "Ⅰ类(灾难的)",
+        "设计措施": "3",
+        "name": "结构破坏",
+        "发生阶段": "飞行阶段",
+        "source_type": "table",
+        "id": "E_dfcb9c21b55d28e1",
+        "发生概率": "D类(很少)",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机级故障模式"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:40",
+      "name": "疲劳破坏导致阀芯不能回位",
+      "type": "组件级故障模式",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "疲劳破坏导致阀芯不能回位",
+        "source_type": "table",
+        "id": "E_524d7bebf7fbcaca",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "组件级故障模式"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:41",
+      "name": "C3液氧贮箱压力下降",
+      "type": "系统级故障模式",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "C3液氧贮箱压力下降",
+        "source_type": "table",
+        "id": "E_ffcbc4e398acfac3",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "系统级故障模式"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:42",
+      "name": "不满足发动机入口压力要求，发动机气蚀，任务失败，发生在一级工作引起火箭再入",
+      "type": "总体级故障模式",
+      "description": "",
+      "aliases": [
+        "不满足发动机起动压力要求，发动机气蚀，任务失败，发生在一级工作引起火箭再入"
+      ],
+      "attributes": {
+        "name": "不满足发动机入口压力要求，发动机气蚀，任务失败，发生在一级工作引起火箭再入",
+        "source_type": "table",
+        "id": "E_3f0db9efebf835e5",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "总体级故障模式"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:43",
+      "name": "主弹簧",
+      "type": "零部组件",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "主弹簧",
+        "source_type": "table",
+        "id": "E_e9c9328eec38bc80",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "零部组件"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:44",
+      "name": "C3氢安溢阀",
+      "type": "单机",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "C3氢安溢阀",
+        "source_type": "table",
+        "id": "E_5ceef5a05e5668bd",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:45",
+      "name": "电磁阀柔性弹簧组件",
+      "type": "零部组件",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "电磁阀柔性弹簧组件",
+        "source_type": "table",
+        "id": "E_f6e25e2d5ff1edd9",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "零部组件"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:46",
+      "name": "贮箱保险功能",
+      "type": "单机功能",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "贮箱保险功能",
+        "source_type": "table",
+        "id": "E_8c9f8db353e84f55",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机功能"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:47",
+      "name": "通电打不开",
+      "type": "单机级故障模式",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "是否单点": "否",
+        "严酷度等级": "Ⅰ类(灾难的)",
+        "设计措施": "3",
+        "name": "通电打不开",
+        "发生阶段": "飞行阶段",
+        "source_type": "table",
+        "id": "E_0e33f40018a68c07",
+        "发生概率": "D类(很少)",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机级故障模式"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:48",
+      "name": "疲劳破坏导致阀芯密封力不足",
+      "type": "组件级故障模式",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "疲劳破坏导致阀芯密封力不足",
+        "source_type": "table",
+        "id": "E_ac4aea6bb3c6162e",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "组件级故障模式"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:49",
+      "name": "C3液氢贮箱超压",
+      "type": "系统级故障模式",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "C3液氢贮箱超压",
+        "source_type": "table",
+        "id": "E_d68e5574d497ab3d",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "系统级故障模式"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:50",
+      "name": "贮箱破坏，任务失败，发生在一级工作则火箭再入",
+      "type": "总体级故障模式",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "贮箱破坏，任务失败，发生在一级工作则火箭再入",
+        "source_type": "table",
+        "id": "E_59b085abde203e34",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "总体级故障模式"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:51",
+      "name": "C2增压输送系统",
+      "type": "系统",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "C2增压输送系统",
+        "source_type": "table",
+        "id": "E_c1de6b4ffef0fbb0",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "系统"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:52",
+      "name": "C2氧安溢阀",
+      "type": "单机",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "C2氧安溢阀",
+        "source_type": "table",
+        "id": "E_62c2b14259f7783f",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:53",
+      "name": "C2液氧贮箱压力下降",
+      "type": "系统级故障模式",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "C2液氧贮箱压力下降",
+        "source_type": "table",
+        "id": "E_0bb4e51b42d8834e",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "系统级故障模式"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:54",
+      "name": "不满足发动机工作压力要求，发动机气蚀，任务失败，火箭再入",
+      "type": "总体级故障模式",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "不满足发动机工作压力要求，发动机气蚀，任务失败，火箭再入",
+        "source_type": "table",
+        "id": "E_11739ceb90a7b8b1",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "总体级故障模式"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:55",
+      "name": "C3氧补压电磁阀",
+      "type": "单机",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "C3氧补压电磁阀",
+        "source_type": "table",
+        "id": "E_17804a3ff044e33e",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:56",
+      "name": "线圈",
+      "type": "零部组件",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "线圈",
+        "source_type": "table",
+        "id": "E_0499272959950159",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "零部组件"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:57",
+      "name": "通电后打开",
+      "type": "单机功能",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "通电后打开",
+        "source_type": "table",
+        "id": "E_b7bce9043146bd65",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机功能"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:58",
+      "name": "磁场强度过低",
+      "type": "组件级故障模式",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "磁场强度过低",
+        "source_type": "table",
+        "id": "E_fa0180345e2f6f86",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "组件级故障模式"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:59",
+      "name": "C3液氧箱补压箱压不上升（增加措施",
+      "type": "系统级故障模式",
+      "description": "",
+      "aliases": [],
+      "attributes": {
+        "name": "C3液氧箱补压箱压不上升（增加措施",
+        "source_type": "table",
+        "id": "E_17e325aa78483da4",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "系统级故障模式"
+        ],
+        "_type_source": "label"
+      },
+      "sources": []
+    }
+  ],
+  "edges": [
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:0",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:1",
+      "type": "具有功能",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "具有功能",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:0",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:2",
+      "type": "包含",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "包含",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:0",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:3",
+      "type": "存在故障",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "存在故障",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:4",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:5",
+      "type": "有",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "有",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:6",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:7",
+      "type": "有",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "有",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:3",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:8",
+      "type": "有",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "有",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:9",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:10",
+      "type": "包含",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "包含",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:10",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:11",
+      "type": "包含",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "包含",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:9",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:11",
+      "type": "包含",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "包含",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:10",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:12",
+      "type": "具有功能",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "具有功能",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:10",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:13",
+      "type": "存在故障",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "存在故障",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:11",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:14",
+      "type": "存在故障",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "存在故障",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:14",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:13",
+      "type": "导致",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "导致",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:9",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:15",
+      "type": "存在故障",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "存在故障",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:13",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:15",
+      "type": "导致",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "导致",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:15",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:16",
+      "type": "导致",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "导致",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:10",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:17",
+      "type": "包含",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "包含",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:9",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:17",
+      "type": "包含",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "包含",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:10",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:18",
+      "type": "具有功能",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "具有功能",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:10",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:19",
+      "type": "存在故障",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "存在故障",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:17",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:20",
+      "type": "存在故障",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "存在故障",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:20",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:19",
+      "type": "导致",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "导致",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:9",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:21",
+      "type": "存在故障",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "存在故障",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:19",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:21",
+      "type": "导致",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "导致",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:21",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:22",
+      "type": "导致",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "导致",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:9",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:23",
+      "type": "包含",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "包含",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:23",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:24",
+      "type": "包含",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "包含",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:9",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:24",
+      "type": "包含",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "包含",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:23",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:25",
+      "type": "具有功能",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "具有功能",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:23",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:26",
+      "type": "存在故障",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "存在故障",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:24",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:27",
+      "type": "存在故障",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "存在故障",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:27",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:26",
+      "type": "导致",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "导致",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:9",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:28",
+      "type": "存在故障",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "存在故障",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:26",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:28",
+      "type": "导致",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "导致",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:28",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:29",
+      "type": "导致",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "导致",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:9",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:30",
+      "type": "包含",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "包含",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:30",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:31",
+      "type": "包含",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "包含",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:9",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:31",
+      "type": "包含",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "包含",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:30",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:12",
+      "type": "具有功能",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "具有功能",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:30",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:13",
+      "type": "存在故障",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "存在故障",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:31",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:32",
+      "type": "存在故障",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "存在故障",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:32",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:13",
+      "type": "导致",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "导致",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:9",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:33",
+      "type": "存在故障",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "存在故障",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:13",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:33",
+      "type": "导致",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "导致",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:33",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:34",
+      "type": "导致",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "导致",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:35",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:36",
+      "type": "包含",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "包含",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:36",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:37",
+      "type": "包含",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "包含",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:35",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:37",
+      "type": "包含",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "包含",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:36",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:38",
+      "type": "具有功能",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "具有功能",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:36",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:39",
+      "type": "存在故障",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "存在故障",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:37",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:40",
+      "type": "存在故障",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "存在故障",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:40",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:39",
+      "type": "导致",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "导致",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:35",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:41",
+      "type": "存在故障",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "存在故障",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:39",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:41",
+      "type": "导致",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "导致",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:41",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:42",
+      "type": "导致",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "导致",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:36",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:43",
+      "type": "包含",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "包含",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:35",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:43",
+      "type": "包含",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "包含",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:43",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:40",
+      "type": "存在故障",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "存在故障",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:35",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:44",
+      "type": "包含",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "包含",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:44",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:45",
+      "type": "包含",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "包含",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:35",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:45",
+      "type": "包含",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "包含",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:44",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:46",
+      "type": "具有功能",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "具有功能",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:44",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:47",
+      "type": "存在故障",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "存在故障",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:45",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:48",
+      "type": "存在故障",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "存在故障",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:48",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:47",
+      "type": "导致",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "导致",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:35",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:49",
+      "type": "存在故障",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "存在故障",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:47",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:49",
+      "type": "导致",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "导致",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:49",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:50",
+      "type": "导致",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "导致",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:51",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:52",
+      "type": "包含",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "包含",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:52",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:45",
+      "type": "包含",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "包含",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:51",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:45",
+      "type": "包含",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "包含",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:52",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:38",
+      "type": "具有功能",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "具有功能",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:52",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:39",
+      "type": "存在故障",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "存在故障",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:48",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:39",
+      "type": "导致",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "导致",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:51",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:53",
+      "type": "存在故障",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "存在故障",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:39",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:53",
+      "type": "导致",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "导致",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:53",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:54",
+      "type": "导致",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "导致",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:51",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:55",
+      "type": "包含",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "包含",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:55",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:56",
+      "type": "包含",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "包含",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:51",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:56",
+      "type": "包含",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "包含",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:55",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:57",
+      "type": "具有功能",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "具有功能",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:55",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:26",
+      "type": "存在故障",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "存在故障",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:56",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:58",
+      "type": "存在故障",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "存在故障",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:58",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:26",
+      "type": "导致",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "导致",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:51",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:59",
+      "type": "存在故障",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "存在故障",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:26",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:59",
+      "type": "导致",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "导致",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:59",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:42",
+      "type": "导致",
+      "attributes": {
+        "source_type": "table",
+        "source_file": "样例数据2.xlsx",
+        "_neo4j_type": "导致",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:35",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:51",
+      "type": "相似",
+      "attributes": {
+        "name_zh": "相似",
+        "evidence_count": 6.0,
+        "reasons": [
+          "equipment_variant_core_name+similar_name+similar_semantic+similar_graph_context+similar_structure+similar_attributes"
+        ],
+        "attribute_score": 0.975,
+        "similar_kinds": [
+          "equipment_variant"
+        ],
+        "semantic_score": 0.9953,
+        "display_name": "相似",
+        "name_score": 0.875,
+        "graph_score": 0.9883,
+        "structure_score": 1.0,
+        "name": "相似",
+        "updated_by": "fkg_ml_linker",
+        "similarity_score": 0.9623,
+        "equipment_core_score": 1.0,
+        "_neo4j_type": "相似",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:42",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:54",
+      "type": "相似",
+      "attributes": {
+        "name_zh": "相似",
+        "evidence_count": 4.0,
+        "phenomenon_score": 0.8,
+        "reasons": [
+          "similar_semantic+similar_graph_context+similar_structure+similar_attributes"
+        ],
+        "attribute_score": 0.96,
+        "similar_kinds": [
+          "composite"
+        ],
+        "semantic_score": 0.9785,
+        "display_name": "相似",
+        "name_score": 0.8,
+        "graph_score": 0.9943,
+        "structure_score": 1.0,
+        "name": "相似",
+        "updated_by": "fkg_ml_linker",
+        "similarity_score": 0.9368,
+        "_neo4j_type": "相似",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:42",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:50",
+      "type": "相似",
+      "attributes": {
+        "name_zh": "相似",
+        "evidence_count": 4.0,
+        "phenomenon_score": 0.5763,
+        "reasons": [
+          "similar_semantic+similar_graph_context+similar_structure+similar_attributes"
+        ],
+        "attribute_score": 0.9153,
+        "similar_kinds": [
+          "composite"
+        ],
+        "semantic_score": 0.9401,
+        "display_name": "相似",
+        "name_score": 0.5763,
+        "graph_score": 0.984,
+        "structure_score": 1.0,
+        "name": "相似",
+        "updated_by": "fkg_ml_linker",
+        "similarity_score": 0.8605,
+        "_neo4j_type": "相似",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:26",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:47",
+      "type": "相似",
+      "attributes": {
+        "name_zh": "相似",
+        "evidence_count": 4.0,
+        "phenomenon_score": 0.75,
+        "reasons": [
+          "similar_semantic+similar_graph_context+similar_structure+similar_attributes"
+        ],
+        "attribute_score": 0.8083,
+        "similar_kinds": [
+          "composite"
+        ],
+        "semantic_score": 0.9687,
+        "display_name": "相似",
+        "name_score": 0.75,
+        "graph_score": 0.8154,
+        "structure_score": 1.0,
+        "name": "相似",
+        "updated_by": "fkg_ml_linker",
+        "similarity_score": 0.8758,
+        "_neo4j_type": "相似",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:15",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:21",
+      "type": "相似",
+      "attributes": {
+        "name_zh": "相似",
+        "evidence_count": 4.0,
+        "phenomenon_score": 0.5,
+        "reasons": [
+          "similar_semantic+similar_graph_context+similar_structure+similar_attributes"
+        ],
+        "attribute_score": 0.9,
+        "similar_kinds": [
+          "composite"
+        ],
+        "semantic_score": 0.9883,
+        "display_name": "相似",
+        "name_score": 0.5,
+        "graph_score": 0.9958,
+        "structure_score": 1.0,
+        "name": "相似",
+        "updated_by": "fkg_ml_linker",
+        "similarity_score": 0.8583,
+        "_neo4j_type": "相似",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:15",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:28",
+      "type": "相似",
+      "attributes": {
+        "name_zh": "相似",
+        "evidence_count": 4.0,
+        "phenomenon_score": 0.4444,
+        "reasons": [
+          "similar_semantic+similar_graph_context+similar_structure+similar_attributes"
+        ],
+        "attribute_score": 0.8889,
+        "similar_kinds": [
+          "composite"
+        ],
+        "semantic_score": 0.9881,
+        "display_name": "相似",
+        "name_score": 0.4444,
+        "graph_score": 0.9974,
+        "structure_score": 1.0,
+        "name": "相似",
+        "updated_by": "fkg_ml_linker",
+        "similarity_score": 0.8432,
+        "_neo4j_type": "相似",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:21",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:28",
+      "type": "相似",
+      "attributes": {
+        "name_zh": "相似",
+        "evidence_count": 4.0,
+        "phenomenon_score": 0.4444,
+        "reasons": [
+          "similar_semantic+similar_graph_context+similar_structure+similar_attributes"
+        ],
+        "attribute_score": 0.8889,
+        "similar_kinds": [
+          "composite"
+        ],
+        "semantic_score": 0.9917,
+        "display_name": "相似",
+        "name_score": 0.4444,
+        "graph_score": 0.9998,
+        "structure_score": 1.0,
+        "name": "相似",
+        "updated_by": "fkg_ml_linker",
+        "similarity_score": 0.8448,
+        "_neo4j_type": "相似",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:28",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:33",
+      "type": "相似",
+      "attributes": {
+        "name_zh": "相似",
+        "evidence_count": 4.0,
+        "phenomenon_score": 0.5217,
+        "reasons": [
+          "similar_semantic+similar_graph_context+similar_structure+similar_attributes"
+        ],
+        "attribute_score": 0.9043,
+        "similar_kinds": [
+          "composite"
+        ],
+        "semantic_score": 0.9881,
+        "display_name": "相似",
+        "name_score": 0.5217,
+        "graph_score": 0.9991,
+        "structure_score": 1.0,
+        "name": "相似",
+        "updated_by": "fkg_ml_linker",
+        "similarity_score": 0.8646,
+        "_neo4j_type": "相似",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:41",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:53",
+      "type": "相似",
+      "attributes": {
+        "name_zh": "相似",
+        "evidence_count": 6.0,
+        "phenomenon_score": 0.9,
+        "reasons": [
+          "similar_fault_phenomenon+similar_name+similar_semantic+similar_graph_context+similar_structure+similar_attributes"
+        ],
+        "attribute_score": 0.98,
+        "similar_kinds": [
+          "phenomenon"
+        ],
+        "semantic_score": 1.0,
+        "display_name": "相似",
+        "name_score": 0.9,
+        "graph_score": 0.996,
+        "structure_score": 1.0,
+        "name": "相似",
+        "updated_by": "fkg_ml_linker",
+        "similarity_score": 0.972,
+        "_neo4j_type": "相似",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:41",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:49",
+      "type": "相似",
+      "attributes": {
+        "name_zh": "相似",
+        "evidence_count": 4.0,
+        "phenomenon_score": 0.6667,
+        "reasons": [
+          "similar_semantic+similar_graph_context+similar_structure+similar_attributes"
+        ],
+        "attribute_score": 0.9333,
+        "similar_kinds": [
+          "composite"
+        ],
+        "semantic_score": 0.9931,
+        "display_name": "相似",
+        "name_score": 0.6667,
+        "graph_score": 0.9943,
+        "structure_score": 1.0,
+        "name": "相似",
+        "updated_by": "fkg_ml_linker",
+        "similarity_score": 0.9054,
+        "_neo4j_type": "相似",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:49",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:53",
+      "type": "相似",
+      "attributes": {
+        "name_zh": "相似",
+        "evidence_count": 4.0,
+        "phenomenon_score": 0.5556,
+        "reasons": [
+          "similar_semantic+similar_graph_context+similar_structure+similar_attributes"
+        ],
+        "attribute_score": 0.9111,
+        "similar_kinds": [
+          "composite"
+        ],
+        "semantic_score": 0.9931,
+        "display_name": "相似",
+        "name_score": 0.5556,
+        "graph_score": 0.9845,
+        "structure_score": 1.0,
+        "name": "相似",
+        "updated_by": "fkg_ml_linker",
+        "similarity_score": 0.8735,
+        "_neo4j_type": "相似",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:10",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:30",
+      "type": "相似",
+      "attributes": {
+        "name_zh": "相似",
+        "evidence_count": 4.0,
+        "reasons": [
+          "similar_semantic+similar_graph_context+similar_structure+similar_attributes"
+        ],
+        "attribute_score": 0.9067,
+        "similar_kinds": [
+          "composite"
+        ],
+        "semantic_score": 0.9858,
+        "display_name": "相似",
+        "name_score": 0.5333,
+        "graph_score": 0.9758,
+        "structure_score": 1.0,
+        "name": "相似",
+        "updated_by": "fkg_ml_linker",
+        "similarity_score": 0.8635,
+        "_neo4j_type": "相似",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:23",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:30",
+      "type": "相似",
+      "attributes": {
+        "name_zh": "相似",
+        "evidence_count": 4.0,
+        "reasons": [
+          "similar_semantic+similar_graph_context+similar_structure+similar_attributes"
+        ],
+        "attribute_score": 0.9053,
+        "similar_kinds": [
+          "composite"
+        ],
+        "semantic_score": 0.9893,
+        "display_name": "相似",
+        "name_score": 0.5263,
+        "graph_score": 0.9968,
+        "structure_score": 1.0,
+        "name": "相似",
+        "updated_by": "fkg_ml_linker",
+        "similarity_score": 0.866,
+        "_neo4j_type": "相似",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:36",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:52",
+      "type": "相似",
+      "attributes": {
+        "name_zh": "相似",
+        "evidence_count": 5.0,
+        "reasons": [
+          "equipment_variant_core_name+similar_semantic+similar_graph_context+similar_structure+similar_attributes"
+        ],
+        "attribute_score": 0.9667,
+        "similar_kinds": [
+          "equipment_variant"
+        ],
+        "semantic_score": 0.9947,
+        "display_name": "相似",
+        "name_score": 0.8333,
+        "graph_score": 0.9839,
+        "structure_score": 1.0,
+        "name": "相似",
+        "updated_by": "fkg_ml_linker",
+        "similarity_score": 0.9501,
+        "equipment_core_score": 1.0,
+        "_neo4j_type": "相似",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:36",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:44",
+      "type": "相似",
+      "attributes": {
+        "name_zh": "相似",
+        "evidence_count": 5.0,
+        "reasons": [
+          "equipment_variant_core_name+similar_semantic+similar_graph_context+similar_structure+similar_attributes"
+        ],
+        "attribute_score": 0.9667,
+        "similar_kinds": [
+          "equipment_variant"
+        ],
+        "semantic_score": 0.9926,
+        "display_name": "相似",
+        "name_score": 0.8333,
+        "graph_score": 0.9935,
+        "structure_score": 1.0,
+        "name": "相似",
+        "updated_by": "fkg_ml_linker",
+        "similarity_score": 0.9508,
+        "equipment_core_score": 1.0,
+        "_neo4j_type": "相似",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:36",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:55",
+      "type": "相似",
+      "attributes": {
+        "name_zh": "相似",
+        "evidence_count": 4.0,
+        "reasons": [
+          "similar_semantic+similar_graph_context+similar_structure+similar_attributes"
+        ],
+        "attribute_score": 0.9143,
+        "similar_kinds": [
+          "composite"
+        ],
+        "semantic_score": 0.9867,
+        "display_name": "相似",
+        "name_score": 0.5714,
+        "graph_score": 0.9829,
+        "structure_score": 1.0,
+        "name": "相似",
+        "updated_by": "fkg_ml_linker",
+        "similarity_score": 0.8754,
+        "_neo4j_type": "相似",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:44",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:52",
+      "type": "相似",
+      "attributes": {
+        "name_zh": "相似",
+        "evidence_count": 5.0,
+        "reasons": [
+          "equipment_variant_core_name+similar_semantic+similar_graph_context+similar_structure+similar_attributes"
+        ],
+        "attribute_score": 0.9333,
+        "similar_kinds": [
+          "equipment_variant"
+        ],
+        "semantic_score": 0.9985,
+        "display_name": "相似",
+        "name_score": 0.6667,
+        "graph_score": 0.9969,
+        "structure_score": 1.0,
+        "name": "相似",
+        "updated_by": "fkg_ml_linker",
+        "similarity_score": 0.9077,
+        "equipment_core_score": 1.0,
+        "_neo4j_type": "相似",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:11",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:17",
+      "type": "相似",
+      "attributes": {
+        "name_zh": "相似",
+        "evidence_count": 5.0,
+        "reasons": [
+          "equipment_variant_core_name+similar_semantic+similar_graph_context+similar_structure+similar_attributes"
+        ],
+        "attribute_score": 0.95,
+        "similar_kinds": [
+          "equipment_variant"
+        ],
+        "semantic_score": 0.9973,
+        "display_name": "相似",
+        "name_score": 0.75,
+        "graph_score": 0.9998,
+        "structure_score": 1.0,
+        "name": "相似",
+        "updated_by": "fkg_ml_linker",
+        "similarity_score": 0.9305,
+        "equipment_core_score": 1.0,
+        "_neo4j_type": "相似",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:31",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:43",
+      "type": "相似",
+      "attributes": {
+        "name_zh": "相似",
+        "evidence_count": 3.0,
+        "reasons": [
+          "similar_semantic+similar_structure+similar_attributes"
+        ],
+        "attribute_score": 0.96,
+        "similar_kinds": [
+          "composite"
+        ],
+        "semantic_score": 0.9903,
+        "display_name": "相似",
+        "name_score": 0.8,
+        "graph_score": 0.6515,
+        "structure_score": 1.0,
+        "name": "相似",
+        "updated_by": "fkg_ml_linker",
+        "similarity_score": 0.8895,
+        "_neo4j_type": "相似",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:31",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:37",
+      "type": "相似",
+      "attributes": {
+        "name_zh": "相似",
+        "evidence_count": 3.0,
+        "reasons": [
+          "similar_semantic+similar_structure+similar_attributes"
+        ],
+        "attribute_score": 0.96,
+        "similar_kinds": [
+          "composite"
+        ],
+        "semantic_score": 0.9899,
+        "display_name": "相似",
+        "name_score": 0.8,
+        "graph_score": 0.6545,
+        "structure_score": 1.0,
+        "name": "相似",
+        "updated_by": "fkg_ml_linker",
+        "similarity_score": 0.8898,
+        "_neo4j_type": "相似",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:37",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:43",
+      "type": "相似",
+      "attributes": {
+        "name_zh": "相似",
+        "evidence_count": 4.0,
+        "reasons": [
+          "similar_semantic+similar_graph_context+similar_structure+similar_attributes"
+        ],
+        "attribute_score": 0.9333,
+        "similar_kinds": [
+          "composite"
+        ],
+        "semantic_score": 0.9993,
+        "display_name": "相似",
+        "name_score": 0.6667,
+        "graph_score": 0.9999,
+        "structure_score": 1.0,
+        "name": "相似",
+        "updated_by": "fkg_ml_linker",
+        "similarity_score": 0.9084,
+        "_neo4j_type": "相似",
+        "_type_source": "neo4j_type"
+      }
+    },
+    {
+      "source": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:40",
+      "target": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:48",
+      "type": "相似",
+      "attributes": {
+        "name_zh": "相似",
+        "evidence_count": 4.0,
+        "phenomenon_score": 0.72,
+        "reasons": [
+          "similar_semantic+similar_graph_context+similar_structure+similar_attributes"
+        ],
+        "attribute_score": 0.944,
+        "similar_kinds": [
+          "composite"
+        ],
+        "semantic_score": 0.9917,
+        "display_name": "相似",
+        "name_score": 0.72,
+        "graph_score": 0.9944,
+        "structure_score": 1.0,
+        "name": "相似",
+        "updated_by": "fkg_ml_linker",
+        "similarity_score": 0.9195,
+        "_neo4j_type": "相似",
+        "_type_source": "neo4j_type"
+      }
+    }
+  ]
+}

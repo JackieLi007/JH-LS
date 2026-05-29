@@ -1,0 +1,197 @@
+.shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: clamp(250px, 15vw, 300px) minmax(0, 1fr);
+}
+
+.shell--embedded {
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.sidebar {
+  padding: 24px;
+  color: #f3f8ff;
+  background:
+    radial-gradient(circle at 16% 12%, rgba(64, 124, 255, 0.5), transparent 14%),
+    linear-gradient(180deg, #08162c 0%, #091938 56%, #07111f 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.brand {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.brand-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(180deg, #4a98ff, #1e61e8);
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.content {
+  padding: clamp(12px, 1.2vw, 18px) clamp(12px, 1.5vw, 24px);
+  max-width: 3400px;
+  width: 100%;
+  margin: 0 auto;
+  display: grid;
+  gap: 14px;
+}
+
+.content--embedded {
+  max-width: none;
+  padding: 14px;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+}
+
+.page-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.ontology-page-stack,
+.extract-page-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.extract-page-shell .extract-grid {
+  margin-top: 0;
+}
+
+.extract-grid {
+  grid-template-columns: 1.2fr 0.8fr;
+  grid-template-areas: "upload ontology" "config config" "results results";
+}
+
+.extract-grid--separated {
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.75fr);
+  grid-template-areas: "upload summary" "config config" "results results";
+  align-items: start;
+}
+
+.upload-panel { grid-area: upload; }
+.extract-grid--separated > .panel:nth-child(2) { grid-area: summary; }
+.ontology-panel { grid-area: ontology; }
+.config-panel { grid-area: config; }
+.result-stack {
+  grid-area: results;
+  display: grid;
+  gap: 16px;
+}
+
+.workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2.8fr) minmax(320px, 0.92fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.visual-grid {
+  grid-template-columns: minmax(0, 2fr) 380px;
+}
+
+.ontology-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 5.4fr) minmax(260px, 0.34fr);
+  gap: 16px;
+}
+
+.ontology-side-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-self: start;
+}
+
+.side-column.ontology-side-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-self: start;
+  grid-template-rows: none;
+}
+
+.side-column {
+  display: grid;
+  gap: 16px;
+  grid-template-rows: 320px auto;
+  align-content: start;
+}
+
+@media (max-width: 1460px) {
+  .workspace-grid {
+    grid-template-columns: minmax(0, 2.2fr) minmax(300px, 0.95fr);
+  }
+}
+
+@media (max-width: 1180px) {
+  .shell {
+    grid-template-columns: 280px minmax(0, 1fr);
+  }
+
+  .extract-grid,
+  .ontology-grid,
+  .workspace-grid,
+  .visual-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas: none;
+  }
+
+  .extract-grid--separated {
+    grid-template-columns: 1fr;
+  }
+
+  .side-column {
+    grid-template-rows: auto;
+  }
+}
+
+@media (max-width: 860px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar,
+  .content {
+    padding: 16px;
+  }
+
+  .topbar,
+  .panel-header,
+  .panel__header,
+  .panel__header--side {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 720px) {
+  .file-meta,
+  .query-box,
+  .mapping-row,
+  .fault-input-panel__header,
+  .fault-input-panel__body {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .count-cards,
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}

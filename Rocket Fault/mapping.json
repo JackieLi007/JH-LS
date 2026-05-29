@@ -1,0 +1,28 @@
+{
+  "columns": [
+    {
+      "column": "检测方法",
+      "mode": "node",
+      "label": "检测方法",
+      "key_prefix": "detection_method",
+      "connect_from": "unit_failure_mode",
+      "relation": "使用检测方法（USES_DETECTION_METHOD）"
+    },
+    {
+      "column": "维修策略",
+      "mode": "node",
+      "label": "维修策略",
+      "key_prefix": "maintenance_strategy",
+      "connect_from": "unit_failure_mode",
+      "relation": "使用维修策略（USES_STRATEGY）"
+    },
+    {
+      "column": "需要复核",
+      "mode": "node",
+      "label": "复核要求",
+      "key_prefix": "review_requirement",
+      "connect_from": "unit_failure_mode",
+      "relation": "具有复核要求（HAS_REVIEW_REQUIREMENT）"
+    }
+  ]
+}

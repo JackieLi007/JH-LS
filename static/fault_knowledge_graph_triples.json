@@ -1,0 +1,991 @@
+{
+  "entities": [
+    {
+      "id": "单机_A发动机摇摆软管",
+      "type": "单机",
+      "name": "A发动机摇摆软管"
+    },
+    {
+      "id": "功能_A发动机摇摆软管_承载介质压力",
+      "type": "功能",
+      "name": "承载介质压力"
+    },
+    {
+      "id": "单机级故障模式_R1",
+      "type": "单机级故障模式",
+      "name": "介质外漏"
+    },
+    {
+      "id": "组件_外管组件",
+      "type": "组件",
+      "name": "外管组件"
+    },
+    {
+      "id": "组件级故障模式_R1",
+      "type": "组件级故障模式",
+      "name": "结构破坏"
+    },
+    {
+      "id": "系统_发动机",
+      "type": "系统",
+      "name": "发动机"
+    },
+    {
+      "id": "系统级故障模式_R1",
+      "type": "系统级故障模式",
+      "name": "A发动机比冲过小"
+    },
+    {
+      "id": "总体级故障模式_R1",
+      "type": "总体级故障模式",
+      "name": "损失运载能力，可能造成轨道精度损失，但基本具备进入近地停泊轨道能力。"
+    },
+    {
+      "id": "功能_A发动机摇摆软管_补偿摇摆时泵入口位置变化",
+      "type": "功能",
+      "name": "补偿摇摆时泵入口位置变化"
+    },
+    {
+      "id": "单机级故障模式_R2",
+      "type": "单机级故障模式",
+      "name": "形变能力不足"
+    },
+    {
+      "id": "组件_内管组件",
+      "type": "组件",
+      "name": "内管组件"
+    },
+    {
+      "id": "组件级故障模式_R2",
+      "type": "组件级故障模式",
+      "name": "疲劳失稳"
+    },
+    {
+      "id": "系统级故障模式_R2",
+      "type": "系统级故障模式",
+      "name": "A发动机无法摇摆"
+    },
+    {
+      "id": "总体级故障模式_R2",
+      "type": "总体级故障模式",
+      "name": "单台发动机无法调姿，影响姿控精度和入轨精度。"
+    },
+    {
+      "id": "单机_A发动机点火室吹除单向阀",
+      "type": "单机",
+      "name": "A发动机点火室吹除单向阀"
+    },
+    {
+      "id": "功能_A发动机点火室吹除单向阀_压差打开，单向流动",
+      "type": "功能",
+      "name": "压差打开，单向流动"
+    },
+    {
+      "id": "单机级故障模式_R3",
+      "type": "单机级故障模式",
+      "name": "打不开"
+    },
+    {
+      "id": "组件_壳体",
+      "type": "组件",
+      "name": "壳体"
+    },
+    {
+      "id": "组件级故障模式_R3",
+      "type": "组件级故障模式",
+      "name": "导向失效"
+    },
+    {
+      "id": "系统级故障模式_R3",
+      "type": "系统级故障模式",
+      "name": "A发动机一次起动失败"
+    },
+    {
+      "id": "总体级故障模式_R3",
+      "type": "总体级故障模式",
+      "name": "A发动机无法提供推力，无法入轨，火箭进入停泊轨道，任务失败。"
+    },
+    {
+      "id": "单机_A发动机冷泄阀",
+      "type": "单机",
+      "name": "A发动机冷泄阀"
+    },
+    {
+      "id": "功能_A发动机冷泄阀_承载介质压力",
+      "type": "功能",
+      "name": "承载介质压力"
+    },
+    {
+      "id": "单机级故障模式_R4",
+      "type": "单机级故障模式",
+      "name": "介质外漏"
+    },
+    {
+      "id": "组件_弹簧",
+      "type": "组件",
+      "name": "弹簧"
+    },
+    {
+      "id": "组件级故障模式_R4",
+      "type": "组件级故障模式",
+      "name": "失稳或断裂"
+    },
+    {
+      "id": "系统级故障模式_R4",
+      "type": "系统级故障模式",
+      "name": "A发动机起动推力同步性超差"
+    },
+    {
+      "id": "总体级故障模式_R4",
+      "type": "总体级故障模式",
+      "name": "起动段产生姿态干扰力，影响起动段的姿态控制。"
+    },
+    {
+      "id": "单机_C3氧安溢阀",
+      "type": "单机",
+      "name": "C3氧安溢阀"
+    },
+    {
+      "id": "功能_C3氧安溢阀_承载",
+      "type": "功能",
+      "name": "承载"
+    },
+    {
+      "id": "单机级故障模式_R5",
+      "type": "单机级故障模式",
+      "name": "结构破坏"
+    },
+    {
+      "id": "组件_副弹簧",
+      "type": "组件",
+      "name": "副弹簧"
+    },
+    {
+      "id": "组件级故障模式_R5",
+      "type": "组件级故障模式",
+      "name": "疲劳破坏导致阀芯不能回位"
+    },
+    {
+      "id": "系统_C3增压输送系统",
+      "type": "系统",
+      "name": "C3增压输送系统"
+    },
+    {
+      "id": "系统级故障模式_R5",
+      "type": "系统级故障模式",
+      "name": "C3液氧贮箱压力下降"
+    },
+    {
+      "id": "总体级故障模式_R5",
+      "type": "总体级故障模式",
+      "name": "不满足发动机入口压力要求，发动机气蚀，任务失败，发生在一级工作引起火箭再入"
+    },
+    {
+      "id": "单机级故障模式_R6",
+      "type": "单机级故障模式",
+      "name": "结构破坏"
+    },
+    {
+      "id": "组件_主弹簧",
+      "type": "组件",
+      "name": "主弹簧"
+    },
+    {
+      "id": "组件级故障模式_R6",
+      "type": "组件级故障模式",
+      "name": "疲劳破坏导致阀芯不能回位"
+    },
+    {
+      "id": "系统级故障模式_R6",
+      "type": "系统级故障模式",
+      "name": "C3液氧贮箱压力下降"
+    },
+    {
+      "id": "总体级故障模式_R6",
+      "type": "总体级故障模式",
+      "name": "不满足发动机入口压力要求，发动机气蚀，任务失败，发生在一级工作引起火箭再入"
+    },
+    {
+      "id": "单机_C3氢安溢阀",
+      "type": "单机",
+      "name": "C3氢安溢阀"
+    },
+    {
+      "id": "功能_C3氢安溢阀_贮箱保险功能",
+      "type": "功能",
+      "name": "贮箱保险功能"
+    },
+    {
+      "id": "单机级故障模式_R7",
+      "type": "单机级故障模式",
+      "name": "通电打不开"
+    },
+    {
+      "id": "组件_电磁阀柔性弹簧组件",
+      "type": "组件",
+      "name": "电磁阀柔性弹簧组件"
+    },
+    {
+      "id": "组件级故障模式_R7",
+      "type": "组件级故障模式",
+      "name": "疲劳破坏导致阀芯密封力不足"
+    },
+    {
+      "id": "系统级故障模式_R7",
+      "type": "系统级故障模式",
+      "name": "C3液氢贮箱超压"
+    },
+    {
+      "id": "总体级故障模式_R7",
+      "type": "总体级故障模式",
+      "name": "贮箱破坏，任务失败，发生在一级工作则火箭再入"
+    },
+    {
+      "id": "单机_C2氧安溢阀",
+      "type": "单机",
+      "name": "C2氧安溢阀"
+    },
+    {
+      "id": "功能_C2氧安溢阀_承载",
+      "type": "功能",
+      "name": "承载"
+    },
+    {
+      "id": "单机级故障模式_R8",
+      "type": "单机级故障模式",
+      "name": "结构破坏"
+    },
+    {
+      "id": "组件级故障模式_R8",
+      "type": "组件级故障模式",
+      "name": "疲劳破坏导致阀芯密封力不足"
+    },
+    {
+      "id": "系统_C2增压输送系统",
+      "type": "系统",
+      "name": "C2增压输送系统"
+    },
+    {
+      "id": "系统级故障模式_R8",
+      "type": "系统级故障模式",
+      "name": "C2液氧贮箱压力下降"
+    },
+    {
+      "id": "总体级故障模式_R8",
+      "type": "总体级故障模式",
+      "name": "不满足发动机工作压力要求，发动机气蚀，任务失败，火箭再入"
+    },
+    {
+      "id": "单机_C3氧补压电磁阀",
+      "type": "单机",
+      "name": "C3氧补压电磁阀"
+    },
+    {
+      "id": "功能_C3氧补压电磁阀_通电后打开",
+      "type": "功能",
+      "name": "通电后打开"
+    },
+    {
+      "id": "单机级故障模式_R9",
+      "type": "单机级故障模式",
+      "name": "打不开"
+    },
+    {
+      "id": "组件_线圈",
+      "type": "组件",
+      "name": "线圈"
+    },
+    {
+      "id": "组件级故障模式_R9",
+      "type": "组件级故障模式",
+      "name": "磁场强度过低"
+    },
+    {
+      "id": "系统级故障模式_R9",
+      "type": "系统级故障模式",
+      "name": "C3液氧箱补压箱压不上升（增加措施：冗余设计）"
+    },
+    {
+      "id": "总体级故障模式_R9",
+      "type": "总体级故障模式",
+      "name": "不满足发动机起动压力要求，发动机气蚀，任务失败，发生在一级工作引起火箭再入"
+    }
+  ],
+  "triples": [
+    {
+      "subject": "单机_A发动机摇摆软管",
+      "predicate": "具有功能",
+      "object": "功能_A发动机摇摆软管_承载介质压力"
+    },
+    {
+      "subject": "单机_A发动机摇摆软管",
+      "predicate": "存在故障",
+      "object": "单机级故障模式_R1"
+    },
+    {
+      "subject": "组件_外管组件",
+      "predicate": "存在故障",
+      "object": "组件级故障模式_R1"
+    },
+    {
+      "subject": "组件级故障模式_R1",
+      "predicate": "导致",
+      "object": "单机级故障模式_R1"
+    },
+    {
+      "subject": "系统_发动机",
+      "predicate": "存在故障",
+      "object": "系统级故障模式_R1"
+    },
+    {
+      "subject": "单机级故障模式_R1",
+      "predicate": "导致",
+      "object": "系统级故障模式_R1"
+    },
+    {
+      "subject": "系统级故障模式_R1",
+      "predicate": "导致",
+      "object": "总体级故障模式_R1"
+    },
+    {
+      "subject": "单机级故障模式_R1",
+      "predicate": "发生阶段",
+      "object": {
+        "type": "literal",
+        "value": "飞行阶段"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R1",
+      "predicate": "是否单点",
+      "object": {
+        "type": "literal",
+        "value": "是"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R1",
+      "predicate": "严酷度等级",
+      "object": {
+        "type": "literal",
+        "value": "Ⅱ类(严重的)"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R1",
+      "predicate": "发生概率",
+      "object": {
+        "type": "literal",
+        "value": "E类(极少)"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R1",
+      "predicate": "设计措施",
+      "object": {
+        "type": "literal",
+        "value": "1"
+      }
+    },
+    {
+      "subject": "单机_A发动机摇摆软管",
+      "predicate": "具有功能",
+      "object": "功能_A发动机摇摆软管_补偿摇摆时泵入口位置变化"
+    },
+    {
+      "subject": "单机_A发动机摇摆软管",
+      "predicate": "存在故障",
+      "object": "单机级故障模式_R2"
+    },
+    {
+      "subject": "组件_内管组件",
+      "predicate": "存在故障",
+      "object": "组件级故障模式_R2"
+    },
+    {
+      "subject": "组件级故障模式_R2",
+      "predicate": "导致",
+      "object": "单机级故障模式_R2"
+    },
+    {
+      "subject": "系统_发动机",
+      "predicate": "存在故障",
+      "object": "系统级故障模式_R2"
+    },
+    {
+      "subject": "单机级故障模式_R2",
+      "predicate": "导致",
+      "object": "系统级故障模式_R2"
+    },
+    {
+      "subject": "系统级故障模式_R2",
+      "predicate": "导致",
+      "object": "总体级故障模式_R2"
+    },
+    {
+      "subject": "单机级故障模式_R2",
+      "predicate": "发生阶段",
+      "object": {
+        "type": "literal",
+        "value": "飞行阶段"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R2",
+      "predicate": "是否单点",
+      "object": {
+        "type": "literal",
+        "value": "是"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R2",
+      "predicate": "严酷度等级",
+      "object": {
+        "type": "literal",
+        "value": "Ⅲ类(轻度的)"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R2",
+      "predicate": "发生概率",
+      "object": {
+        "type": "literal",
+        "value": "E类(极少)"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R2",
+      "predicate": "设计措施",
+      "object": {
+        "type": "literal",
+        "value": "2"
+      }
+    },
+    {
+      "subject": "单机_A发动机点火室吹除单向阀",
+      "predicate": "具有功能",
+      "object": "功能_A发动机点火室吹除单向阀_压差打开，单向流动"
+    },
+    {
+      "subject": "单机_A发动机点火室吹除单向阀",
+      "predicate": "存在故障",
+      "object": "单机级故障模式_R3"
+    },
+    {
+      "subject": "组件_壳体",
+      "predicate": "存在故障",
+      "object": "组件级故障模式_R3"
+    },
+    {
+      "subject": "组件级故障模式_R3",
+      "predicate": "导致",
+      "object": "单机级故障模式_R3"
+    },
+    {
+      "subject": "系统_发动机",
+      "predicate": "存在故障",
+      "object": "系统级故障模式_R3"
+    },
+    {
+      "subject": "单机级故障模式_R3",
+      "predicate": "导致",
+      "object": "系统级故障模式_R3"
+    },
+    {
+      "subject": "系统级故障模式_R3",
+      "predicate": "导致",
+      "object": "总体级故障模式_R3"
+    },
+    {
+      "subject": "单机级故障模式_R3",
+      "predicate": "发生阶段",
+      "object": {
+        "type": "literal",
+        "value": "飞行阶段"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R3",
+      "predicate": "是否单点",
+      "object": {
+        "type": "literal",
+        "value": "是"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R3",
+      "predicate": "严酷度等级",
+      "object": {
+        "type": "literal",
+        "value": "Ⅱ类(严重的)"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R3",
+      "predicate": "发生概率",
+      "object": {
+        "type": "literal",
+        "value": "E类(极少)"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R3",
+      "predicate": "设计措施",
+      "object": {
+        "type": "literal",
+        "value": "2"
+      }
+    },
+    {
+      "subject": "单机_A发动机冷泄阀",
+      "predicate": "具有功能",
+      "object": "功能_A发动机冷泄阀_承载介质压力"
+    },
+    {
+      "subject": "单机_A发动机冷泄阀",
+      "predicate": "存在故障",
+      "object": "单机级故障模式_R4"
+    },
+    {
+      "subject": "组件_弹簧",
+      "predicate": "存在故障",
+      "object": "组件级故障模式_R4"
+    },
+    {
+      "subject": "组件级故障模式_R4",
+      "predicate": "导致",
+      "object": "单机级故障模式_R4"
+    },
+    {
+      "subject": "系统_发动机",
+      "predicate": "存在故障",
+      "object": "系统级故障模式_R4"
+    },
+    {
+      "subject": "单机级故障模式_R4",
+      "predicate": "导致",
+      "object": "系统级故障模式_R4"
+    },
+    {
+      "subject": "系统级故障模式_R4",
+      "predicate": "导致",
+      "object": "总体级故障模式_R4"
+    },
+    {
+      "subject": "单机级故障模式_R4",
+      "predicate": "发生阶段",
+      "object": {
+        "type": "literal",
+        "value": "飞行阶段"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R4",
+      "predicate": "是否单点",
+      "object": {
+        "type": "literal",
+        "value": "是"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R4",
+      "predicate": "严酷度等级",
+      "object": {
+        "type": "literal",
+        "value": "Ⅲ类(轻度的)"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R4",
+      "predicate": "发生概率",
+      "object": {
+        "type": "literal",
+        "value": "E类(极少)"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R4",
+      "predicate": "设计措施",
+      "object": {
+        "type": "literal",
+        "value": "3"
+      }
+    },
+    {
+      "subject": "单机_C3氧安溢阀",
+      "predicate": "具有功能",
+      "object": "功能_C3氧安溢阀_承载"
+    },
+    {
+      "subject": "单机_C3氧安溢阀",
+      "predicate": "存在故障",
+      "object": "单机级故障模式_R5"
+    },
+    {
+      "subject": "组件_副弹簧",
+      "predicate": "存在故障",
+      "object": "组件级故障模式_R5"
+    },
+    {
+      "subject": "组件级故障模式_R5",
+      "predicate": "导致",
+      "object": "单机级故障模式_R5"
+    },
+    {
+      "subject": "系统_C3增压输送系统",
+      "predicate": "存在故障",
+      "object": "系统级故障模式_R5"
+    },
+    {
+      "subject": "单机级故障模式_R5",
+      "predicate": "导致",
+      "object": "系统级故障模式_R5"
+    },
+    {
+      "subject": "系统级故障模式_R5",
+      "predicate": "导致",
+      "object": "总体级故障模式_R5"
+    },
+    {
+      "subject": "单机级故障模式_R5",
+      "predicate": "发生阶段",
+      "object": {
+        "type": "literal",
+        "value": "飞行阶段"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R5",
+      "predicate": "是否单点",
+      "object": {
+        "type": "literal",
+        "value": "是"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R5",
+      "predicate": "严酷度等级",
+      "object": {
+        "type": "literal",
+        "value": "Ⅰ类(灾难的)"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R5",
+      "predicate": "发生概率",
+      "object": {
+        "type": "literal",
+        "value": "D类(很少)"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R5",
+      "predicate": "设计措施",
+      "object": {
+        "type": "literal",
+        "value": "3"
+      }
+    },
+    {
+      "subject": "单机_C3氧安溢阀",
+      "predicate": "具有功能",
+      "object": "功能_C3氧安溢阀_承载"
+    },
+    {
+      "subject": "单机_C3氧安溢阀",
+      "predicate": "存在故障",
+      "object": "单机级故障模式_R6"
+    },
+    {
+      "subject": "组件_主弹簧",
+      "predicate": "存在故障",
+      "object": "组件级故障模式_R6"
+    },
+    {
+      "subject": "组件级故障模式_R6",
+      "predicate": "导致",
+      "object": "单机级故障模式_R6"
+    },
+    {
+      "subject": "系统_C3增压输送系统",
+      "predicate": "存在故障",
+      "object": "系统级故障模式_R6"
+    },
+    {
+      "subject": "单机级故障模式_R6",
+      "predicate": "导致",
+      "object": "系统级故障模式_R6"
+    },
+    {
+      "subject": "系统级故障模式_R6",
+      "predicate": "导致",
+      "object": "总体级故障模式_R6"
+    },
+    {
+      "subject": "单机级故障模式_R6",
+      "predicate": "发生阶段",
+      "object": {
+        "type": "literal",
+        "value": "飞行阶段"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R6",
+      "predicate": "是否单点",
+      "object": {
+        "type": "literal",
+        "value": "是"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R6",
+      "predicate": "严酷度等级",
+      "object": {
+        "type": "literal",
+        "value": "Ⅰ类(灾难的)"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R6",
+      "predicate": "发生概率",
+      "object": {
+        "type": "literal",
+        "value": "D类(很少)"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R6",
+      "predicate": "设计措施",
+      "object": {
+        "type": "literal",
+        "value": "3"
+      }
+    },
+    {
+      "subject": "单机_C3氢安溢阀",
+      "predicate": "具有功能",
+      "object": "功能_C3氢安溢阀_贮箱保险功能"
+    },
+    {
+      "subject": "单机_C3氢安溢阀",
+      "predicate": "存在故障",
+      "object": "单机级故障模式_R7"
+    },
+    {
+      "subject": "组件_电磁阀柔性弹簧组件",
+      "predicate": "存在故障",
+      "object": "组件级故障模式_R7"
+    },
+    {
+      "subject": "组件级故障模式_R7",
+      "predicate": "导致",
+      "object": "单机级故障模式_R7"
+    },
+    {
+      "subject": "系统_C3增压输送系统",
+      "predicate": "存在故障",
+      "object": "系统级故障模式_R7"
+    },
+    {
+      "subject": "单机级故障模式_R7",
+      "predicate": "导致",
+      "object": "系统级故障模式_R7"
+    },
+    {
+      "subject": "系统级故障模式_R7",
+      "predicate": "导致",
+      "object": "总体级故障模式_R7"
+    },
+    {
+      "subject": "单机级故障模式_R7",
+      "predicate": "发生阶段",
+      "object": {
+        "type": "literal",
+        "value": "飞行阶段"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R7",
+      "predicate": "是否单点",
+      "object": {
+        "type": "literal",
+        "value": "否"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R7",
+      "predicate": "严酷度等级",
+      "object": {
+        "type": "literal",
+        "value": "Ⅰ类(灾难的)"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R7",
+      "predicate": "发生概率",
+      "object": {
+        "type": "literal",
+        "value": "D类(很少)"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R7",
+      "predicate": "设计措施",
+      "object": {
+        "type": "literal",
+        "value": "3"
+      }
+    },
+    {
+      "subject": "单机_C2氧安溢阀",
+      "predicate": "具有功能",
+      "object": "功能_C2氧安溢阀_承载"
+    },
+    {
+      "subject": "单机_C2氧安溢阀",
+      "predicate": "存在故障",
+      "object": "单机级故障模式_R8"
+    },
+    {
+      "subject": "组件_电磁阀柔性弹簧组件",
+      "predicate": "存在故障",
+      "object": "组件级故障模式_R8"
+    },
+    {
+      "subject": "组件级故障模式_R8",
+      "predicate": "导致",
+      "object": "单机级故障模式_R8"
+    },
+    {
+      "subject": "系统_C2增压输送系统",
+      "predicate": "存在故障",
+      "object": "系统级故障模式_R8"
+    },
+    {
+      "subject": "单机级故障模式_R8",
+      "predicate": "导致",
+      "object": "系统级故障模式_R8"
+    },
+    {
+      "subject": "系统级故障模式_R8",
+      "predicate": "导致",
+      "object": "总体级故障模式_R8"
+    },
+    {
+      "subject": "单机级故障模式_R8",
+      "predicate": "发生阶段",
+      "object": {
+        "type": "literal",
+        "value": "飞行阶段"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R8",
+      "predicate": "是否单点",
+      "object": {
+        "type": "literal",
+        "value": "是"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R8",
+      "predicate": "严酷度等级",
+      "object": {
+        "type": "literal",
+        "value": "Ⅰ类(灾难的)"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R8",
+      "predicate": "发生概率",
+      "object": {
+        "type": "literal",
+        "value": "D类(很少)"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R8",
+      "predicate": "设计措施",
+      "object": {
+        "type": "literal",
+        "value": "3"
+      }
+    },
+    {
+      "subject": "单机_C3氧补压电磁阀",
+      "predicate": "具有功能",
+      "object": "功能_C3氧补压电磁阀_通电后打开"
+    },
+    {
+      "subject": "单机_C3氧补压电磁阀",
+      "predicate": "存在故障",
+      "object": "单机级故障模式_R9"
+    },
+    {
+      "subject": "组件_线圈",
+      "predicate": "存在故障",
+      "object": "组件级故障模式_R9"
+    },
+    {
+      "subject": "组件级故障模式_R9",
+      "predicate": "导致",
+      "object": "单机级故障模式_R9"
+    },
+    {
+      "subject": "系统_C2增压输送系统",
+      "predicate": "存在故障",
+      "object": "系统级故障模式_R9"
+    },
+    {
+      "subject": "单机级故障模式_R9",
+      "predicate": "导致",
+      "object": "系统级故障模式_R9"
+    },
+    {
+      "subject": "系统级故障模式_R9",
+      "predicate": "导致",
+      "object": "总体级故障模式_R9"
+    },
+    {
+      "subject": "单机级故障模式_R9",
+      "predicate": "发生阶段",
+      "object": {
+        "type": "literal",
+        "value": "飞行阶段"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R9",
+      "predicate": "是否单点",
+      "object": {
+        "type": "literal",
+        "value": "否"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R9",
+      "predicate": "严酷度等级",
+      "object": {
+        "type": "literal",
+        "value": "Ⅰ类(灾难的)"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R9",
+      "predicate": "发生概率",
+      "object": {
+        "type": "literal",
+        "value": "D类(很少)"
+      }
+    },
+    {
+      "subject": "单机级故障模式_R9",
+      "predicate": "设计措施",
+      "object": {
+        "type": "literal",
+        "value": "3"
+      }
+    }
+  ]
+}

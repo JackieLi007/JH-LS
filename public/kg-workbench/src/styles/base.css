@@ -1,0 +1,36 @@
+:root {
+  --bg: #edf2f7;
+  --sidebar: #08162c;
+  --panel: rgba(255, 255, 255, 0.84);
+  --panel-soft: #f8fbff;
+  --line: rgba(194, 207, 227, 0.82);
+  --text: #0d1a33;
+  --muted: #667895;
+  --primary: #2b7fff;
+  --primary-deep: #1255bc;
+  --accent: #127653;
+  --danger: #c62633;
+  --shadow: 0 18px 38px rgba(28, 50, 93, 0.08);
+  --radius-lg: 22px;
+  --radius-md: 16px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(18, 84, 217, 0.14), transparent 28%),
+    linear-gradient(135deg, #eef3f9 0%, #f7f9fc 52%, #edf2f7 100%);
+  color: var(--text);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}

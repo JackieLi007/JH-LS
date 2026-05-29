@@ -1,0 +1,4854 @@
+{
+  "write": {
+    "input_entities": 77,
+    "input_relations": 15,
+    "input_triples": 106,
+    "created_nodes": 0,
+    "matched_nodes": 77,
+    "created_relationships": 0,
+    "matched_relationships": 106,
+    "cleaned_legacy_entity_labels": 0,
+    "entity_element_ids": {
+      "E_4ace10d94df1674d": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:0",
+      "E_51c6962a1684c860": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:1",
+      "E_2fff415db97031e8": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:2",
+      "E_b0b56a720ea0d2cb": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:3",
+      "E_04bf1c2ecd8a5e12": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:4",
+      "E_1d24d7c961a4aefb": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:61",
+      "E_a6ca097150f518ae": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:62",
+      "E_628fe61c11db8ea6": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:63",
+      "E_059b4344b1e789d6": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:64",
+      "E_55dc70e5d475d0e2": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:66",
+      "E_ace90e7e35bdca53": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:67",
+      "E_d299b8e2c6dfb58c": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:88",
+      "E_5e1ec93b16d2a690": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:89",
+      "E_7b020f7bb5c00d5c": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:90",
+      "E_cfcfee71df0df8ba": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:91",
+      "E_780dce285331dfaf": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:92",
+      "E_c62fb1e5c9f4cbba": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:93",
+      "E_6f9b027d13b3aafa": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:94",
+      "E_358a0f44b437b655": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:95",
+      "E_b93b2bd0b7df7671": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:96",
+      "E_9b9a374123723ae5": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:97",
+      "E_dca4d1d229661477": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:98",
+      "E_ef7d38368df05850": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:99",
+      "E_ac66a7c5ed0f7713": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:100",
+      "E_cebd253353d02510": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:101",
+      "E_f5ed896892732bb1": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:102",
+      "E_b27c9b0a95e09404": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:103",
+      "E_7d235b4dfeaf8b97": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:104",
+      "E_e324e6b579afdb3c": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:105",
+      "E_a6a7b83700bb94c0": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:106",
+      "E_0fa5c9e9496f6650": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:107",
+      "E_da39a655e87fb8f5": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:108",
+      "E_27579c4006038e00": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:109",
+      "E_c6981b1d2db8d0d4": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:110",
+      "E_acbb329801cc8b11": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:111",
+      "E_944b3db5ef1e0953": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:112",
+      "E_be350d07a50c0945": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:113",
+      "E_ecfff382248e9f03": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:114",
+      "E_51bacddb34fa7a2e": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:115",
+      "E_c9196471db8425e3": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:116",
+      "E_46406fc47ac9b7da": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:117",
+      "E_58ac91bf7940164d": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:118",
+      "E_fcbcb0f37aa9a38a": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:119",
+      "E_e215d6eafd9c45e1": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:120",
+      "E_ed12e76684dbe2be": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:121",
+      "E_229b108ecbce7575": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:122",
+      "E_b4407be7d2d28537": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:123",
+      "E_57b4d2f05c2a9e3b": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:124",
+      "E_f26111e615dfabc6": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:125",
+      "E_5820d501cb9ecbc5": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:126",
+      "E_eabe63921475f32c": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:127",
+      "E_b478426271e8dd94": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:128",
+      "E_1405b9cd5ad83a43": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:129",
+      "E_7d05fd5f805b462d": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:130",
+      "E_f3cd91a0b5765f5d": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:131",
+      "E_f0ced33f7d22a77b": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:132",
+      "E_506147cc2998737e": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:133",
+      "E_06f09ab35c7207c6": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:134",
+      "E_37488a86c41292c3": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:135",
+      "E_05cd0d677c3c6a4c": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:136",
+      "E_5130cb5a17e7d149": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:137",
+      "E_b75b595749771db0": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:138",
+      "E_9794b39f5fbd92fb": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:139",
+      "E_98be123d7991d6af": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:140",
+      "E_7a049beba27972f0": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:141",
+      "E_099f987de83885ad": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:142",
+      "E_b07ba057319aa5bd": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:143",
+      "E_f27eefd4b0bf5abf": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:144",
+      "E_914bd1bb912e840e": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:145",
+      "E_50368e361f9c19ad": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:146",
+      "E_28f8cb29bc8add34": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:147",
+      "E_0a203cd13e0c3eac": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:148",
+      "E_0c141362dc679488": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:149",
+      "E_cfdc57e887e3fdb5": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:150",
+      "E_a9ac4f4cff6e482e": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:151",
+      "E_579d579d8285685f": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:152",
+      "E_a0cb96baef6598a0": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:153"
+    },
+    "touched_node_ids": [
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:0",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:1",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:2",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:3",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:4",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:61",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:62",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:63",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:64",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:66",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:67",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:88",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:89",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:90",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:91",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:92",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:93",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:94",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:95",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:96",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:97",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:98",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:99",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:100",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:101",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:102",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:103",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:104",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:105",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:106",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:107",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:108",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:109",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:110",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:111",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:112",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:113",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:114",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:115",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:116",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:117",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:118",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:119",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:120",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:121",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:122",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:123",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:124",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:125",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:126",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:127",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:128",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:129",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:130",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:131",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:132",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:133",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:134",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:135",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:136",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:137",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:138",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:139",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:140",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:141",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:142",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:143",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:144",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:145",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:146",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:147",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:148",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:149",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:150",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:151",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:152",
+      "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:153"
+    ],
+    "entity_changes": [
+      {
+        "entity_id": "E_4ace10d94df1674d",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:0",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:0",
+          "labels": [
+            "系统"
+          ],
+          "properties": {
+            "name": "发动机",
+            "source_type": "table",
+            "id": "E_4ace10d94df1674d",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:0",
+          "labels": [
+            "系统"
+          ],
+          "properties": {
+            "name": "发动机",
+            "source_type": "table",
+            "id": "E_4ace10d94df1674d",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_51c6962a1684c860",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:1",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:1",
+          "labels": [
+            "单机"
+          ],
+          "properties": {
+            "name": "A发动机摇摆软管",
+            "source_type": "table",
+            "id": "E_51c6962a1684c860",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:1",
+          "labels": [
+            "单机"
+          ],
+          "properties": {
+            "name": "A发动机摇摆软管",
+            "source_type": "table",
+            "id": "E_51c6962a1684c860",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_2fff415db97031e8",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:2",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:2",
+          "labels": [
+            "零部组件"
+          ],
+          "properties": {
+            "name": "外管组件",
+            "source_type": "table",
+            "id": "E_2fff415db97031e8",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:2",
+          "labels": [
+            "零部组件"
+          ],
+          "properties": {
+            "name": "外管组件",
+            "source_type": "table",
+            "id": "E_2fff415db97031e8",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_b0b56a720ea0d2cb",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:3",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:3",
+          "labels": [
+            "单机功能"
+          ],
+          "properties": {
+            "name": "承载介质压力",
+            "source_type": "table",
+            "id": "E_b0b56a720ea0d2cb",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:3",
+          "labels": [
+            "单机功能"
+          ],
+          "properties": {
+            "name": "承载介质压力",
+            "source_type": "table",
+            "id": "E_b0b56a720ea0d2cb",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_04bf1c2ecd8a5e12",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:4",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:4",
+          "labels": [
+            "单机级故障模式"
+          ],
+          "properties": {
+            "name": "介质外漏",
+            "source_type": "table",
+            "id": "E_04bf1c2ecd8a5e12",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:4",
+          "labels": [
+            "单机级故障模式"
+          ],
+          "properties": {
+            "name": "介质外漏",
+            "source_type": "table",
+            "id": "E_04bf1c2ecd8a5e12",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_1d24d7c961a4aefb",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:61",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:61",
+          "labels": [
+            "组件级故障模式"
+          ],
+          "properties": {
+            "name": "结构破坏",
+            "source_type": "table",
+            "id": "E_1d24d7c961a4aefb",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:61",
+          "labels": [
+            "组件级故障模式"
+          ],
+          "properties": {
+            "name": "结构破坏",
+            "source_type": "table",
+            "id": "E_1d24d7c961a4aefb",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_a6ca097150f518ae",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:62",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:62",
+          "labels": [
+            "系统级故障模式"
+          ],
+          "properties": {
+            "name": "A发动机比冲过小",
+            "source_type": "table",
+            "id": "E_a6ca097150f518ae",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:62",
+          "labels": [
+            "系统级故障模式"
+          ],
+          "properties": {
+            "name": "A发动机比冲过小",
+            "source_type": "table",
+            "id": "E_a6ca097150f518ae",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_628fe61c11db8ea6",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:63",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:63",
+          "labels": [
+            "总体级故障模式"
+          ],
+          "properties": {
+            "name": "损失运载能力，可能造成轨道精度损失，但基本具备进入近地停泊轨道能力。",
+            "source_type": "table",
+            "id": "E_628fe61c11db8ea6",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:63",
+          "labels": [
+            "总体级故障模式"
+          ],
+          "properties": {
+            "name": "损失运载能力，可能造成轨道精度损失，但基本具备进入近地停泊轨道能力。",
+            "source_type": "table",
+            "id": "E_628fe61c11db8ea6",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_059b4344b1e789d6",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:64",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:64",
+          "labels": [
+            "零部组件"
+          ],
+          "properties": {
+            "name": "内管组件",
+            "source_type": "table",
+            "id": "E_059b4344b1e789d6",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:64",
+          "labels": [
+            "零部组件"
+          ],
+          "properties": {
+            "name": "内管组件",
+            "source_type": "table",
+            "id": "E_059b4344b1e789d6",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_55dc70e5d475d0e2",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:66",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:66",
+          "labels": [
+            "单机功能"
+          ],
+          "properties": {
+            "name": "补偿摇摆时泵入口位置变化",
+            "source_type": "table",
+            "id": "E_55dc70e5d475d0e2",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:66",
+          "labels": [
+            "单机功能"
+          ],
+          "properties": {
+            "name": "补偿摇摆时泵入口位置变化",
+            "source_type": "table",
+            "id": "E_55dc70e5d475d0e2",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_ace90e7e35bdca53",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:67",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:67",
+          "labels": [
+            "单机级故障模式"
+          ],
+          "properties": {
+            "name": "形变能力不足",
+            "source_type": "table",
+            "id": "E_ace90e7e35bdca53",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:67",
+          "labels": [
+            "单机级故障模式"
+          ],
+          "properties": {
+            "name": "形变能力不足",
+            "source_type": "table",
+            "id": "E_ace90e7e35bdca53",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_d299b8e2c6dfb58c",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:88",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:88",
+          "labels": [
+            "组件级故障模式"
+          ],
+          "properties": {
+            "name": "疲劳失稳",
+            "source_type": "table",
+            "id": "E_d299b8e2c6dfb58c",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:88",
+          "labels": [
+            "组件级故障模式"
+          ],
+          "properties": {
+            "name": "疲劳失稳",
+            "source_type": "table",
+            "id": "E_d299b8e2c6dfb58c",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_5e1ec93b16d2a690",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:89",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:89",
+          "labels": [
+            "系统级故障模式"
+          ],
+          "properties": {
+            "name": "A发动机无法摇摆",
+            "source_type": "table",
+            "id": "E_5e1ec93b16d2a690",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:89",
+          "labels": [
+            "系统级故障模式"
+          ],
+          "properties": {
+            "name": "A发动机无法摇摆",
+            "source_type": "table",
+            "id": "E_5e1ec93b16d2a690",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_7b020f7bb5c00d5c",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:90",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:90",
+          "labels": [
+            "总体级故障模式"
+          ],
+          "properties": {
+            "name": "单台发动机无法调姿，影响姿控精度和入轨精度。",
+            "source_type": "table",
+            "id": "E_7b020f7bb5c00d5c",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:90",
+          "labels": [
+            "总体级故障模式"
+          ],
+          "properties": {
+            "name": "单台发动机无法调姿，影响姿控精度和入轨精度。",
+            "source_type": "table",
+            "id": "E_7b020f7bb5c00d5c",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_cfcfee71df0df8ba",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:91",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:91",
+          "labels": [
+            "单机"
+          ],
+          "properties": {
+            "name": "A发动机点火室吹除单向阀",
+            "source_type": "table",
+            "id": "E_cfcfee71df0df8ba",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:91",
+          "labels": [
+            "单机"
+          ],
+          "properties": {
+            "name": "A发动机点火室吹除单向阀",
+            "source_type": "table",
+            "id": "E_cfcfee71df0df8ba",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_780dce285331dfaf",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:92",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:92",
+          "labels": [
+            "零部组件"
+          ],
+          "properties": {
+            "name": "壳体",
+            "source_type": "table",
+            "id": "E_780dce285331dfaf",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:92",
+          "labels": [
+            "零部组件"
+          ],
+          "properties": {
+            "name": "壳体",
+            "source_type": "table",
+            "id": "E_780dce285331dfaf",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_c62fb1e5c9f4cbba",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:93",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:93",
+          "labels": [
+            "单机功能"
+          ],
+          "properties": {
+            "name": "压差打开，单向流动",
+            "source_type": "table",
+            "id": "E_c62fb1e5c9f4cbba",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:93",
+          "labels": [
+            "单机功能"
+          ],
+          "properties": {
+            "name": "压差打开，单向流动",
+            "source_type": "table",
+            "id": "E_c62fb1e5c9f4cbba",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_6f9b027d13b3aafa",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:94",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:94",
+          "labels": [
+            "单机级故障模式"
+          ],
+          "properties": {
+            "name": "打不开",
+            "source_type": "table",
+            "id": "E_6f9b027d13b3aafa",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:94",
+          "labels": [
+            "单机级故障模式"
+          ],
+          "properties": {
+            "name": "打不开",
+            "source_type": "table",
+            "id": "E_6f9b027d13b3aafa",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_358a0f44b437b655",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:95",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:95",
+          "labels": [
+            "组件级故障模式"
+          ],
+          "properties": {
+            "name": "导向失效",
+            "source_type": "table",
+            "id": "E_358a0f44b437b655",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:95",
+          "labels": [
+            "组件级故障模式"
+          ],
+          "properties": {
+            "name": "导向失效",
+            "source_type": "table",
+            "id": "E_358a0f44b437b655",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_b93b2bd0b7df7671",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:96",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:96",
+          "labels": [
+            "系统级故障模式"
+          ],
+          "properties": {
+            "name": "A发动机一次起动失败",
+            "source_type": "table",
+            "id": "E_b93b2bd0b7df7671",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:96",
+          "labels": [
+            "系统级故障模式"
+          ],
+          "properties": {
+            "name": "A发动机一次起动失败",
+            "source_type": "table",
+            "id": "E_b93b2bd0b7df7671",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_9b9a374123723ae5",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:97",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:97",
+          "labels": [
+            "总体级故障模式"
+          ],
+          "properties": {
+            "name": "A发动机无法提供推力，无法入轨，火箭进入停泊轨道，任务失败。",
+            "source_type": "table",
+            "id": "E_9b9a374123723ae5",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:97",
+          "labels": [
+            "总体级故障模式"
+          ],
+          "properties": {
+            "name": "A发动机无法提供推力，无法入轨，火箭进入停泊轨道，任务失败。",
+            "source_type": "table",
+            "id": "E_9b9a374123723ae5",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_dca4d1d229661477",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:98",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:98",
+          "labels": [
+            "单机"
+          ],
+          "properties": {
+            "name": "A发动机冷泄阀",
+            "source_type": "table",
+            "id": "E_dca4d1d229661477",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:98",
+          "labels": [
+            "单机"
+          ],
+          "properties": {
+            "name": "A发动机冷泄阀",
+            "source_type": "table",
+            "id": "E_dca4d1d229661477",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_ef7d38368df05850",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:99",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:99",
+          "labels": [
+            "零部组件"
+          ],
+          "properties": {
+            "name": "弹簧",
+            "source_type": "table",
+            "id": "E_ef7d38368df05850",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:99",
+          "labels": [
+            "零部组件"
+          ],
+          "properties": {
+            "name": "弹簧",
+            "source_type": "table",
+            "id": "E_ef7d38368df05850",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_ac66a7c5ed0f7713",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:100",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:100",
+          "labels": [
+            "组件级故障模式"
+          ],
+          "properties": {
+            "name": "失稳或断裂",
+            "source_type": "table",
+            "id": "E_ac66a7c5ed0f7713",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:100",
+          "labels": [
+            "组件级故障模式"
+          ],
+          "properties": {
+            "name": "失稳或断裂",
+            "source_type": "table",
+            "id": "E_ac66a7c5ed0f7713",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_cebd253353d02510",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:101",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:101",
+          "labels": [
+            "系统级故障模式"
+          ],
+          "properties": {
+            "name": "A发动机起动推力同步性超差",
+            "source_type": "table",
+            "id": "E_cebd253353d02510",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:101",
+          "labels": [
+            "系统级故障模式"
+          ],
+          "properties": {
+            "name": "A发动机起动推力同步性超差",
+            "source_type": "table",
+            "id": "E_cebd253353d02510",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_f5ed896892732bb1",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:102",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:102",
+          "labels": [
+            "总体级故障模式"
+          ],
+          "properties": {
+            "name": "起动段产生姿态干扰力，影响起动段的姿态控制。",
+            "source_type": "table",
+            "id": "E_f5ed896892732bb1",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:102",
+          "labels": [
+            "总体级故障模式"
+          ],
+          "properties": {
+            "name": "起动段产生姿态干扰力，影响起动段的姿态控制。",
+            "source_type": "table",
+            "id": "E_f5ed896892732bb1",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_b27c9b0a95e09404",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:103",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:103",
+          "labels": [
+            "系统"
+          ],
+          "properties": {
+            "name": "C3增压输送系统",
+            "source_type": "table",
+            "id": "E_b27c9b0a95e09404",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:103",
+          "labels": [
+            "系统"
+          ],
+          "properties": {
+            "name": "C3增压输送系统",
+            "source_type": "table",
+            "id": "E_b27c9b0a95e09404",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_7d235b4dfeaf8b97",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:104",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:104",
+          "labels": [
+            "单机"
+          ],
+          "properties": {
+            "name": "C3氧安溢阀",
+            "source_type": "table",
+            "id": "E_7d235b4dfeaf8b97",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:104",
+          "labels": [
+            "单机"
+          ],
+          "properties": {
+            "name": "C3氧安溢阀",
+            "source_type": "table",
+            "id": "E_7d235b4dfeaf8b97",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_e324e6b579afdb3c",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:105",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:105",
+          "labels": [
+            "零部组件"
+          ],
+          "properties": {
+            "name": "副弹簧",
+            "source_type": "table",
+            "id": "E_e324e6b579afdb3c",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:105",
+          "labels": [
+            "零部组件"
+          ],
+          "properties": {
+            "name": "副弹簧",
+            "source_type": "table",
+            "id": "E_e324e6b579afdb3c",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_a6a7b83700bb94c0",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:106",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:106",
+          "labels": [
+            "单机功能"
+          ],
+          "properties": {
+            "name": "承载",
+            "source_type": "table",
+            "id": "E_a6a7b83700bb94c0",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:106",
+          "labels": [
+            "单机功能"
+          ],
+          "properties": {
+            "name": "承载",
+            "source_type": "table",
+            "id": "E_a6a7b83700bb94c0",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_0fa5c9e9496f6650",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:107",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:107",
+          "labels": [
+            "单机级故障模式"
+          ],
+          "properties": {
+            "name": "结构破坏",
+            "source_type": "table",
+            "id": "E_0fa5c9e9496f6650",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:107",
+          "labels": [
+            "单机级故障模式"
+          ],
+          "properties": {
+            "name": "结构破坏",
+            "source_type": "table",
+            "id": "E_0fa5c9e9496f6650",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_da39a655e87fb8f5",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:108",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:108",
+          "labels": [
+            "组件级故障模式"
+          ],
+          "properties": {
+            "name": "疲劳破坏导致阀芯不能回位",
+            "source_type": "table",
+            "id": "E_da39a655e87fb8f5",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:108",
+          "labels": [
+            "组件级故障模式"
+          ],
+          "properties": {
+            "name": "疲劳破坏导致阀芯不能回位",
+            "source_type": "table",
+            "id": "E_da39a655e87fb8f5",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_27579c4006038e00",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:109",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:109",
+          "labels": [
+            "系统级故障模式"
+          ],
+          "properties": {
+            "name": "C3液氧贮箱压力下降",
+            "source_type": "table",
+            "id": "E_27579c4006038e00",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:109",
+          "labels": [
+            "系统级故障模式"
+          ],
+          "properties": {
+            "name": "C3液氧贮箱压力下降",
+            "source_type": "table",
+            "id": "E_27579c4006038e00",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_c6981b1d2db8d0d4",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:110",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:110",
+          "labels": [
+            "总体级故障模式"
+          ],
+          "properties": {
+            "name": "不满足发动机入口压力要求，发动机气蚀，任务失败，发生在一级工作引起火箭再入",
+            "source_type": "table",
+            "id": "E_c6981b1d2db8d0d4",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:110",
+          "labels": [
+            "总体级故障模式"
+          ],
+          "properties": {
+            "name": "不满足发动机入口压力要求，发动机气蚀，任务失败，发生在一级工作引起火箭再入",
+            "source_type": "table",
+            "id": "E_c6981b1d2db8d0d4",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_acbb329801cc8b11",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:111",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:111",
+          "labels": [
+            "零部组件"
+          ],
+          "properties": {
+            "name": "主弹簧",
+            "source_type": "table",
+            "id": "E_acbb329801cc8b11",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:111",
+          "labels": [
+            "零部组件"
+          ],
+          "properties": {
+            "name": "主弹簧",
+            "source_type": "table",
+            "id": "E_acbb329801cc8b11",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_944b3db5ef1e0953",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:112",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:112",
+          "labels": [
+            "单机"
+          ],
+          "properties": {
+            "name": "C3氢安溢阀",
+            "source_type": "table",
+            "id": "E_944b3db5ef1e0953",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:112",
+          "labels": [
+            "单机"
+          ],
+          "properties": {
+            "name": "C3氢安溢阀",
+            "source_type": "table",
+            "id": "E_944b3db5ef1e0953",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_be350d07a50c0945",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:113",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:113",
+          "labels": [
+            "零部组件"
+          ],
+          "properties": {
+            "name": "电磁阀柔性弹簧组件",
+            "source_type": "table",
+            "id": "E_be350d07a50c0945",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:113",
+          "labels": [
+            "零部组件"
+          ],
+          "properties": {
+            "name": "电磁阀柔性弹簧组件",
+            "source_type": "table",
+            "id": "E_be350d07a50c0945",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_ecfff382248e9f03",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:114",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:114",
+          "labels": [
+            "单机功能"
+          ],
+          "properties": {
+            "name": "贮箱保险功能",
+            "source_type": "table",
+            "id": "E_ecfff382248e9f03",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:114",
+          "labels": [
+            "单机功能"
+          ],
+          "properties": {
+            "name": "贮箱保险功能",
+            "source_type": "table",
+            "id": "E_ecfff382248e9f03",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_51bacddb34fa7a2e",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:115",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:115",
+          "labels": [
+            "单机级故障模式"
+          ],
+          "properties": {
+            "name": "通电打不开",
+            "source_type": "table",
+            "id": "E_51bacddb34fa7a2e",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:115",
+          "labels": [
+            "单机级故障模式"
+          ],
+          "properties": {
+            "name": "通电打不开",
+            "source_type": "table",
+            "id": "E_51bacddb34fa7a2e",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_c9196471db8425e3",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:116",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:116",
+          "labels": [
+            "组件级故障模式"
+          ],
+          "properties": {
+            "name": "疲劳破坏导致阀芯密封力不足",
+            "source_type": "table",
+            "id": "E_c9196471db8425e3",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:116",
+          "labels": [
+            "组件级故障模式"
+          ],
+          "properties": {
+            "name": "疲劳破坏导致阀芯密封力不足",
+            "source_type": "table",
+            "id": "E_c9196471db8425e3",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_46406fc47ac9b7da",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:117",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:117",
+          "labels": [
+            "系统级故障模式"
+          ],
+          "properties": {
+            "name": "C3液氢贮箱超压",
+            "source_type": "table",
+            "id": "E_46406fc47ac9b7da",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:117",
+          "labels": [
+            "系统级故障模式"
+          ],
+          "properties": {
+            "name": "C3液氢贮箱超压",
+            "source_type": "table",
+            "id": "E_46406fc47ac9b7da",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_58ac91bf7940164d",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:118",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:118",
+          "labels": [
+            "总体级故障模式"
+          ],
+          "properties": {
+            "name": "贮箱破坏，任务失败，发生在一级工作则火箭再入",
+            "source_type": "table",
+            "id": "E_58ac91bf7940164d",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:118",
+          "labels": [
+            "总体级故障模式"
+          ],
+          "properties": {
+            "name": "贮箱破坏，任务失败，发生在一级工作则火箭再入",
+            "source_type": "table",
+            "id": "E_58ac91bf7940164d",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_fcbcb0f37aa9a38a",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:119",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:119",
+          "labels": [
+            "系统"
+          ],
+          "properties": {
+            "name": "C2增压输送系统",
+            "source_type": "table",
+            "id": "E_fcbcb0f37aa9a38a",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:119",
+          "labels": [
+            "系统"
+          ],
+          "properties": {
+            "name": "C2增压输送系统",
+            "source_type": "table",
+            "id": "E_fcbcb0f37aa9a38a",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_e215d6eafd9c45e1",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:120",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:120",
+          "labels": [
+            "单机"
+          ],
+          "properties": {
+            "name": "C2氧安溢阀",
+            "source_type": "table",
+            "id": "E_e215d6eafd9c45e1",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:120",
+          "labels": [
+            "单机"
+          ],
+          "properties": {
+            "name": "C2氧安溢阀",
+            "source_type": "table",
+            "id": "E_e215d6eafd9c45e1",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_ed12e76684dbe2be",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:121",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:121",
+          "labels": [
+            "系统级故障模式"
+          ],
+          "properties": {
+            "name": "C2液氧贮箱压力下降",
+            "source_type": "table",
+            "id": "E_ed12e76684dbe2be",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:121",
+          "labels": [
+            "系统级故障模式"
+          ],
+          "properties": {
+            "name": "C2液氧贮箱压力下降",
+            "source_type": "table",
+            "id": "E_ed12e76684dbe2be",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_229b108ecbce7575",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:122",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:122",
+          "labels": [
+            "总体级故障模式"
+          ],
+          "properties": {
+            "name": "不满足发动机工作压力要求，发动机气蚀，任务失败，火箭再入",
+            "source_type": "table",
+            "id": "E_229b108ecbce7575",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:122",
+          "labels": [
+            "总体级故障模式"
+          ],
+          "properties": {
+            "name": "不满足发动机工作压力要求，发动机气蚀，任务失败，火箭再入",
+            "source_type": "table",
+            "id": "E_229b108ecbce7575",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_b4407be7d2d28537",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:123",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:123",
+          "labels": [
+            "单机"
+          ],
+          "properties": {
+            "name": "C3氧补压电磁阀",
+            "source_type": "table",
+            "id": "E_b4407be7d2d28537",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:123",
+          "labels": [
+            "单机"
+          ],
+          "properties": {
+            "name": "C3氧补压电磁阀",
+            "source_type": "table",
+            "id": "E_b4407be7d2d28537",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_57b4d2f05c2a9e3b",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:124",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:124",
+          "labels": [
+            "零部组件"
+          ],
+          "properties": {
+            "name": "线圈",
+            "source_type": "table",
+            "id": "E_57b4d2f05c2a9e3b",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:124",
+          "labels": [
+            "零部组件"
+          ],
+          "properties": {
+            "name": "线圈",
+            "source_type": "table",
+            "id": "E_57b4d2f05c2a9e3b",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_f26111e615dfabc6",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:125",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:125",
+          "labels": [
+            "单机功能"
+          ],
+          "properties": {
+            "name": "通电后打开",
+            "source_type": "table",
+            "id": "E_f26111e615dfabc6",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:125",
+          "labels": [
+            "单机功能"
+          ],
+          "properties": {
+            "name": "通电后打开",
+            "source_type": "table",
+            "id": "E_f26111e615dfabc6",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_5820d501cb9ecbc5",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:126",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:126",
+          "labels": [
+            "组件级故障模式"
+          ],
+          "properties": {
+            "name": "磁场强度过低",
+            "source_type": "table",
+            "id": "E_5820d501cb9ecbc5",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:126",
+          "labels": [
+            "组件级故障模式"
+          ],
+          "properties": {
+            "name": "磁场强度过低",
+            "source_type": "table",
+            "id": "E_5820d501cb9ecbc5",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_eabe63921475f32c",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:127",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:127",
+          "labels": [
+            "系统级故障模式"
+          ],
+          "properties": {
+            "name": "C3液氧箱补压箱压不上升（增加措施",
+            "source_type": "table",
+            "id": "E_eabe63921475f32c",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:127",
+          "labels": [
+            "系统级故障模式"
+          ],
+          "properties": {
+            "name": "C3液氧箱补压箱压不上升（增加措施",
+            "source_type": "table",
+            "id": "E_eabe63921475f32c",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_b478426271e8dd94",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:128",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:128",
+          "labels": [
+            "总体级故障模式"
+          ],
+          "properties": {
+            "name": "不满足发动机起动压力要求，发动机气蚀，任务失败，发生在一级工作引起火箭再入",
+            "source_type": "table",
+            "id": "E_b478426271e8dd94",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:128",
+          "labels": [
+            "总体级故障模式"
+          ],
+          "properties": {
+            "name": "不满足发动机起动压力要求，发动机气蚀，任务失败，发生在一级工作引起火箭再入",
+            "source_type": "table",
+            "id": "E_b478426271e8dd94",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_1405b9cd5ad83a43",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:129",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:129",
+          "labels": [
+            "是否单点"
+          ],
+          "properties": {
+            "name": "是",
+            "source_type": "table",
+            "id": "E_1405b9cd5ad83a43",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:129",
+          "labels": [
+            "是否单点"
+          ],
+          "properties": {
+            "name": "是",
+            "source_type": "table",
+            "id": "E_1405b9cd5ad83a43",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_7d05fd5f805b462d",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:130",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:130",
+          "labels": [
+            "严酷度等级"
+          ],
+          "properties": {
+            "name": "Ⅱ类(严重的) / Ⅲ类(轻度的)",
+            "source_type": "table",
+            "id": "E_7d05fd5f805b462d",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:130",
+          "labels": [
+            "严酷度等级"
+          ],
+          "properties": {
+            "name": "Ⅱ类(严重的) / Ⅲ类(轻度的)",
+            "source_type": "table",
+            "id": "E_7d05fd5f805b462d",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_f3cd91a0b5765f5d",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:131",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:131",
+          "labels": [
+            "发生概率"
+          ],
+          "properties": {
+            "name": "E类(极少)",
+            "source_type": "table",
+            "id": "E_f3cd91a0b5765f5d",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:131",
+          "labels": [
+            "发生概率"
+          ],
+          "properties": {
+            "name": "E类(极少)",
+            "source_type": "table",
+            "id": "E_f3cd91a0b5765f5d",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_f0ced33f7d22a77b",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:132",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:132",
+          "labels": [
+            "发生阶段"
+          ],
+          "properties": {
+            "name": "飞行阶段",
+            "source_type": "table",
+            "id": "E_f0ced33f7d22a77b",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:132",
+          "labels": [
+            "发生阶段"
+          ],
+          "properties": {
+            "name": "飞行阶段",
+            "source_type": "table",
+            "id": "E_f0ced33f7d22a77b",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_506147cc2998737e",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:133",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:133",
+          "labels": [
+            "设计措施"
+          ],
+          "properties": {
+            "name": "1 / 3",
+            "source_type": "table",
+            "id": "E_506147cc2998737e",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:133",
+          "labels": [
+            "设计措施"
+          ],
+          "properties": {
+            "name": "1 / 3",
+            "source_type": "table",
+            "id": "E_506147cc2998737e",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_06f09ab35c7207c6",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:134",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:134",
+          "labels": [
+            "是否单点"
+          ],
+          "properties": {
+            "name": "是",
+            "source_type": "table",
+            "id": "E_06f09ab35c7207c6",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:134",
+          "labels": [
+            "是否单点"
+          ],
+          "properties": {
+            "name": "是",
+            "source_type": "table",
+            "id": "E_06f09ab35c7207c6",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_37488a86c41292c3",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:135",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:135",
+          "labels": [
+            "严酷度等级"
+          ],
+          "properties": {
+            "name": "Ⅲ类(轻度的)",
+            "source_type": "table",
+            "id": "E_37488a86c41292c3",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:135",
+          "labels": [
+            "严酷度等级"
+          ],
+          "properties": {
+            "name": "Ⅲ类(轻度的)",
+            "source_type": "table",
+            "id": "E_37488a86c41292c3",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_05cd0d677c3c6a4c",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:136",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:136",
+          "labels": [
+            "发生概率"
+          ],
+          "properties": {
+            "name": "E类(极少)",
+            "source_type": "table",
+            "id": "E_05cd0d677c3c6a4c",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:136",
+          "labels": [
+            "发生概率"
+          ],
+          "properties": {
+            "name": "E类(极少)",
+            "source_type": "table",
+            "id": "E_05cd0d677c3c6a4c",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_5130cb5a17e7d149",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:137",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:137",
+          "labels": [
+            "发生阶段"
+          ],
+          "properties": {
+            "name": "飞行阶段",
+            "source_type": "table",
+            "id": "E_5130cb5a17e7d149",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:137",
+          "labels": [
+            "发生阶段"
+          ],
+          "properties": {
+            "name": "飞行阶段",
+            "source_type": "table",
+            "id": "E_5130cb5a17e7d149",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_b75b595749771db0",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:138",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:138",
+          "labels": [
+            "设计措施"
+          ],
+          "properties": {
+            "name": "2",
+            "source_type": "table",
+            "id": "E_b75b595749771db0",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:138",
+          "labels": [
+            "设计措施"
+          ],
+          "properties": {
+            "name": "2",
+            "source_type": "table",
+            "id": "E_b75b595749771db0",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_9794b39f5fbd92fb",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:139",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:139",
+          "labels": [
+            "是否单点"
+          ],
+          "properties": {
+            "name": "是 / 否",
+            "source_type": "table",
+            "id": "E_9794b39f5fbd92fb",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:139",
+          "labels": [
+            "是否单点"
+          ],
+          "properties": {
+            "name": "是 / 否",
+            "source_type": "table",
+            "id": "E_9794b39f5fbd92fb",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_98be123d7991d6af",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:140",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:140",
+          "labels": [
+            "严酷度等级"
+          ],
+          "properties": {
+            "name": "Ⅱ类(严重的) / Ⅰ类(灾难的)",
+            "source_type": "table",
+            "id": "E_98be123d7991d6af",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:140",
+          "labels": [
+            "严酷度等级"
+          ],
+          "properties": {
+            "name": "Ⅱ类(严重的) / Ⅰ类(灾难的)",
+            "source_type": "table",
+            "id": "E_98be123d7991d6af",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_7a049beba27972f0",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:141",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:141",
+          "labels": [
+            "发生概率"
+          ],
+          "properties": {
+            "name": "E类(极少) / D类(很少)",
+            "source_type": "table",
+            "id": "E_7a049beba27972f0",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:141",
+          "labels": [
+            "发生概率"
+          ],
+          "properties": {
+            "name": "E类(极少) / D类(很少)",
+            "source_type": "table",
+            "id": "E_7a049beba27972f0",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_099f987de83885ad",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:142",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:142",
+          "labels": [
+            "发生阶段"
+          ],
+          "properties": {
+            "name": "飞行阶段",
+            "source_type": "table",
+            "id": "E_099f987de83885ad",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:142",
+          "labels": [
+            "发生阶段"
+          ],
+          "properties": {
+            "name": "飞行阶段",
+            "source_type": "table",
+            "id": "E_099f987de83885ad",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_b07ba057319aa5bd",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:143",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:143",
+          "labels": [
+            "设计措施"
+          ],
+          "properties": {
+            "name": "2 / 3",
+            "source_type": "table",
+            "id": "E_b07ba057319aa5bd",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:143",
+          "labels": [
+            "设计措施"
+          ],
+          "properties": {
+            "name": "2 / 3",
+            "source_type": "table",
+            "id": "E_b07ba057319aa5bd",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_f27eefd4b0bf5abf",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:144",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:144",
+          "labels": [
+            "是否单点"
+          ],
+          "properties": {
+            "name": "是",
+            "source_type": "table",
+            "id": "E_f27eefd4b0bf5abf",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:144",
+          "labels": [
+            "是否单点"
+          ],
+          "properties": {
+            "name": "是",
+            "source_type": "table",
+            "id": "E_f27eefd4b0bf5abf",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_914bd1bb912e840e",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:145",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:145",
+          "labels": [
+            "严酷度等级"
+          ],
+          "properties": {
+            "name": "Ⅰ类(灾难的)",
+            "source_type": "table",
+            "id": "E_914bd1bb912e840e",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:145",
+          "labels": [
+            "严酷度等级"
+          ],
+          "properties": {
+            "name": "Ⅰ类(灾难的)",
+            "source_type": "table",
+            "id": "E_914bd1bb912e840e",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_50368e361f9c19ad",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:146",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:146",
+          "labels": [
+            "发生概率"
+          ],
+          "properties": {
+            "name": "D类(很少)",
+            "source_type": "table",
+            "id": "E_50368e361f9c19ad",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:146",
+          "labels": [
+            "发生概率"
+          ],
+          "properties": {
+            "name": "D类(很少)",
+            "source_type": "table",
+            "id": "E_50368e361f9c19ad",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_28f8cb29bc8add34",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:147",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:147",
+          "labels": [
+            "发生阶段"
+          ],
+          "properties": {
+            "name": "飞行阶段",
+            "source_type": "table",
+            "id": "E_28f8cb29bc8add34",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:147",
+          "labels": [
+            "发生阶段"
+          ],
+          "properties": {
+            "name": "飞行阶段",
+            "source_type": "table",
+            "id": "E_28f8cb29bc8add34",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_0a203cd13e0c3eac",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:148",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:148",
+          "labels": [
+            "设计措施"
+          ],
+          "properties": {
+            "name": "3",
+            "source_type": "table",
+            "id": "E_0a203cd13e0c3eac",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:148",
+          "labels": [
+            "设计措施"
+          ],
+          "properties": {
+            "name": "3",
+            "source_type": "table",
+            "id": "E_0a203cd13e0c3eac",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_0c141362dc679488",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:149",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:149",
+          "labels": [
+            "是否单点"
+          ],
+          "properties": {
+            "name": "否",
+            "source_type": "table",
+            "id": "E_0c141362dc679488",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:149",
+          "labels": [
+            "是否单点"
+          ],
+          "properties": {
+            "name": "否",
+            "source_type": "table",
+            "id": "E_0c141362dc679488",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_cfdc57e887e3fdb5",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:150",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:150",
+          "labels": [
+            "严酷度等级"
+          ],
+          "properties": {
+            "name": "Ⅰ类(灾难的)",
+            "source_type": "table",
+            "id": "E_cfdc57e887e3fdb5",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:150",
+          "labels": [
+            "严酷度等级"
+          ],
+          "properties": {
+            "name": "Ⅰ类(灾难的)",
+            "source_type": "table",
+            "id": "E_cfdc57e887e3fdb5",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_a9ac4f4cff6e482e",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:151",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:151",
+          "labels": [
+            "发生概率"
+          ],
+          "properties": {
+            "name": "D类(很少)",
+            "source_type": "table",
+            "id": "E_a9ac4f4cff6e482e",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:151",
+          "labels": [
+            "发生概率"
+          ],
+          "properties": {
+            "name": "D类(很少)",
+            "source_type": "table",
+            "id": "E_a9ac4f4cff6e482e",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_579d579d8285685f",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:152",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:152",
+          "labels": [
+            "发生阶段"
+          ],
+          "properties": {
+            "name": "飞行阶段",
+            "source_type": "table",
+            "id": "E_579d579d8285685f",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:152",
+          "labels": [
+            "发生阶段"
+          ],
+          "properties": {
+            "name": "飞行阶段",
+            "source_type": "table",
+            "id": "E_579d579d8285685f",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "entity_id": "E_a0cb96baef6598a0",
+        "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:153",
+        "created": false,
+        "before": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:153",
+          "labels": [
+            "设计措施"
+          ],
+          "properties": {
+            "name": "3",
+            "source_type": "table",
+            "id": "E_a0cb96baef6598a0",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:153",
+          "labels": [
+            "设计措施"
+          ],
+          "properties": {
+            "name": "3",
+            "source_type": "table",
+            "id": "E_a0cb96baef6598a0",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      }
+    ],
+    "relationship_changes": [
+      {
+        "triple_id": "T_97cdc28b43e1f9f2",
+        "source_entity_id": "E_4ace10d94df1674d",
+        "target_entity_id": "E_51c6962a1684c860",
+        "relation_id": "R_712e4ac54483125c",
+        "relation_name": "包含",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:0",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:0",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:0",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_2c5b002245e26649",
+        "source_entity_id": "E_51c6962a1684c860",
+        "target_entity_id": "E_2fff415db97031e8",
+        "relation_id": "R_2bf405e91d647a52",
+        "relation_name": "包含",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:1",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:1",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:1",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_6fba7b7e45ec7cd5",
+        "source_entity_id": "E_4ace10d94df1674d",
+        "target_entity_id": "E_2fff415db97031e8",
+        "relation_id": "R_7916b06e6b1cc8d6",
+        "relation_name": "包含",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:2",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:2",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:2",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_bc04255070bf7d45",
+        "source_entity_id": "E_51c6962a1684c860",
+        "target_entity_id": "E_b0b56a720ea0d2cb",
+        "relation_id": "R_34405cd063a01fe0",
+        "relation_name": "具有功能",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:3",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:3",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:3",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_aa0e0fe3986fc158",
+        "source_entity_id": "E_51c6962a1684c860",
+        "target_entity_id": "E_04bf1c2ecd8a5e12",
+        "relation_id": "R_7877cb604416fbc3",
+        "relation_name": "存在故障",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:4",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:4",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:4",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_c50b63b745640bae",
+        "source_entity_id": "E_2fff415db97031e8",
+        "target_entity_id": "E_1d24d7c961a4aefb",
+        "relation_id": "R_6ef7e71453da26c4",
+        "relation_name": "存在故障",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:5",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:5",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:5",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_7a6e0778fefee511",
+        "source_entity_id": "E_1d24d7c961a4aefb",
+        "target_entity_id": "E_04bf1c2ecd8a5e12",
+        "relation_id": "R_9854ac4d000910fc",
+        "relation_name": "导致",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:110",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:110",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:110",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_03f22e455402b2fd",
+        "source_entity_id": "E_4ace10d94df1674d",
+        "target_entity_id": "E_a6ca097150f518ae",
+        "relation_id": "R_aab2c5d9ac268dda",
+        "relation_name": "存在故障",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:111",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:111",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:111",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_b52f62238d4b3661",
+        "source_entity_id": "E_04bf1c2ecd8a5e12",
+        "target_entity_id": "E_a6ca097150f518ae",
+        "relation_id": "R_399bd25f8fc7e06b",
+        "relation_name": "导致",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:112",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:112",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:112",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_77982460c580566f",
+        "source_entity_id": "E_a6ca097150f518ae",
+        "target_entity_id": "E_628fe61c11db8ea6",
+        "relation_id": "R_3e0459106c4370d2",
+        "relation_name": "导致",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:113",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:113",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:113",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_538c3a461129817a",
+        "source_entity_id": "E_51c6962a1684c860",
+        "target_entity_id": "E_059b4344b1e789d6",
+        "relation_id": "R_2bf405e91d647a52",
+        "relation_name": "包含",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:114",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:114",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:114",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_daf23641c9eaf2de",
+        "source_entity_id": "E_4ace10d94df1674d",
+        "target_entity_id": "E_059b4344b1e789d6",
+        "relation_id": "R_7916b06e6b1cc8d6",
+        "relation_name": "包含",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:118",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:118",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:118",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_ef1fd22814917c81",
+        "source_entity_id": "E_51c6962a1684c860",
+        "target_entity_id": "E_55dc70e5d475d0e2",
+        "relation_id": "R_34405cd063a01fe0",
+        "relation_name": "具有功能",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:119",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:119",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:119",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_4fde1d29e2e90bd2",
+        "source_entity_id": "E_51c6962a1684c860",
+        "target_entity_id": "E_ace90e7e35bdca53",
+        "relation_id": "R_7877cb604416fbc3",
+        "relation_name": "存在故障",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:120",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:120",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:120",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_5582041732abd1fd",
+        "source_entity_id": "E_059b4344b1e789d6",
+        "target_entity_id": "E_d299b8e2c6dfb58c",
+        "relation_id": "R_6ef7e71453da26c4",
+        "relation_name": "存在故障",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:121",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:121",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:121",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_40352cb541108a13",
+        "source_entity_id": "E_d299b8e2c6dfb58c",
+        "target_entity_id": "E_ace90e7e35bdca53",
+        "relation_id": "R_9854ac4d000910fc",
+        "relation_name": "导致",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:122",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:122",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:122",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_4f781af167de9164",
+        "source_entity_id": "E_4ace10d94df1674d",
+        "target_entity_id": "E_5e1ec93b16d2a690",
+        "relation_id": "R_aab2c5d9ac268dda",
+        "relation_name": "存在故障",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:123",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:123",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:123",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_492e486acd1c2ab1",
+        "source_entity_id": "E_ace90e7e35bdca53",
+        "target_entity_id": "E_5e1ec93b16d2a690",
+        "relation_id": "R_399bd25f8fc7e06b",
+        "relation_name": "导致",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:124",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:124",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:124",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_b6438464d63e1397",
+        "source_entity_id": "E_5e1ec93b16d2a690",
+        "target_entity_id": "E_7b020f7bb5c00d5c",
+        "relation_id": "R_3e0459106c4370d2",
+        "relation_name": "导致",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:125",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:125",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:125",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_cdf7789b36be0128",
+        "source_entity_id": "E_4ace10d94df1674d",
+        "target_entity_id": "E_cfcfee71df0df8ba",
+        "relation_id": "R_712e4ac54483125c",
+        "relation_name": "包含",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:126",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:126",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:126",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_b9f5a1e370a82ba8",
+        "source_entity_id": "E_cfcfee71df0df8ba",
+        "target_entity_id": "E_780dce285331dfaf",
+        "relation_id": "R_2bf405e91d647a52",
+        "relation_name": "包含",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:127",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:127",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:127",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_85e59e2d59f5b615",
+        "source_entity_id": "E_4ace10d94df1674d",
+        "target_entity_id": "E_780dce285331dfaf",
+        "relation_id": "R_7916b06e6b1cc8d6",
+        "relation_name": "包含",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:128",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:128",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:128",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_d02e735c8e1791bb",
+        "source_entity_id": "E_cfcfee71df0df8ba",
+        "target_entity_id": "E_c62fb1e5c9f4cbba",
+        "relation_id": "R_34405cd063a01fe0",
+        "relation_name": "具有功能",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:129",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:129",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:129",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_c71e55d6c0606781",
+        "source_entity_id": "E_cfcfee71df0df8ba",
+        "target_entity_id": "E_6f9b027d13b3aafa",
+        "relation_id": "R_7877cb604416fbc3",
+        "relation_name": "存在故障",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:130",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:130",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:130",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_f00b539daf4b43c1",
+        "source_entity_id": "E_780dce285331dfaf",
+        "target_entity_id": "E_358a0f44b437b655",
+        "relation_id": "R_6ef7e71453da26c4",
+        "relation_name": "存在故障",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:131",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:131",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:131",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_d9e2ae3743618682",
+        "source_entity_id": "E_358a0f44b437b655",
+        "target_entity_id": "E_6f9b027d13b3aafa",
+        "relation_id": "R_9854ac4d000910fc",
+        "relation_name": "导致",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:132",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:132",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:132",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_ae18a0140bc15a2c",
+        "source_entity_id": "E_4ace10d94df1674d",
+        "target_entity_id": "E_b93b2bd0b7df7671",
+        "relation_id": "R_aab2c5d9ac268dda",
+        "relation_name": "存在故障",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:133",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:133",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:133",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_e72b6f1e27e99043",
+        "source_entity_id": "E_6f9b027d13b3aafa",
+        "target_entity_id": "E_b93b2bd0b7df7671",
+        "relation_id": "R_399bd25f8fc7e06b",
+        "relation_name": "导致",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:134",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:134",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:134",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_4ecb1a994f3fff09",
+        "source_entity_id": "E_b93b2bd0b7df7671",
+        "target_entity_id": "E_9b9a374123723ae5",
+        "relation_id": "R_3e0459106c4370d2",
+        "relation_name": "导致",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:135",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:135",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:135",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_a38223dfd7679485",
+        "source_entity_id": "E_4ace10d94df1674d",
+        "target_entity_id": "E_dca4d1d229661477",
+        "relation_id": "R_712e4ac54483125c",
+        "relation_name": "包含",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:136",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:136",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:136",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_787e9af0282bc582",
+        "source_entity_id": "E_dca4d1d229661477",
+        "target_entity_id": "E_ef7d38368df05850",
+        "relation_id": "R_2bf405e91d647a52",
+        "relation_name": "包含",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:137",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:137",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:137",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_26fac47c4ad82707",
+        "source_entity_id": "E_4ace10d94df1674d",
+        "target_entity_id": "E_ef7d38368df05850",
+        "relation_id": "R_7916b06e6b1cc8d6",
+        "relation_name": "包含",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:138",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:138",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:138",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_6368570b584373c9",
+        "source_entity_id": "E_dca4d1d229661477",
+        "target_entity_id": "E_b0b56a720ea0d2cb",
+        "relation_id": "R_34405cd063a01fe0",
+        "relation_name": "具有功能",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:139",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:139",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:139",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_3d62049f1ce1a6ce",
+        "source_entity_id": "E_dca4d1d229661477",
+        "target_entity_id": "E_04bf1c2ecd8a5e12",
+        "relation_id": "R_7877cb604416fbc3",
+        "relation_name": "存在故障",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:140",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:140",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:140",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_6b550427072c7b61",
+        "source_entity_id": "E_ef7d38368df05850",
+        "target_entity_id": "E_ac66a7c5ed0f7713",
+        "relation_id": "R_6ef7e71453da26c4",
+        "relation_name": "存在故障",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:141",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:141",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:141",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_2d86c9833ec05d4d",
+        "source_entity_id": "E_ac66a7c5ed0f7713",
+        "target_entity_id": "E_04bf1c2ecd8a5e12",
+        "relation_id": "R_9854ac4d000910fc",
+        "relation_name": "导致",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:142",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:142",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:142",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_a166b4e130812757",
+        "source_entity_id": "E_4ace10d94df1674d",
+        "target_entity_id": "E_cebd253353d02510",
+        "relation_id": "R_aab2c5d9ac268dda",
+        "relation_name": "存在故障",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:143",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:143",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:143",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_f38da095656181f4",
+        "source_entity_id": "E_04bf1c2ecd8a5e12",
+        "target_entity_id": "E_cebd253353d02510",
+        "relation_id": "R_399bd25f8fc7e06b",
+        "relation_name": "导致",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:144",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:144",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:144",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_e33bc18b3007782a",
+        "source_entity_id": "E_cebd253353d02510",
+        "target_entity_id": "E_f5ed896892732bb1",
+        "relation_id": "R_3e0459106c4370d2",
+        "relation_name": "导致",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:145",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:145",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:145",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_1a14c280a1d9a1d4",
+        "source_entity_id": "E_b27c9b0a95e09404",
+        "target_entity_id": "E_7d235b4dfeaf8b97",
+        "relation_id": "R_712e4ac54483125c",
+        "relation_name": "包含",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:146",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:146",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:146",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_80d55c3a015c3b84",
+        "source_entity_id": "E_7d235b4dfeaf8b97",
+        "target_entity_id": "E_e324e6b579afdb3c",
+        "relation_id": "R_2bf405e91d647a52",
+        "relation_name": "包含",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:147",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:147",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:147",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_e3e92ec4af493ef5",
+        "source_entity_id": "E_b27c9b0a95e09404",
+        "target_entity_id": "E_e324e6b579afdb3c",
+        "relation_id": "R_7916b06e6b1cc8d6",
+        "relation_name": "包含",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:148",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:148",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:148",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_d7cfd13d6eb7734c",
+        "source_entity_id": "E_7d235b4dfeaf8b97",
+        "target_entity_id": "E_a6a7b83700bb94c0",
+        "relation_id": "R_34405cd063a01fe0",
+        "relation_name": "具有功能",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:149",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:149",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:149",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_035d704357d8c701",
+        "source_entity_id": "E_7d235b4dfeaf8b97",
+        "target_entity_id": "E_0fa5c9e9496f6650",
+        "relation_id": "R_7877cb604416fbc3",
+        "relation_name": "存在故障",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:150",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:150",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:150",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_dd53a9c4f100f904",
+        "source_entity_id": "E_e324e6b579afdb3c",
+        "target_entity_id": "E_da39a655e87fb8f5",
+        "relation_id": "R_6ef7e71453da26c4",
+        "relation_name": "存在故障",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:154",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:154",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:154",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_549c759dce712fa4",
+        "source_entity_id": "E_da39a655e87fb8f5",
+        "target_entity_id": "E_0fa5c9e9496f6650",
+        "relation_id": "R_9854ac4d000910fc",
+        "relation_name": "导致",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:155",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:155",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:155",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_ab45b38b35846671",
+        "source_entity_id": "E_b27c9b0a95e09404",
+        "target_entity_id": "E_27579c4006038e00",
+        "relation_id": "R_aab2c5d9ac268dda",
+        "relation_name": "存在故障",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:156",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:156",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:156",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_e5a2bfb20e9bb067",
+        "source_entity_id": "E_0fa5c9e9496f6650",
+        "target_entity_id": "E_27579c4006038e00",
+        "relation_id": "R_399bd25f8fc7e06b",
+        "relation_name": "导致",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:157",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:157",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:157",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_48c08d233d733b1b",
+        "source_entity_id": "E_27579c4006038e00",
+        "target_entity_id": "E_c6981b1d2db8d0d4",
+        "relation_id": "R_3e0459106c4370d2",
+        "relation_name": "导致",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:158",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:158",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:158",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_374f69fc2c84fe49",
+        "source_entity_id": "E_7d235b4dfeaf8b97",
+        "target_entity_id": "E_acbb329801cc8b11",
+        "relation_id": "R_2bf405e91d647a52",
+        "relation_name": "包含",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:159",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:159",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:159",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_165ed6b27a55c36a",
+        "source_entity_id": "E_b27c9b0a95e09404",
+        "target_entity_id": "E_acbb329801cc8b11",
+        "relation_id": "R_7916b06e6b1cc8d6",
+        "relation_name": "包含",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:160",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:160",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:160",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_9d68d62a6e52501c",
+        "source_entity_id": "E_acbb329801cc8b11",
+        "target_entity_id": "E_da39a655e87fb8f5",
+        "relation_id": "R_6ef7e71453da26c4",
+        "relation_name": "存在故障",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:161",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:161",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:161",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_971cb452b5a57525",
+        "source_entity_id": "E_b27c9b0a95e09404",
+        "target_entity_id": "E_944b3db5ef1e0953",
+        "relation_id": "R_712e4ac54483125c",
+        "relation_name": "包含",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:162",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:162",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:162",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_942cf393a9415bba",
+        "source_entity_id": "E_944b3db5ef1e0953",
+        "target_entity_id": "E_be350d07a50c0945",
+        "relation_id": "R_2bf405e91d647a52",
+        "relation_name": "包含",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:163",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:163",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:163",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_b867ddca338e7b51",
+        "source_entity_id": "E_b27c9b0a95e09404",
+        "target_entity_id": "E_be350d07a50c0945",
+        "relation_id": "R_7916b06e6b1cc8d6",
+        "relation_name": "包含",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:164",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:164",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:164",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_5d176599143735c2",
+        "source_entity_id": "E_944b3db5ef1e0953",
+        "target_entity_id": "E_ecfff382248e9f03",
+        "relation_id": "R_34405cd063a01fe0",
+        "relation_name": "具有功能",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:165",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:165",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:165",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_725c4702d6594b3b",
+        "source_entity_id": "E_944b3db5ef1e0953",
+        "target_entity_id": "E_51bacddb34fa7a2e",
+        "relation_id": "R_7877cb604416fbc3",
+        "relation_name": "存在故障",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:166",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:166",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:166",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_857afabb5dcb916f",
+        "source_entity_id": "E_be350d07a50c0945",
+        "target_entity_id": "E_c9196471db8425e3",
+        "relation_id": "R_6ef7e71453da26c4",
+        "relation_name": "存在故障",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:167",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:167",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:167",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_0cc3008a1fffc43f",
+        "source_entity_id": "E_c9196471db8425e3",
+        "target_entity_id": "E_51bacddb34fa7a2e",
+        "relation_id": "R_9854ac4d000910fc",
+        "relation_name": "导致",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:168",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:168",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:168",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_dba2e6f1660bc12d",
+        "source_entity_id": "E_b27c9b0a95e09404",
+        "target_entity_id": "E_46406fc47ac9b7da",
+        "relation_id": "R_aab2c5d9ac268dda",
+        "relation_name": "存在故障",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:169",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:169",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:169",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_fc7cdbe2fa634f48",
+        "source_entity_id": "E_51bacddb34fa7a2e",
+        "target_entity_id": "E_46406fc47ac9b7da",
+        "relation_id": "R_399bd25f8fc7e06b",
+        "relation_name": "导致",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:170",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:170",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:170",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_49beebf1265febf9",
+        "source_entity_id": "E_46406fc47ac9b7da",
+        "target_entity_id": "E_58ac91bf7940164d",
+        "relation_id": "R_3e0459106c4370d2",
+        "relation_name": "导致",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:171",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:171",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:171",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_95f93cf8972bca80",
+        "source_entity_id": "E_fcbcb0f37aa9a38a",
+        "target_entity_id": "E_e215d6eafd9c45e1",
+        "relation_id": "R_712e4ac54483125c",
+        "relation_name": "包含",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:172",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:172",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:172",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_c96b36848df2388d",
+        "source_entity_id": "E_e215d6eafd9c45e1",
+        "target_entity_id": "E_be350d07a50c0945",
+        "relation_id": "R_2bf405e91d647a52",
+        "relation_name": "包含",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:173",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:173",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:173",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_b389f1c854bfcf81",
+        "source_entity_id": "E_fcbcb0f37aa9a38a",
+        "target_entity_id": "E_be350d07a50c0945",
+        "relation_id": "R_7916b06e6b1cc8d6",
+        "relation_name": "包含",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:174",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:174",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:174",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_69cdfd886af49ea2",
+        "source_entity_id": "E_e215d6eafd9c45e1",
+        "target_entity_id": "E_a6a7b83700bb94c0",
+        "relation_id": "R_34405cd063a01fe0",
+        "relation_name": "具有功能",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:175",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:175",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:175",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_a4283e9a73b9c1ae",
+        "source_entity_id": "E_e215d6eafd9c45e1",
+        "target_entity_id": "E_0fa5c9e9496f6650",
+        "relation_id": "R_7877cb604416fbc3",
+        "relation_name": "存在故障",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:176",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:176",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:176",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_2c1bd92a9da05ca3",
+        "source_entity_id": "E_c9196471db8425e3",
+        "target_entity_id": "E_0fa5c9e9496f6650",
+        "relation_id": "R_9854ac4d000910fc",
+        "relation_name": "导致",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:177",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:177",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:177",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_459516f7f8da62cc",
+        "source_entity_id": "E_fcbcb0f37aa9a38a",
+        "target_entity_id": "E_ed12e76684dbe2be",
+        "relation_id": "R_aab2c5d9ac268dda",
+        "relation_name": "存在故障",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:178",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:178",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:178",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_aba31948cc3df771",
+        "source_entity_id": "E_0fa5c9e9496f6650",
+        "target_entity_id": "E_ed12e76684dbe2be",
+        "relation_id": "R_399bd25f8fc7e06b",
+        "relation_name": "导致",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:179",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:179",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:179",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_0e178d457acea82f",
+        "source_entity_id": "E_ed12e76684dbe2be",
+        "target_entity_id": "E_229b108ecbce7575",
+        "relation_id": "R_3e0459106c4370d2",
+        "relation_name": "导致",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:180",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:180",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:180",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_4e615d41ccee78a2",
+        "source_entity_id": "E_fcbcb0f37aa9a38a",
+        "target_entity_id": "E_b4407be7d2d28537",
+        "relation_id": "R_712e4ac54483125c",
+        "relation_name": "包含",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:181",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:181",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:181",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_b6c9c35e0d67aeba",
+        "source_entity_id": "E_b4407be7d2d28537",
+        "target_entity_id": "E_57b4d2f05c2a9e3b",
+        "relation_id": "R_2bf405e91d647a52",
+        "relation_name": "包含",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:183",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:183",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:183",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_206ea1ba87d80ee2",
+        "source_entity_id": "E_fcbcb0f37aa9a38a",
+        "target_entity_id": "E_57b4d2f05c2a9e3b",
+        "relation_id": "R_7916b06e6b1cc8d6",
+        "relation_name": "包含",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:185",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:185",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:185",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_313da7999a315740",
+        "source_entity_id": "E_b4407be7d2d28537",
+        "target_entity_id": "E_f26111e615dfabc6",
+        "relation_id": "R_34405cd063a01fe0",
+        "relation_name": "具有功能",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:201",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:201",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:201",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_651e8bf374614374",
+        "source_entity_id": "E_b4407be7d2d28537",
+        "target_entity_id": "E_6f9b027d13b3aafa",
+        "relation_id": "R_7877cb604416fbc3",
+        "relation_name": "存在故障",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:202",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:202",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:202",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_95022b5ee4520579",
+        "source_entity_id": "E_57b4d2f05c2a9e3b",
+        "target_entity_id": "E_5820d501cb9ecbc5",
+        "relation_id": "R_6ef7e71453da26c4",
+        "relation_name": "存在故障",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:203",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:203",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:203",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_e28164d496d4e1d2",
+        "source_entity_id": "E_5820d501cb9ecbc5",
+        "target_entity_id": "E_6f9b027d13b3aafa",
+        "relation_id": "R_9854ac4d000910fc",
+        "relation_name": "导致",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:204",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:204",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:204",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_af6fff63f4548ab6",
+        "source_entity_id": "E_fcbcb0f37aa9a38a",
+        "target_entity_id": "E_eabe63921475f32c",
+        "relation_id": "R_aab2c5d9ac268dda",
+        "relation_name": "存在故障",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:205",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:205",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:205",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_cccd7559c9cdb048",
+        "source_entity_id": "E_6f9b027d13b3aafa",
+        "target_entity_id": "E_eabe63921475f32c",
+        "relation_id": "R_399bd25f8fc7e06b",
+        "relation_name": "导致",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:206",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:206",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:206",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_5e2f398db33ae548",
+        "source_entity_id": "E_eabe63921475f32c",
+        "target_entity_id": "E_b478426271e8dd94",
+        "relation_id": "R_3e0459106c4370d2",
+        "relation_name": "导致",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:207",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:207",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:207",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_76c128a2f57d45ed",
+        "source_entity_id": "E_04bf1c2ecd8a5e12",
+        "target_entity_id": "E_1405b9cd5ad83a43",
+        "relation_id": "R_ae4eca153b30db9d",
+        "relation_name": "是否单点",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:208",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:208",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:208",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_59b76854da0311e4",
+        "source_entity_id": "E_04bf1c2ecd8a5e12",
+        "target_entity_id": "E_7d05fd5f805b462d",
+        "relation_id": "R_5b1e81d8ca48a211",
+        "relation_name": "严酷度等级",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:209",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:209",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:209",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_39f5feb37e4a0e8a",
+        "source_entity_id": "E_04bf1c2ecd8a5e12",
+        "target_entity_id": "E_f3cd91a0b5765f5d",
+        "relation_id": "R_8faae581844e9b09",
+        "relation_name": "发生概率",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:210",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:210",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:210",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_fcafa4e43ef3583e",
+        "source_entity_id": "E_04bf1c2ecd8a5e12",
+        "target_entity_id": "E_f0ced33f7d22a77b",
+        "relation_id": "R_590d6019bfa93b8a",
+        "relation_name": "发生阶段",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:211",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:211",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:211",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_08c68528ed67eb8b",
+        "source_entity_id": "E_04bf1c2ecd8a5e12",
+        "target_entity_id": "E_506147cc2998737e",
+        "relation_id": "R_3610c0dfb31ece46",
+        "relation_name": "设计措施",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:212",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:212",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:212",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_673ee803ef258acc",
+        "source_entity_id": "E_ace90e7e35bdca53",
+        "target_entity_id": "E_06f09ab35c7207c6",
+        "relation_id": "R_ae4eca153b30db9d",
+        "relation_name": "是否单点",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:213",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:213",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:213",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_d7c8ffc7c5cec5c4",
+        "source_entity_id": "E_ace90e7e35bdca53",
+        "target_entity_id": "E_37488a86c41292c3",
+        "relation_id": "R_5b1e81d8ca48a211",
+        "relation_name": "严酷度等级",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:214",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:214",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:214",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_c6ba61ce8215a78d",
+        "source_entity_id": "E_ace90e7e35bdca53",
+        "target_entity_id": "E_05cd0d677c3c6a4c",
+        "relation_id": "R_8faae581844e9b09",
+        "relation_name": "发生概率",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:215",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:215",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:215",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_66a10be56f7a0d54",
+        "source_entity_id": "E_ace90e7e35bdca53",
+        "target_entity_id": "E_5130cb5a17e7d149",
+        "relation_id": "R_590d6019bfa93b8a",
+        "relation_name": "发生阶段",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:216",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:216",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:216",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_1b6a8bbb01031d25",
+        "source_entity_id": "E_ace90e7e35bdca53",
+        "target_entity_id": "E_b75b595749771db0",
+        "relation_id": "R_3610c0dfb31ece46",
+        "relation_name": "设计措施",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:217",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:217",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:217",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_230208160799f554",
+        "source_entity_id": "E_6f9b027d13b3aafa",
+        "target_entity_id": "E_9794b39f5fbd92fb",
+        "relation_id": "R_ae4eca153b30db9d",
+        "relation_name": "是否单点",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:218",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:218",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:218",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_143bde91ea585d3f",
+        "source_entity_id": "E_6f9b027d13b3aafa",
+        "target_entity_id": "E_98be123d7991d6af",
+        "relation_id": "R_5b1e81d8ca48a211",
+        "relation_name": "严酷度等级",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:219",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:219",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:219",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_211e7406f6cae36d",
+        "source_entity_id": "E_6f9b027d13b3aafa",
+        "target_entity_id": "E_7a049beba27972f0",
+        "relation_id": "R_8faae581844e9b09",
+        "relation_name": "发生概率",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:220",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:220",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:220",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_827038dbe362929b",
+        "source_entity_id": "E_6f9b027d13b3aafa",
+        "target_entity_id": "E_099f987de83885ad",
+        "relation_id": "R_590d6019bfa93b8a",
+        "relation_name": "发生阶段",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:221",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:221",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:221",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_58eb7391fcf6737a",
+        "source_entity_id": "E_6f9b027d13b3aafa",
+        "target_entity_id": "E_b07ba057319aa5bd",
+        "relation_id": "R_3610c0dfb31ece46",
+        "relation_name": "设计措施",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:222",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:222",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:222",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_675eb977bac97e38",
+        "source_entity_id": "E_0fa5c9e9496f6650",
+        "target_entity_id": "E_f27eefd4b0bf5abf",
+        "relation_id": "R_ae4eca153b30db9d",
+        "relation_name": "是否单点",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:223",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:223",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:223",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_5c83b52840db0b6b",
+        "source_entity_id": "E_0fa5c9e9496f6650",
+        "target_entity_id": "E_914bd1bb912e840e",
+        "relation_id": "R_5b1e81d8ca48a211",
+        "relation_name": "严酷度等级",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:224",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:224",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:224",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_3f81815be25f1683",
+        "source_entity_id": "E_0fa5c9e9496f6650",
+        "target_entity_id": "E_50368e361f9c19ad",
+        "relation_id": "R_8faae581844e9b09",
+        "relation_name": "发生概率",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:225",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:225",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:225",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_802978eb895be068",
+        "source_entity_id": "E_0fa5c9e9496f6650",
+        "target_entity_id": "E_28f8cb29bc8add34",
+        "relation_id": "R_590d6019bfa93b8a",
+        "relation_name": "发生阶段",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:226",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:226",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:226",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_5d2993a9993374c3",
+        "source_entity_id": "E_0fa5c9e9496f6650",
+        "target_entity_id": "E_0a203cd13e0c3eac",
+        "relation_id": "R_3610c0dfb31ece46",
+        "relation_name": "设计措施",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:227",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:227",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:227",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_d2e6ae00d97b325a",
+        "source_entity_id": "E_51bacddb34fa7a2e",
+        "target_entity_id": "E_0c141362dc679488",
+        "relation_id": "R_ae4eca153b30db9d",
+        "relation_name": "是否单点",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:230",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:230",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:230",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_5f37f9a0f7912e1c",
+        "source_entity_id": "E_51bacddb34fa7a2e",
+        "target_entity_id": "E_cfdc57e887e3fdb5",
+        "relation_id": "R_5b1e81d8ca48a211",
+        "relation_name": "严酷度等级",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:231",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:231",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:231",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_ded151e83f7af0e9",
+        "source_entity_id": "E_51bacddb34fa7a2e",
+        "target_entity_id": "E_a9ac4f4cff6e482e",
+        "relation_id": "R_8faae581844e9b09",
+        "relation_name": "发生概率",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:232",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:232",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:232",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_509b07e6850cbb1b",
+        "source_entity_id": "E_51bacddb34fa7a2e",
+        "target_entity_id": "E_579d579d8285685f",
+        "relation_id": "R_590d6019bfa93b8a",
+        "relation_name": "发生阶段",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:233",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:233",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:233",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      },
+      {
+        "triple_id": "T_b6e4749eb8b3c15d",
+        "source_entity_id": "E_51bacddb34fa7a2e",
+        "target_entity_id": "E_a0cb96baef6598a0",
+        "relation_id": "R_3610c0dfb31ece46",
+        "relation_name": "设计措施",
+        "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:234",
+        "created": false,
+        "before": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:234",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        },
+        "after": {
+          "element_id": "5:3490c13f-5ec7-40d1-8ddd-26e228ad859e:234",
+          "properties": {
+            "source_type": "table",
+            "source_file": "样例数据2.xlsx"
+          }
+        }
+      }
+    ],
+    "warnings": [],
+    "version": {
+      "version_id": "2026-05-19T02:56:12.090368+00:00-f4377a4c",
+      "history_path": "F:\\JackieLi\\graduate_project\\JH\\artifacts\\kg_versions\\history.json"
+    }
+  },
+  "postprocess": {
+    "status": "skipped",
+    "error": "Object of type DateTime is not JSON serializable"
+  }
+}

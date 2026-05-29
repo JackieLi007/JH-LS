@@ -1,0 +1,1265 @@
+{
+  "node_order": [
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:0",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:1",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:2",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:3",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:4",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:5",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:6",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:7",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:8",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:9",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:10",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:11",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:12",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:13",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:14",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:15",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:16",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:17",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:18",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:19",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:20",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:21",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:22",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:23",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:24",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:25",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:26",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:27",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:28",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:29",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:30",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:31",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:32",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:33",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:34",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:35",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:36",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:37",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:38",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:39",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:40",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:41",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:42",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:43",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:44",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:45",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:46",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:47",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:48",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:49",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:50",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:51",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:52",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:53",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:54",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:55",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:56",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:57",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:58",
+    "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:59"
+  ],
+  "sentence_model_name": "bert-base-chinese",
+  "graphsage_config": {
+    "hidden_dim": 256,
+    "output_dim": 128,
+    "epochs": 30,
+    "learning_rate": 0.001,
+    "negative_ratio": 1,
+    "weight_decay": 1e-05,
+    "seed": 42,
+    "device": null
+  },
+  "training_info": {
+    "loss": 1.235880970954895
+  },
+  "nodes": [
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:0",
+      "name": "总体",
+      "type": "总体",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:总体。类型:总体。属性:name:总体；source_type:table；source_file:样例数据2.xlsx。邻域:具有功能->总体功能:总体功能；包含->系统:系统；存在故障->总体级故障模式:总体级故障模式",
+      "attributes": {
+        "name": "总体",
+        "source_type": "table",
+        "id": "E_42789f6051741479",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "总体"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:1",
+      "name": "总体功能",
+      "type": "总体功能",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:总体功能。类型:总体功能。属性:name:总体功能；source_type:table；source_file:样例数据2.xlsx。邻域:具有功能<-总体:总体",
+      "attributes": {
+        "name": "总体功能",
+        "source_type": "table",
+        "id": "E_6fac03dfb63f4d98",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "总体功能"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:2",
+      "name": "系统",
+      "type": "系统",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:系统。类型:系统。属性:name:系统；source_type:table；source_file:样例数据2.xlsx。邻域:包含<-总体:总体",
+      "attributes": {
+        "name": "系统",
+        "source_type": "table",
+        "id": "E_3129ccfe3ff309ed",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "系统"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:3",
+      "name": "总体级故障模式",
+      "type": "总体级故障模式",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:总体级故障模式。类型:总体级故障模式。属性:name:总体级故障模式；source_type:table；source_file:样例数据2.xlsx。邻域:存在故障<-总体:总体；有->总体级故障现象:总体级故障现象",
+      "attributes": {
+        "name": "总体级故障模式",
+        "source_type": "table",
+        "id": "E_2ac494c65be9d124",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "总体级故障模式"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:4",
+      "name": "单机级故障模式",
+      "type": "单机级故障模式",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:单机级故障模式。类型:单机级故障模式。属性:name:单机级故障模式；source_type:table；source_file:样例数据2.xlsx。邻域:有->单机级故障现象:单机级故障现象",
+      "attributes": {
+        "name": "单机级故障模式",
+        "source_type": "table",
+        "id": "E_8d2a96d7dcdab2a0",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机级故障模式"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:5",
+      "name": "单机级故障现象",
+      "type": "单机级故障现象",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:单机级故障现象。类型:单机级故障现象。属性:name:单机级故障现象；source_type:table；source_file:样例数据2.xlsx。邻域:有<-单机级故障模式:单机级故障模式",
+      "attributes": {
+        "name": "单机级故障现象",
+        "source_type": "table",
+        "id": "E_b31d0a7249383fb5",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机级故障现象"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:6",
+      "name": "系统级故障模式",
+      "type": "系统级故障模式",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:系统级故障模式。类型:系统级故障模式。属性:name:系统级故障模式；source_type:table；source_file:样例数据2.xlsx。邻域:有->系统级故障现象:系统级故障现象",
+      "attributes": {
+        "name": "系统级故障模式",
+        "source_type": "table",
+        "id": "E_f54fcda74fe0a868",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "系统级故障模式"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:7",
+      "name": "系统级故障现象",
+      "type": "系统级故障现象",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:系统级故障现象。类型:系统级故障现象。属性:name:系统级故障现象；source_type:table；source_file:样例数据2.xlsx。邻域:有<-系统级故障模式:系统级故障模式",
+      "attributes": {
+        "name": "系统级故障现象",
+        "source_type": "table",
+        "id": "E_5fbb33c3ecff5a5e",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "系统级故障现象"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:8",
+      "name": "总体级故障现象",
+      "type": "总体级故障现象",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:总体级故障现象。类型:总体级故障现象。属性:name:总体级故障现象；source_type:table；source_file:样例数据2.xlsx。邻域:有<-总体级故障模式:总体级故障模式",
+      "attributes": {
+        "name": "总体级故障现象",
+        "source_type": "table",
+        "id": "E_c347f980fcaab1e8",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "总体级故障现象"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:9",
+      "name": "发动机",
+      "type": "系统",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:发动机。类型:系统。属性:name:发动机；source_type:table；source_file:样例数据2.xlsx。邻域:包含->单机:A发动机摇摆软管；包含->零部组件:外管组件；存在故障->系统级故障模式:A发动机比冲过小；包含->零部组件:内管组件；存在故障->系统级故障模式:A发动机无法摇摆；包含->单机:A发动机点火室吹除单向阀；包含->零部组件:壳体；存在故障->系统级故障模式:A发动机一次起动失败",
+      "attributes": {
+        "name": "发动机",
+        "source_type": "table",
+        "id": "E_92e351d3022c84ae",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "系统"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:10",
+      "name": "A发动机摇摆软管",
+      "type": "单机",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:A发动机摇摆软管。类型:单机。属性:name:A发动机摇摆软管；source_type:table；source_file:样例数据2.xlsx。邻域:包含<-系统:发动机；包含->零部组件:外管组件；具有功能->单机功能:承载介质压力；存在故障->单机级故障模式:介质外漏；包含->零部组件:内管组件；具有功能->单机功能:补偿摇摆时泵入口位置变化；存在故障->单机级故障模式:形变能力不足；相似->单机:A发动机冷泄阀",
+      "attributes": {
+        "name": "A发动机摇摆软管",
+        "source_type": "table",
+        "id": "E_3343e698731d3106",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:11",
+      "name": "外管组件",
+      "type": "零部组件",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:外管组件。类型:零部组件。属性:name:外管组件；source_type:table；source_file:样例数据2.xlsx。邻域:包含<-单机:A发动机摇摆软管；包含<-系统:发动机；存在故障->组件级故障模式:结构破坏；相似->零部组件:内管组件",
+      "attributes": {
+        "name": "外管组件",
+        "source_type": "table",
+        "id": "E_57cf0e61d1b582b2",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "零部组件"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:12",
+      "name": "承载介质压力",
+      "type": "单机功能",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:承载介质压力。类型:单机功能。属性:name:承载介质压力；source_type:table；source_file:样例数据2.xlsx。邻域:具有功能<-单机:A发动机摇摆软管；具有功能<-单机:A发动机冷泄阀",
+      "attributes": {
+        "name": "承载介质压力",
+        "source_type": "table",
+        "id": "E_09cd25cd7469ca8d",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机功能"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:13",
+      "name": "介质外漏",
+      "type": "单机级故障模式",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:介质外漏。类型:单机级故障模式。属性:是否单点:是；严酷度等级:['Ⅱ类(严重的)', 'Ⅲ类(轻度的)']；设计措施:['1', '3']；name:介质外漏；发生阶段:飞行阶段；source_type:table；发生概率:E类(极少)；source_file:样例数据2.xlsx。邻域:存在故障<-单机:A发动机摇摆软管；导致<-组件级故障模式:结构破坏；导致->系统级故障模式:A发动机比冲过小；存在故障<-单机:A发动机冷泄阀；导致<-组件级故障模式:失稳或断裂；导致->系统级故障模式:A发动机起动推力同步性超差",
+      "attributes": {
+        "是否单点": "是",
+        "严酷度等级": [
+          "Ⅱ类(严重的)",
+          "Ⅲ类(轻度的)"
+        ],
+        "设计措施": [
+          "1",
+          "3"
+        ],
+        "name": "介质外漏",
+        "发生阶段": "飞行阶段",
+        "source_type": "table",
+        "id": "E_e78f62798b790ce3",
+        "发生概率": "E类(极少)",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机级故障模式"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:14",
+      "name": "结构破坏",
+      "type": "组件级故障模式",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:结构破坏。类型:组件级故障模式。属性:name:结构破坏；source_type:table；source_file:样例数据2.xlsx。邻域:存在故障<-零部组件:外管组件；导致->单机级故障模式:介质外漏",
+      "attributes": {
+        "name": "结构破坏",
+        "source_type": "table",
+        "id": "E_ebfa3ab09e596e2d",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "组件级故障模式"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:15",
+      "name": "A发动机比冲过小",
+      "type": "系统级故障模式",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:A发动机比冲过小。类型:系统级故障模式。属性:name:A发动机比冲过小；source_type:table；source_file:样例数据2.xlsx。邻域:存在故障<-系统:发动机；导致<-单机级故障模式:介质外漏；导致->总体级故障模式:损失运载能力，可能造成轨道精度损失，但基本具备进入近地停泊轨道能力。；相似->系统级故障模式:A发动机无法摇摆；相似->系统级故障模式:A发动机一次起动失败",
+      "attributes": {
+        "name": "A发动机比冲过小",
+        "source_type": "table",
+        "id": "E_001be51be33dba95",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "系统级故障模式"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:16",
+      "name": "损失运载能力，可能造成轨道精度损失，但基本具备进入近地停泊轨道能力。",
+      "type": "总体级故障模式",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:损失运载能力，可能造成轨道精度损失，但基本具备进入近地停泊轨道能力。。类型:总体级故障模式。属性:name:损失运载能力，可能造成轨道精度损失，但基本具备进入近地停泊轨道能力。；source_type:table；source_file:样例数据2.xlsx。邻域:导致<-系统级故障模式:A发动机比冲过小",
+      "attributes": {
+        "name": "损失运载能力，可能造成轨道精度损失，但基本具备进入近地停泊轨道能力。",
+        "source_type": "table",
+        "id": "E_2e06a578243e2c02",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "总体级故障模式"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:17",
+      "name": "内管组件",
+      "type": "零部组件",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:内管组件。类型:零部组件。属性:name:内管组件；source_type:table；source_file:样例数据2.xlsx。邻域:包含<-单机:A发动机摇摆软管；包含<-系统:发动机；存在故障->组件级故障模式:疲劳失稳；相似<-零部组件:外管组件",
+      "attributes": {
+        "name": "内管组件",
+        "source_type": "table",
+        "id": "E_ddb134c8f4a05a71",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "零部组件"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:18",
+      "name": "补偿摇摆时泵入口位置变化",
+      "type": "单机功能",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:补偿摇摆时泵入口位置变化。类型:单机功能。属性:name:补偿摇摆时泵入口位置变化；source_type:table；source_file:样例数据2.xlsx。邻域:具有功能<-单机:A发动机摇摆软管",
+      "attributes": {
+        "name": "补偿摇摆时泵入口位置变化",
+        "source_type": "table",
+        "id": "E_8e327138ca49dae2",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机功能"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:19",
+      "name": "形变能力不足",
+      "type": "单机级故障模式",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:形变能力不足。类型:单机级故障模式。属性:是否单点:是；严酷度等级:Ⅲ类(轻度的)；设计措施:2；name:形变能力不足；发生阶段:飞行阶段；source_type:table；发生概率:E类(极少)；source_file:样例数据2.xlsx。邻域:存在故障<-单机:A发动机摇摆软管；导致<-组件级故障模式:疲劳失稳；导致->系统级故障模式:A发动机无法摇摆",
+      "attributes": {
+        "是否单点": "是",
+        "严酷度等级": "Ⅲ类(轻度的)",
+        "设计措施": "2",
+        "name": "形变能力不足",
+        "发生阶段": "飞行阶段",
+        "source_type": "table",
+        "id": "E_3db8dbb925966226",
+        "发生概率": "E类(极少)",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机级故障模式"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:20",
+      "name": "疲劳失稳",
+      "type": "组件级故障模式",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:疲劳失稳。类型:组件级故障模式。属性:name:疲劳失稳；source_type:table；source_file:样例数据2.xlsx。邻域:存在故障<-零部组件:内管组件；导致->单机级故障模式:形变能力不足",
+      "attributes": {
+        "name": "疲劳失稳",
+        "source_type": "table",
+        "id": "E_1a92631d30cf137d",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "组件级故障模式"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:21",
+      "name": "A发动机无法摇摆",
+      "type": "系统级故障模式",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:A发动机无法摇摆。类型:系统级故障模式。属性:name:A发动机无法摇摆；source_type:table；source_file:样例数据2.xlsx。邻域:存在故障<-系统:发动机；导致<-单机级故障模式:形变能力不足；导致->总体级故障模式:单台发动机无法调姿，影响姿控精度和入轨精度。；相似<-系统级故障模式:A发动机比冲过小；相似->系统级故障模式:A发动机一次起动失败",
+      "attributes": {
+        "name": "A发动机无法摇摆",
+        "source_type": "table",
+        "id": "E_80de7bdbbdc5fb81",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "系统级故障模式"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:22",
+      "name": "单台发动机无法调姿，影响姿控精度和入轨精度。",
+      "type": "总体级故障模式",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:单台发动机无法调姿，影响姿控精度和入轨精度。。类型:总体级故障模式。属性:name:单台发动机无法调姿，影响姿控精度和入轨精度。；source_type:table；source_file:样例数据2.xlsx。邻域:导致<-系统级故障模式:A发动机无法摇摆",
+      "attributes": {
+        "name": "单台发动机无法调姿，影响姿控精度和入轨精度。",
+        "source_type": "table",
+        "id": "E_bdde7de22e8edbc9",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "总体级故障模式"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:23",
+      "name": "A发动机点火室吹除单向阀",
+      "type": "单机",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:A发动机点火室吹除单向阀。类型:单机。属性:name:A发动机点火室吹除单向阀；source_type:table；source_file:样例数据2.xlsx。邻域:包含<-系统:发动机；包含->零部组件:壳体；具有功能->单机功能:压差打开，单向流动；存在故障->单机级故障模式:打不开；相似->单机:A发动机冷泄阀",
+      "attributes": {
+        "name": "A发动机点火室吹除单向阀",
+        "source_type": "table",
+        "id": "E_96e1539267f375ea",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:24",
+      "name": "壳体",
+      "type": "零部组件",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:壳体。类型:零部组件。属性:name:壳体；source_type:table；source_file:样例数据2.xlsx。邻域:包含<-单机:A发动机点火室吹除单向阀；包含<-系统:发动机；存在故障->组件级故障模式:导向失效",
+      "attributes": {
+        "name": "壳体",
+        "source_type": "table",
+        "id": "E_62ce741ed83318f3",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "零部组件"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:25",
+      "name": "压差打开，单向流动",
+      "type": "单机功能",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:压差打开，单向流动。类型:单机功能。属性:name:压差打开，单向流动；source_type:table；source_file:样例数据2.xlsx。邻域:具有功能<-单机:A发动机点火室吹除单向阀",
+      "attributes": {
+        "name": "压差打开，单向流动",
+        "source_type": "table",
+        "id": "E_5de22590d6e74815",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机功能"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:26",
+      "name": "打不开",
+      "type": "单机级故障模式",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:打不开。类型:单机级故障模式。属性:是否单点:['是', '否']；严酷度等级:['Ⅱ类(严重的)', 'Ⅰ类(灾难的)']；设计措施:['2', '3']；name:打不开；发生阶段:飞行阶段；source_type:table；发生概率:['E类(极少)', 'D类(很少)']；source_file:样例数据2.xlsx。邻域:存在故障<-单机:A发动机点火室吹除单向阀；导致<-组件级故障模式:导向失效；导致->系统级故障模式:A发动机一次起动失败；存在故障<-单机:C3氧补压电磁阀；导致<-组件级故障模式:磁场强度过低；导致->系统级故障模式:C3液氧箱补压箱压不上升（增加措施；相似->单机级故障模式:通电打不开",
+      "attributes": {
+        "是否单点": [
+          "是",
+          "否"
+        ],
+        "严酷度等级": [
+          "Ⅱ类(严重的)",
+          "Ⅰ类(灾难的)"
+        ],
+        "设计措施": [
+          "2",
+          "3"
+        ],
+        "name": "打不开",
+        "发生阶段": "飞行阶段",
+        "source_type": "table",
+        "id": "E_f201ae26bdaa9726",
+        "发生概率": [
+          "E类(极少)",
+          "D类(很少)"
+        ],
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机级故障模式"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:27",
+      "name": "导向失效",
+      "type": "组件级故障模式",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:导向失效。类型:组件级故障模式。属性:name:导向失效；source_type:table；source_file:样例数据2.xlsx。邻域:存在故障<-零部组件:壳体；导致->单机级故障模式:打不开",
+      "attributes": {
+        "name": "导向失效",
+        "source_type": "table",
+        "id": "E_eb39e39604605faa",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "组件级故障模式"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:28",
+      "name": "A发动机一次起动失败",
+      "type": "系统级故障模式",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:A发动机一次起动失败。类型:系统级故障模式。属性:name:A发动机一次起动失败；source_type:table；source_file:样例数据2.xlsx。邻域:存在故障<-系统:发动机；导致<-单机级故障模式:打不开；导致->总体级故障模式:A发动机无法提供推力，无法入轨，火箭进入停泊轨道，任务失败。；相似<-系统级故障模式:A发动机比冲过小；相似<-系统级故障模式:A发动机无法摇摆；相似->系统级故障模式:A发动机起动推力同步性超差",
+      "attributes": {
+        "name": "A发动机一次起动失败",
+        "source_type": "table",
+        "id": "E_94e60d0466feb2ac",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "系统级故障模式"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:29",
+      "name": "A发动机无法提供推力，无法入轨，火箭进入停泊轨道，任务失败。",
+      "type": "总体级故障模式",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:A发动机无法提供推力，无法入轨，火箭进入停泊轨道，任务失败。。类型:总体级故障模式。属性:name:A发动机无法提供推力，无法入轨，火箭进入停泊轨道，任务失败。；source_type:table；source_file:样例数据2.xlsx。邻域:导致<-系统级故障模式:A发动机一次起动失败",
+      "attributes": {
+        "name": "A发动机无法提供推力，无法入轨，火箭进入停泊轨道，任务失败。",
+        "source_type": "table",
+        "id": "E_6f37ef7df0a80061",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "总体级故障模式"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:30",
+      "name": "A发动机冷泄阀",
+      "type": "单机",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:A发动机冷泄阀。类型:单机。属性:name:A发动机冷泄阀；source_type:table；source_file:样例数据2.xlsx。邻域:包含<-系统:发动机；包含->零部组件:弹簧；具有功能->单机功能:承载介质压力；存在故障->单机级故障模式:介质外漏；相似<-单机:A发动机摇摆软管；相似<-单机:A发动机点火室吹除单向阀",
+      "attributes": {
+        "name": "A发动机冷泄阀",
+        "source_type": "table",
+        "id": "E_9d56923370849757",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:31",
+      "name": "弹簧",
+      "type": "零部组件",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:弹簧。类型:零部组件。属性:name:弹簧；source_type:table；source_file:样例数据2.xlsx。邻域:包含<-单机:A发动机冷泄阀；包含<-系统:发动机；存在故障->组件级故障模式:失稳或断裂；相似->零部组件:主弹簧；相似->零部组件:副弹簧",
+      "attributes": {
+        "name": "弹簧",
+        "source_type": "table",
+        "id": "E_de2e57244be55529",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "零部组件"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:32",
+      "name": "失稳或断裂",
+      "type": "组件级故障模式",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:失稳或断裂。类型:组件级故障模式。属性:name:失稳或断裂；source_type:table；source_file:样例数据2.xlsx。邻域:存在故障<-零部组件:弹簧；导致->单机级故障模式:介质外漏",
+      "attributes": {
+        "name": "失稳或断裂",
+        "source_type": "table",
+        "id": "E_323c35774dd53a78",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "组件级故障模式"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:33",
+      "name": "A发动机起动推力同步性超差",
+      "type": "系统级故障模式",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:A发动机起动推力同步性超差。类型:系统级故障模式。属性:name:A发动机起动推力同步性超差；source_type:table；source_file:样例数据2.xlsx。邻域:存在故障<-系统:发动机；导致<-单机级故障模式:介质外漏；导致->总体级故障模式:起动段产生姿态干扰力，影响起动段的姿态控制。；相似<-系统级故障模式:A发动机一次起动失败",
+      "attributes": {
+        "name": "A发动机起动推力同步性超差",
+        "source_type": "table",
+        "id": "E_dd7ff8fc107491c4",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "系统级故障模式"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:34",
+      "name": "起动段产生姿态干扰力，影响起动段的姿态控制。",
+      "type": "总体级故障模式",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:起动段产生姿态干扰力，影响起动段的姿态控制。。类型:总体级故障模式。属性:name:起动段产生姿态干扰力，影响起动段的姿态控制。；source_type:table；source_file:样例数据2.xlsx。邻域:导致<-系统级故障模式:A发动机起动推力同步性超差",
+      "attributes": {
+        "name": "起动段产生姿态干扰力，影响起动段的姿态控制。",
+        "source_type": "table",
+        "id": "E_4b6af00e5a5d2193",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "总体级故障模式"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:35",
+      "name": "C3增压输送系统",
+      "type": "系统",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:C3增压输送系统。类型:系统。属性:name:C3增压输送系统；source_type:table；source_file:样例数据2.xlsx。邻域:包含->单机:C3氧安溢阀；包含->零部组件:副弹簧；存在故障->系统级故障模式:C3液氧贮箱压力下降；包含->零部组件:主弹簧；包含->单机:C3氢安溢阀；包含->零部组件:电磁阀柔性弹簧组件；存在故障->系统级故障模式:C3液氢贮箱超压；相似->系统:C2增压输送系统",
+      "attributes": {
+        "name": "C3增压输送系统",
+        "source_type": "table",
+        "id": "E_49db9e27a7ddbcf2",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "系统"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:36",
+      "name": "C3氧安溢阀",
+      "type": "单机",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:C3氧安溢阀。类型:单机。属性:name:C3氧安溢阀；source_type:table；source_file:样例数据2.xlsx。邻域:包含<-系统:C3增压输送系统；包含->零部组件:副弹簧；具有功能->单机功能:承载；存在故障->单机级故障模式:结构破坏；包含->零部组件:主弹簧；相似->单机:C2氧安溢阀；相似->单机:C3氢安溢阀；相似->单机:C3氧补压电磁阀",
+      "attributes": {
+        "name": "C3氧安溢阀",
+        "source_type": "table",
+        "id": "E_6dbf17d95c1c94cb",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:37",
+      "name": "副弹簧",
+      "type": "零部组件",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:副弹簧。类型:零部组件。属性:name:副弹簧；source_type:table；source_file:样例数据2.xlsx。邻域:包含<-单机:C3氧安溢阀；包含<-系统:C3增压输送系统；存在故障->组件级故障模式:疲劳破坏导致阀芯不能回位；相似<-零部组件:弹簧；相似->零部组件:主弹簧",
+      "attributes": {
+        "name": "副弹簧",
+        "source_type": "table",
+        "id": "E_f573e47632e2f3c6",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "零部组件"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:38",
+      "name": "承载",
+      "type": "单机功能",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:承载。类型:单机功能。属性:name:承载；source_type:table；source_file:样例数据2.xlsx。邻域:具有功能<-单机:C3氧安溢阀；具有功能<-单机:C2氧安溢阀",
+      "attributes": {
+        "name": "承载",
+        "source_type": "table",
+        "id": "E_19801729c6d79b7f",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机功能"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:39",
+      "name": "结构破坏",
+      "type": "单机级故障模式",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:结构破坏。类型:单机级故障模式。属性:是否单点:是；严酷度等级:Ⅰ类(灾难的)；设计措施:3；name:结构破坏；发生阶段:飞行阶段；source_type:table；发生概率:D类(很少)；source_file:样例数据2.xlsx。邻域:存在故障<-单机:C3氧安溢阀；导致<-组件级故障模式:疲劳破坏导致阀芯不能回位；导致->系统级故障模式:C3液氧贮箱压力下降；存在故障<-单机:C2氧安溢阀；导致<-组件级故障模式:疲劳破坏导致阀芯密封力不足；导致->系统级故障模式:C2液氧贮箱压力下降",
+      "attributes": {
+        "是否单点": "是",
+        "严酷度等级": "Ⅰ类(灾难的)",
+        "设计措施": "3",
+        "name": "结构破坏",
+        "发生阶段": "飞行阶段",
+        "source_type": "table",
+        "id": "E_dfcb9c21b55d28e1",
+        "发生概率": "D类(很少)",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机级故障模式"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:40",
+      "name": "疲劳破坏导致阀芯不能回位",
+      "type": "组件级故障模式",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:疲劳破坏导致阀芯不能回位。类型:组件级故障模式。属性:name:疲劳破坏导致阀芯不能回位；source_type:table；source_file:样例数据2.xlsx。邻域:存在故障<-零部组件:副弹簧；导致->单机级故障模式:结构破坏；存在故障<-零部组件:主弹簧；相似->组件级故障模式:疲劳破坏导致阀芯密封力不足",
+      "attributes": {
+        "name": "疲劳破坏导致阀芯不能回位",
+        "source_type": "table",
+        "id": "E_524d7bebf7fbcaca",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "组件级故障模式"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:41",
+      "name": "C3液氧贮箱压力下降",
+      "type": "系统级故障模式",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:C3液氧贮箱压力下降。类型:系统级故障模式。属性:name:C3液氧贮箱压力下降；source_type:table；source_file:样例数据2.xlsx。邻域:存在故障<-系统:C3增压输送系统；导致<-单机级故障模式:结构破坏；导致->总体级故障模式:不满足发动机入口压力要求，发动机气蚀，任务失败，发生在一级工作引起火箭再入；相似->系统级故障模式:C2液氧贮箱压力下降；相似->系统级故障模式:C3液氢贮箱超压",
+      "attributes": {
+        "name": "C3液氧贮箱压力下降",
+        "source_type": "table",
+        "id": "E_ffcbc4e398acfac3",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "系统级故障模式"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:42",
+      "name": "不满足发动机入口压力要求，发动机气蚀，任务失败，发生在一级工作引起火箭再入",
+      "type": "总体级故障模式",
+      "description": "",
+      "aliases": [
+        "不满足发动机起动压力要求，发动机气蚀，任务失败，发生在一级工作引起火箭再入"
+      ],
+      "sources": [],
+      "text": "名称:不满足发动机入口压力要求，发动机气蚀，任务失败，发生在一级工作引起火箭再入。类型:总体级故障模式。别名:不满足发动机起动压力要求，发动机气蚀，任务失败，发生在一级工作引起火箭再入。属性:name:不满足发动机入口压力要求，发动机气蚀，任务失败，发生在一级工作引起火箭再入；source_type:table；source_file:样例数据2.xlsx。邻域:导致<-系统级故障模式:C3液氧贮箱压力下降；导致<-系统级故障模式:C3液氧箱补压箱压不上升（增加措施；相似->总体级故障模式:不满足发动机工作压力要求，发动机气蚀，任务失败，火箭再入；相似->总体级故障模式:贮箱破坏，任务失败，发生在一级工作则火箭再入",
+      "attributes": {
+        "name": "不满足发动机入口压力要求，发动机气蚀，任务失败，发生在一级工作引起火箭再入",
+        "source_type": "table",
+        "id": "E_3f0db9efebf835e5",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "总体级故障模式"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:43",
+      "name": "主弹簧",
+      "type": "零部组件",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:主弹簧。类型:零部组件。属性:name:主弹簧；source_type:table；source_file:样例数据2.xlsx。邻域:包含<-单机:C3氧安溢阀；包含<-系统:C3增压输送系统；存在故障->组件级故障模式:疲劳破坏导致阀芯不能回位；相似<-零部组件:弹簧；相似<-零部组件:副弹簧",
+      "attributes": {
+        "name": "主弹簧",
+        "source_type": "table",
+        "id": "E_e9c9328eec38bc80",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "零部组件"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:44",
+      "name": "C3氢安溢阀",
+      "type": "单机",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:C3氢安溢阀。类型:单机。属性:name:C3氢安溢阀；source_type:table；source_file:样例数据2.xlsx。邻域:包含<-系统:C3增压输送系统；包含->零部组件:电磁阀柔性弹簧组件；具有功能->单机功能:贮箱保险功能；存在故障->单机级故障模式:通电打不开；相似<-单机:C3氧安溢阀；相似->单机:C2氧安溢阀",
+      "attributes": {
+        "name": "C3氢安溢阀",
+        "source_type": "table",
+        "id": "E_5ceef5a05e5668bd",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:45",
+      "name": "电磁阀柔性弹簧组件",
+      "type": "零部组件",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:电磁阀柔性弹簧组件。类型:零部组件。属性:name:电磁阀柔性弹簧组件；source_type:table；source_file:样例数据2.xlsx。邻域:包含<-单机:C3氢安溢阀；包含<-系统:C3增压输送系统；存在故障->组件级故障模式:疲劳破坏导致阀芯密封力不足；包含<-单机:C2氧安溢阀；包含<-系统:C2增压输送系统",
+      "attributes": {
+        "name": "电磁阀柔性弹簧组件",
+        "source_type": "table",
+        "id": "E_f6e25e2d5ff1edd9",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "零部组件"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:46",
+      "name": "贮箱保险功能",
+      "type": "单机功能",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:贮箱保险功能。类型:单机功能。属性:name:贮箱保险功能；source_type:table；source_file:样例数据2.xlsx。邻域:具有功能<-单机:C3氢安溢阀",
+      "attributes": {
+        "name": "贮箱保险功能",
+        "source_type": "table",
+        "id": "E_8c9f8db353e84f55",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机功能"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:47",
+      "name": "通电打不开",
+      "type": "单机级故障模式",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:通电打不开。类型:单机级故障模式。属性:是否单点:否；严酷度等级:Ⅰ类(灾难的)；设计措施:3；name:通电打不开；发生阶段:飞行阶段；source_type:table；发生概率:D类(很少)；source_file:样例数据2.xlsx。邻域:存在故障<-单机:C3氢安溢阀；导致<-组件级故障模式:疲劳破坏导致阀芯密封力不足；导致->系统级故障模式:C3液氢贮箱超压；相似<-单机级故障模式:打不开",
+      "attributes": {
+        "是否单点": "否",
+        "严酷度等级": "Ⅰ类(灾难的)",
+        "设计措施": "3",
+        "name": "通电打不开",
+        "发生阶段": "飞行阶段",
+        "source_type": "table",
+        "id": "E_0e33f40018a68c07",
+        "发生概率": "D类(很少)",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机级故障模式"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:48",
+      "name": "疲劳破坏导致阀芯密封力不足",
+      "type": "组件级故障模式",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:疲劳破坏导致阀芯密封力不足。类型:组件级故障模式。属性:name:疲劳破坏导致阀芯密封力不足；source_type:table；source_file:样例数据2.xlsx。邻域:存在故障<-零部组件:电磁阀柔性弹簧组件；导致->单机级故障模式:通电打不开；导致->单机级故障模式:结构破坏；相似<-组件级故障模式:疲劳破坏导致阀芯不能回位",
+      "attributes": {
+        "name": "疲劳破坏导致阀芯密封力不足",
+        "source_type": "table",
+        "id": "E_ac4aea6bb3c6162e",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "组件级故障模式"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:49",
+      "name": "C3液氢贮箱超压",
+      "type": "系统级故障模式",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:C3液氢贮箱超压。类型:系统级故障模式。属性:name:C3液氢贮箱超压；source_type:table；source_file:样例数据2.xlsx。邻域:存在故障<-系统:C3增压输送系统；导致<-单机级故障模式:通电打不开；导致->总体级故障模式:贮箱破坏，任务失败，发生在一级工作则火箭再入；相似<-系统级故障模式:C3液氧贮箱压力下降；相似->系统级故障模式:C2液氧贮箱压力下降",
+      "attributes": {
+        "name": "C3液氢贮箱超压",
+        "source_type": "table",
+        "id": "E_d68e5574d497ab3d",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "系统级故障模式"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:50",
+      "name": "贮箱破坏，任务失败，发生在一级工作则火箭再入",
+      "type": "总体级故障模式",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:贮箱破坏，任务失败，发生在一级工作则火箭再入。类型:总体级故障模式。属性:name:贮箱破坏，任务失败，发生在一级工作则火箭再入；source_type:table；source_file:样例数据2.xlsx。邻域:导致<-系统级故障模式:C3液氢贮箱超压；相似<-总体级故障模式:不满足发动机入口压力要求，发动机气蚀，任务失败，发生在一级工作引起火箭再入",
+      "attributes": {
+        "name": "贮箱破坏，任务失败，发生在一级工作则火箭再入",
+        "source_type": "table",
+        "id": "E_59b085abde203e34",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "总体级故障模式"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:51",
+      "name": "C2增压输送系统",
+      "type": "系统",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:C2增压输送系统。类型:系统。属性:name:C2增压输送系统；source_type:table；source_file:样例数据2.xlsx。邻域:包含->单机:C2氧安溢阀；包含->零部组件:电磁阀柔性弹簧组件；存在故障->系统级故障模式:C2液氧贮箱压力下降；包含->单机:C3氧补压电磁阀；包含->零部组件:线圈；存在故障->系统级故障模式:C3液氧箱补压箱压不上升（增加措施；相似<-系统:C3增压输送系统",
+      "attributes": {
+        "name": "C2增压输送系统",
+        "source_type": "table",
+        "id": "E_c1de6b4ffef0fbb0",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "系统"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:52",
+      "name": "C2氧安溢阀",
+      "type": "单机",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:C2氧安溢阀。类型:单机。属性:name:C2氧安溢阀；source_type:table；source_file:样例数据2.xlsx。邻域:包含<-系统:C2增压输送系统；包含->零部组件:电磁阀柔性弹簧组件；具有功能->单机功能:承载；存在故障->单机级故障模式:结构破坏；相似<-单机:C3氧安溢阀；相似<-单机:C3氢安溢阀",
+      "attributes": {
+        "name": "C2氧安溢阀",
+        "source_type": "table",
+        "id": "E_62c2b14259f7783f",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:53",
+      "name": "C2液氧贮箱压力下降",
+      "type": "系统级故障模式",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:C2液氧贮箱压力下降。类型:系统级故障模式。属性:name:C2液氧贮箱压力下降；source_type:table；source_file:样例数据2.xlsx。邻域:存在故障<-系统:C2增压输送系统；导致<-单机级故障模式:结构破坏；导致->总体级故障模式:不满足发动机工作压力要求，发动机气蚀，任务失败，火箭再入；相似<-系统级故障模式:C3液氧贮箱压力下降；相似<-系统级故障模式:C3液氢贮箱超压",
+      "attributes": {
+        "name": "C2液氧贮箱压力下降",
+        "source_type": "table",
+        "id": "E_0bb4e51b42d8834e",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "系统级故障模式"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:54",
+      "name": "不满足发动机工作压力要求，发动机气蚀，任务失败，火箭再入",
+      "type": "总体级故障模式",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:不满足发动机工作压力要求，发动机气蚀，任务失败，火箭再入。类型:总体级故障模式。属性:name:不满足发动机工作压力要求，发动机气蚀，任务失败，火箭再入；source_type:table；source_file:样例数据2.xlsx。邻域:导致<-系统级故障模式:C2液氧贮箱压力下降；相似<-总体级故障模式:不满足发动机入口压力要求，发动机气蚀，任务失败，发生在一级工作引起火箭再入",
+      "attributes": {
+        "name": "不满足发动机工作压力要求，发动机气蚀，任务失败，火箭再入",
+        "source_type": "table",
+        "id": "E_11739ceb90a7b8b1",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "总体级故障模式"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:55",
+      "name": "C3氧补压电磁阀",
+      "type": "单机",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:C3氧补压电磁阀。类型:单机。属性:name:C3氧补压电磁阀；source_type:table；source_file:样例数据2.xlsx。邻域:包含<-系统:C2增压输送系统；包含->零部组件:线圈；具有功能->单机功能:通电后打开；存在故障->单机级故障模式:打不开；相似<-单机:C3氧安溢阀",
+      "attributes": {
+        "name": "C3氧补压电磁阀",
+        "source_type": "table",
+        "id": "E_17804a3ff044e33e",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:56",
+      "name": "线圈",
+      "type": "零部组件",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:线圈。类型:零部组件。属性:name:线圈；source_type:table；source_file:样例数据2.xlsx。邻域:包含<-单机:C3氧补压电磁阀；包含<-系统:C2增压输送系统；存在故障->组件级故障模式:磁场强度过低",
+      "attributes": {
+        "name": "线圈",
+        "source_type": "table",
+        "id": "E_0499272959950159",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "零部组件"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:57",
+      "name": "通电后打开",
+      "type": "单机功能",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:通电后打开。类型:单机功能。属性:name:通电后打开；source_type:table；source_file:样例数据2.xlsx。邻域:具有功能<-单机:C3氧补压电磁阀",
+      "attributes": {
+        "name": "通电后打开",
+        "source_type": "table",
+        "id": "E_b7bce9043146bd65",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "单机功能"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:58",
+      "name": "磁场强度过低",
+      "type": "组件级故障模式",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:磁场强度过低。类型:组件级故障模式。属性:name:磁场强度过低；source_type:table；source_file:样例数据2.xlsx。邻域:存在故障<-零部组件:线圈；导致->单机级故障模式:打不开",
+      "attributes": {
+        "name": "磁场强度过低",
+        "source_type": "table",
+        "id": "E_fa0180345e2f6f86",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "组件级故障模式"
+        ],
+        "_type_source": "label"
+      }
+    },
+    {
+      "id": "4:3490c13f-5ec7-40d1-8ddd-26e228ad859e:59",
+      "name": "C3液氧箱补压箱压不上升（增加措施",
+      "type": "系统级故障模式",
+      "description": "",
+      "aliases": [],
+      "sources": [],
+      "text": "名称:C3液氧箱补压箱压不上升（增加措施。类型:系统级故障模式。属性:name:C3液氧箱补压箱压不上升（增加措施；source_type:table；source_file:样例数据2.xlsx。邻域:存在故障<-系统:C2增压输送系统；导致<-单机级故障模式:打不开；导致->总体级故障模式:不满足发动机入口压力要求，发动机气蚀，任务失败，发生在一级工作引起火箭再入",
+      "attributes": {
+        "name": "C3液氧箱补压箱压不上升（增加措施",
+        "source_type": "table",
+        "id": "E_17e325aa78483da4",
+        "source_file": "样例数据2.xlsx",
+        "_labels": [
+          "系统级故障模式"
+        ],
+        "_type_source": "label"
+      }
+    }
+  ]
+}
