@@ -264,6 +264,7 @@ const baseState = {
   },
   parseConfig: null,
   extractionResult: null,
+  kgBuildProgress: null,
   selectedFileName: '',
   selectedFile: null,
   selectedFiles: [],
@@ -499,6 +500,179 @@ function mergeExtractionResults(results = [], sourceType = 'table') {
       }, { entities: 0, relations: 0, triples: 0 }),
     } : undefined,
   };
+}
+
+function kgBuildItems(kgBuild = null) {
+  if (!kgBuild) return [];
+  return Array.isArray(kgBuild.items) && kgBuild.items.length ? kgBuild.items : [kgBuild];
+}
+
+function kgPayloadDetail(payloadCounts = {}) {
+  if (!payloadCounts) return '';
+  return `节点 ${payloadCounts.entities || 0} / 关系类型 ${payloadCounts.relations || 0} / 三元组 ${payloadCounts.triples || 0}`;
+}
+
+function kgExtractionCounts(result = {}) {
+  const counts = result?.counts || {};
+  return {
+    entities: Number(counts.entities || (Array.isArray(result?.entities) ? result.entities.length : 0)),
+    relations: Number(counts.relations || (Array.isArray(result?.relations) ? result.relations.length : 0)),
+    triples: Number(counts.triples || (Array.isArray(result?.triples) ? result.triples.length : (Array.isArray(result?.tripleRows) ? result.tripleRows.length : 0))),
+  };
+}
+
+function kgBuildPostprocessError(kgBuild = null) {
+  const errors = kgBuildItems(kgBuild)
+    .map((item) => String(
+      item?.postprocessError
+        || (item?.summary?.postprocess?.status === 'skipped' ? item.summary.postprocess.error : '')
+        || '',
+    ).trim())
+    .filter(Boolean);
+  return unique(errors).join('；');
+}
+
+function kgBuildTotals(kgBuild = null) {
+  return kgBuildItems(kgBuild).reduce((acc, item) => {
+    const write = item?.summary?.write || {};
+    const linking = item?.summary?.linking || {};
+    const writeback = linking.writeback || {};
+    const index = item?.summary?.index || {};
+    acc.createdNodes += Number(write.created_nodes || 0);
+    acc.matchedNodes += Number(write.matched_nodes || 0);
+    acc.createdRelationships += Number(write.created_relationships || 0);
+    acc.matchedRelationships += Number(write.matched_relationships || 0);
+    acc.addedEdges += Number(linking.added_edge_count || 0);
+    acc.writtenSimilarities += Number(writeback.added_relationships || 0);
+    acc.indexNodes += Number(index.node_count || 0);
+    return acc;
+  }, {
+    createdNodes: 0,
+    matchedNodes: 0,
+    createdRelationships: 0,
+    matchedRelationships: 0,
+    addedEdges: 0,
+    writtenSimilarities: 0,
+    indexNodes: 0,
+  });
+}
+
+function kgProgressFromBuild(kgBuild = null) {
+  if (!kgBuild) return null;
+  const status = kgBuild.status || 'ok';
+  const totals = kgBuildTotals(kgBuild);
+  const postprocessError = kgBuildPostprocessError(kgBuild);
+  const payloadText = kgPayloadDetail(kgBuild.payloadCounts || {});
+  const failed = status === 'failed';
+  const skipped = status === 'skipped';
+  const linkSkipped = Boolean(postprocessError);
+  const message = failed
+    ? `图谱构建失败：${kgBuild.error || '请检查 Neo4j 连接与模型依赖'}`
+    : (skipped
+      ? (kgBuild.reason || '无可写入图谱的数据')
+      : (linkSkipped ? `已完成落库，知识连接/索引已跳过：${postprocessError}` : '已完成落库、知识连接与索引'));
+  const rows = [
+    { label: '知识抽取', status: 'ok', detail: '已生成抽取结果' },
+    {
+      label: '三元组落库',
+      status: failed ? 'failed' : (skipped ? 'skipped' : 'ok'),
+      detail: skipped
+        ? '没有可写入的数据'
+        : `新增节点 ${totals.createdNodes}，更新节点 ${totals.matchedNodes}，新增关系 ${totals.createdRelationships}，更新关系 ${totals.matchedRelationships}`,
+    },
+    {
+      label: '知识连接',
+      status: failed ? 'failed' : (skipped || linkSkipped ? 'skipped' : 'ok'),
+      detail: linkSkipped
+        ? postprocessError
+        : `新增相似候选 ${totals.addedEdges}，写回相似关系 ${totals.writtenSimilarities}`,
+    },
+    {
+      label: '语义索引',
+      status: failed ? 'failed' : (skipped || linkSkipped ? 'skipped' : 'ok'),
+      detail: linkSkipped ? postprocessError : `索引节点 ${totals.indexNodes}`,
+    },
+  ];
+  const batchDetail = kgBuildItems(kgBuild).length > 1
+    ? kgBuildItems(kgBuild).map((item) => {
+      const itemError = item.error || kgBuildPostprocessError(item);
+      if (item.status === 'failed') return `${item.fileName || '文件'}：失败${itemError ? `（${itemError}）` : ''}`;
+      return `${item.fileName || '文件'}：完成${itemError ? `（后处理跳过：${itemError}）` : ''}`;
+    }).join('；')
+    : '';
+  return {
+    status: failed ? 'failed' : (skipped ? 'skipped' : (linkSkipped ? 'skipped' : 'ok')),
+    message,
+    detail: payloadText,
+    rows,
+    reportPath: kgBuild.reportPath || '',
+    batchDetail,
+    result: kgBuild,
+  };
+}
+
+function kgProgressBuilding(extractionResult = {}) {
+  return {
+    status: 'building',
+    message: '正在写入 Neo4j，并执行知识连接与索引',
+    detail: kgPayloadDetail(kgExtractionCounts(extractionResult)),
+    rows: [
+      { label: '知识抽取', status: 'ok', detail: '已生成抽取结果' },
+      { label: '图谱落库与知识连接', status: 'running', detail: '服务端正在依次执行三元组落库、相似关系写回和语义索引构建' },
+    ],
+  };
+}
+
+function kgProgressFailed(error, extractionResult = {}) {
+  return {
+    status: 'failed',
+    message: `图谱构建失败：${error?.message || error || '请检查 Neo4j 连接与模型依赖'}`,
+    detail: kgPayloadDetail(kgExtractionCounts(extractionResult)),
+    rows: [
+      { label: '知识抽取', status: 'ok', detail: '已生成抽取结果' },
+      { label: '图谱落库与知识连接', status: 'failed', detail: error?.message || String(error || '') },
+    ],
+  };
+}
+
+function renderKgBuildProgress(progress = null) {
+  if (!progress) return '';
+  const stateText = {
+    ok: '完成',
+    failed: '失败',
+    skipped: '跳过',
+    building: '进行中',
+    running: '进行中',
+    pending: '等待中',
+  };
+  const rows = Array.isArray(progress.rows) ? progress.rows : [];
+  return `<div class="kg-progress">
+    <div class="kg-progress__header">
+      <div>
+        <strong class="kg-progress__title">知识连接与落库</strong>
+        <p class="kg-progress__message">${escapeHtml(progress.message || '')}</p>
+      </div>
+      <span class="kg-progress__state kg-progress__state--${escapeHtml(progress.status || 'pending')}">${escapeHtml(stateText[progress.status] || progress.status || '等待中')}</span>
+    </div>
+    ${progress.detail ? `<p class="kg-progress__detail">${escapeHtml(progress.detail)}</p>` : ''}
+    ${rows.length ? `<div class="kg-progress__steps">${rows.map((row) => `<div class="kg-progress__step">
+      <span class="kg-progress__step-name">${escapeHtml(row.label)}</span>
+      <span class="kg-progress__state kg-progress__state--${escapeHtml(row.status || 'pending')}">${escapeHtml(stateText[row.status] || row.status || '等待中')}</span>
+      <span class="kg-progress__step-detail">${escapeHtml(row.detail || '')}</span>
+    </div>`).join('')}</div>` : ''}
+    ${progress.reportPath ? `<p class="kg-progress__detail">报告：${escapeHtml(progress.reportPath)}</p>` : ''}
+    ${progress.batchDetail ? `<p class="kg-progress__detail">${escapeHtml(progress.batchDetail)}</p>` : ''}
+  </div>`;
+}
+
+function shouldBuildKgFromExtraction(result = null) {
+  if (!result || result.error || result.kgBuild) return false;
+  const counts = kgExtractionCounts(result);
+  return Number(counts.triples || 0) > 0
+    || Number(counts.entities || 0) > 0
+    || (Array.isArray(result.tripleRows) && result.tripleRows.length > 0)
+    || (Array.isArray(result.triples) && result.triples.length > 0)
+    || (Array.isArray(result.entities) && result.entities.length > 0);
 }
 
 export function createApp(root, options = {}) {
@@ -784,29 +958,7 @@ export function createApp(root, options = {}) {
     const result = state.extractionResult;
     const counts = extractCounts();
     const kgBuild = result?.kgBuild;
-    const kgPostprocessError = String(
-      kgBuild?.postprocessError
-        || (kgBuild?.summary?.postprocess?.status === 'skipped' ? kgBuild.summary.postprocess.error : '')
-        || '',
-    ).trim();
-    const kgStatusText = kgBuild
-      ? ({
-        ok: kgPostprocessError ? `已写入 Neo4j，知识连接/索引已跳过：${kgPostprocessError}` : '已写入 Neo4j，并完成知识连接与索引',
-        skipped: kgBuild.reason || '无可写入图谱的数据',
-        failed: `失败：${kgBuild.error || '请检查 Neo4j 连接与模型依赖'}`,
-      }[kgBuild.status] || kgBuild.status)
-      : '';
-    const kgStatusDetail = kgBuild?.payloadCounts
-      ? `节点 ${kgBuild.payloadCounts.entities || 0} / 关系类型 ${kgBuild.payloadCounts.relations || 0} / 三元组 ${kgBuild.payloadCounts.triples || 0}`
-      : '';
-    const kgBatchDetail = Array.isArray(kgBuild?.items)
-      ? kgBuild.items.map((item) => {
-        const itemPostprocessError = item.summary?.postprocess?.status === 'skipped' ? item.summary.postprocess.error : '';
-        const itemError = item.error || itemPostprocessError || '';
-        if (item.status === 'failed') return `${item.fileName || '文件'}：失败${itemError ? `（${itemError}）` : ''}`;
-        return `${item.fileName || '文件'}：完成${itemPostprocessError ? `（索引跳过：${itemPostprocessError}）` : ''}`;
-      }).join('；')
-      : '';
+    const kgProgress = state.kgBuildProgress || kgProgressFromBuild(kgBuild);
     const relationRows = isImage ? [] : (result?.tripleRows || []);
     const relationSamples = Array.from(new Map(
       relationRows.map((item) => [
@@ -823,6 +975,7 @@ export function createApp(root, options = {}) {
     const hasGeneratedContent = Boolean(result);
     const extractError = String(result?.error || '').trim();
     const sourceLabels = { table: '表格抽取', document: '文档抽取', image: '图片抽取' };
+    const loadingText = state.kgBuildProgress?.status === 'building' ? '正在构建图谱...' : T.extracting;
     const sourceTabs = ['table', 'document', 'image'].map((type) => `<button class="tab-group__button ${state.sourceType === type ? 'tab-group__button--active' : ''}" data-source-type="${type}">${sourceLabels[type]}</button>`).join('');
     const docSummary = result?.documentSummary || {};
     const imageSummary = result?.imageSummary || {};
@@ -878,6 +1031,7 @@ export function createApp(root, options = {}) {
         </table>
       </div>
       ${resultExcelPath ? `<div class="empty-state empty-state--compact">Excel结果：${escapeHtml(resultExcelPath)}</div>` : ''}
+      ${renderKgBuildProgress(kgProgress)}
     ` : `<div class="image-result-empty"><div></div><p>${state.selectedFile ? '已选择图片，请点击开始处理' : '暂无处理结果，请上传图片后开始处理'}</p></div>`;
     const uploadPanel = isDocument ? `
             <div class="upload-box upload-box--stage">
@@ -885,7 +1039,7 @@ export function createApp(root, options = {}) {
               <div class="upload-extra">
                 <div class="toolbar-actions extract-stage__actions">
                   <button class="secondary-btn" id="extract-trigger-document-btn">选择文档</button>
-                  <button class="tab-group__button tab-group__button--active" id="extract-run-btn" ${state.loading || !state.selectedFile ? 'disabled' : ''}>${state.loading ? T.extracting : '执行文档抽取'}</button>
+                  <button class="tab-group__button tab-group__button--active" id="extract-run-btn" ${state.loading || !state.selectedFile ? 'disabled' : ''}>${state.loading ? loadingText : '执行文档抽取'}</button>
                 </div>
                 <label><span class="field-label">说明书文档</span><input id="extract-document-file" type="file" accept=".pdf,.docx,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown"></label>
                 <div class="summary-bar summary-bar--file"><div><strong>当前文档</strong><span>${state.selectedFile ? escapeHtml(state.selectedFile.name) : '未选择文件'}</span></div><em>${state.selectedFile ? sourceHint('document') : '请先上传一份使用说明书文档'}</em></div>
@@ -905,7 +1059,7 @@ export function createApp(root, options = {}) {
                 </div>
                 <label><span class="field-label field-label--required">图片名称</span><input class="image-name-input" value="${escapeHtml(imageName || state.selectedFileName || '')}" placeholder="上传图片后自动填充" readonly></label>
                 <div class="toolbar-actions extract-stage__actions">
-                  <button class="tab-group__button tab-group__button--active" id="extract-run-btn" ${state.loading || !state.selectedFile ? 'disabled' : ''}>${state.loading ? T.extracting : '开始处理'}</button>
+                  <button class="tab-group__button tab-group__button--active" id="extract-run-btn" ${state.loading || !state.selectedFile ? 'disabled' : ''}>${state.loading ? loadingText : '开始处理'}</button>
                   <button class="secondary-btn" id="extract-reset-btn" type="button">重置</button>
                 </div>
                 ${extractError ? `<div class="empty-state" style="border-color: rgba(210,52,70,0.45); color:#9f1f2d;">解析失败：${escapeHtml(extractError)}</div>` : ''}
@@ -920,7 +1074,7 @@ export function createApp(root, options = {}) {
               <div class="upload-extra">
                 <div class="toolbar-actions extract-stage__actions">
                   <button class="secondary-btn" id="extract-trigger-batch-btn">批量上传表格</button>
-                  <button class="tab-group__button tab-group__button--active" id="extract-run-btn" ${state.loading || !state.selectedFile ? 'disabled' : ''}>${state.loading ? T.extracting : '执行表格解析'}</button>
+                  <button class="tab-group__button tab-group__button--active" id="extract-run-btn" ${state.loading || !state.selectedFile ? 'disabled' : ''}>${state.loading ? loadingText : '执行表格解析'}</button>
                 </div>
                 <label><span class="field-label">批量文件</span><input id="extract-batch-files" type="file" multiple accept=".xlsx,.xls,.csv"></label>
                 <div class="summary-bar summary-bar--file"><div><strong>当前文件</strong><span>${selectedFiles.length ? escapeHtml(selectedFiles.map((file) => file.name).join('、')) : '未选择文件'}</span></div><em>${selectedFiles.length ? `共 ${selectedFiles.length} 份文件，将分别抽取后自动合并` : '请先批量上传需要解析的表格'}</em></div>
@@ -965,7 +1119,7 @@ export function createApp(root, options = {}) {
             </table>
           </div>
           ${resultJsonPath ? `<div class="empty-state empty-state--compact">结果文件：${escapeHtml(resultJsonPath)}</div>` : ''}
-          ${kgBuild ? `<div class="empty-state empty-state--compact">图谱构建：${escapeHtml(kgStatusText)}${kgStatusDetail ? `（${escapeHtml(kgStatusDetail)}）` : ''}${kgBuild.reportPath ? `；报告：${escapeHtml(kgBuild.reportPath)}` : ''}${kgBatchDetail ? `<br>${escapeHtml(kgBatchDetail)}` : ''}</div>` : ''}
+          ${renderKgBuildProgress(kgProgress)}
         </section>
         <section class="panel config-panel">
           <div class="panel__header panel__header--compact"><div><p class="panel__eyebrow">${T.pageExtract}</p><h3>节点关系展示</h3></div></div>
@@ -1168,6 +1322,7 @@ export function createApp(root, options = {}) {
     clearImagePreview();
     state.parseConfig = null;
     state.extractionResult = null;
+    state.kgBuildProgress = null;
     state.selectedFileName = '';
     state.selectedFile = null;
     state.selectedFiles = [];
@@ -1183,6 +1338,7 @@ export function createApp(root, options = {}) {
     state.sourceType = type;
     state.parseConfig = null;
     state.extractionResult = null;
+    state.kgBuildProgress = null;
     state.selectedFileName = '';
     state.selectedFile = null;
     state.selectedFiles = [];
@@ -1243,6 +1399,7 @@ export function createApp(root, options = {}) {
     if (state.sourceType === 'table' && !state.selectedFile) return;
     if (state.sourceType !== 'table' && !state.selectedFileName && !state.selectedFile) return;
     state.loading = true;
+    state.kgBuildProgress = null;
     render();
     try {
       const mappings = buildExtractMappings();
@@ -1270,6 +1427,33 @@ export function createApp(root, options = {}) {
         });
       }
       state.extractionResult = result;
+      state.kgBuildProgress = result?.kgBuild ? kgProgressFromBuild(result.kgBuild) : null;
+      render();
+      if (shouldBuildKgFromExtraction(result)) {
+        const requestId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        state.kgBuildProgress = { ...kgProgressBuilding(result), requestId };
+        render();
+        try {
+          const kgBuild = await requestJson('/api/kg/build', {
+            method: 'POST',
+            body: JSON.stringify({ extractionResult: result, recordVersion: true }),
+          });
+          if (state.kgBuildProgress?.requestId === requestId) {
+            state.extractionResult = { ...(state.extractionResult || result), kgBuild };
+            state.kgBuildProgress = kgProgressFromBuild(kgBuild);
+          }
+        } catch (buildError) {
+          if (state.kgBuildProgress?.requestId === requestId) {
+            const kgBuild = {
+              status: 'failed',
+              error: buildError.message,
+              payloadCounts: kgExtractionCounts(result),
+            };
+            state.extractionResult = { ...(state.extractionResult || result), kgBuild };
+            state.kgBuildProgress = kgProgressFailed(buildError, result);
+          }
+        }
+      }
     } catch (error) {
       state.extractionResult = {
         fileName: state.selectedFileName,
@@ -1280,6 +1464,7 @@ export function createApp(root, options = {}) {
         appliedMappings: [],
         error: error.message,
       };
+      state.kgBuildProgress = null;
     } finally {
       state.loading = false;
       render();
@@ -1402,6 +1587,7 @@ export function createApp(root, options = {}) {
       state.extraTableFileName = state.extraTableFiles.map((file) => file.name).join('、');
       state.parseConfig = null;
       state.extractionResult = null;
+      state.kgBuildProgress = null;
       render();
     });
     const extractTriggerBatchBtn = root.querySelector('#extract-trigger-batch-btn');
@@ -1419,6 +1605,7 @@ export function createApp(root, options = {}) {
       state.extraTableFile = null;
       state.parseConfig = null;
       state.extractionResult = null;
+      state.kgBuildProgress = null;
       render();
     });
     const extractTriggerDocumentBtn = root.querySelector('#extract-trigger-document-btn');
@@ -1436,6 +1623,7 @@ export function createApp(root, options = {}) {
       state.extraTableFile = null;
       state.parseConfig = null;
       state.extractionResult = null;
+      state.kgBuildProgress = null;
       render();
     });
     const extractTriggerImageBtn = root.querySelector('#extract-trigger-image-btn');
@@ -1495,4 +1683,3 @@ export function createApp(root, options = {}) {
     root.innerHTML = `<div style="padding:32px;font-family:Segoe UI, sans-serif;">${T.initFailed}${escapeHtml(error.message || '')}</div>`;
   });
 }
-

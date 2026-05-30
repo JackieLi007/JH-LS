@@ -467,7 +467,7 @@ def _link_summary(graph: Graph, result: Any, writeback: dict[str, Any] | None) -
         "similarity_details": result.similarity_details,
     }
     if writeback is not None:
-        summary["writeback"] = writeback
+        summary["writeback"] = {key: value for key, value in writeback.items() if key != "relationship_changes"}
     return summary
 
 
@@ -486,20 +486,6 @@ def ingest_triples_json(
     max_versions: int = 10,
 ) -> dict[str, Any]:
     write_summary = upsert_triples_to_neo4j(neo4j_config, payload)
-    if record_version:
-        from kg_tool.versioning import DEFAULT_VERSION_HISTORY_PATH, record_triple_version
-
-        history_path = version_history_path or DEFAULT_VERSION_HISTORY_PATH
-        version_record = record_triple_version(
-            load_triple_payload(payload),
-            write_summary,
-            history_path=history_path,
-            max_versions=max_versions,
-        )
-        write_summary["version"] = {
-            "version_id": version_record["version_id"],
-            "history_path": str(history_path),
-        }
     summary: dict[str, Any] = {"write": write_summary}
 
     if run_linking:
@@ -516,6 +502,10 @@ def ingest_triples_json(
                     merge_edges=result.merge_edges,
                     added_edges=result.added_edges,
                 )
+                write_summary["link_relationship_changes"] = writeback.get("relationship_changes", [])
+                write_summary["link_writeback"] = {
+                    key: value for key, value in writeback.items() if key != "relationship_changes"
+                }
             if output_graph:
                 result.merged_graph.save(output_graph)
             summary["linking"] = _link_summary(graph, result, writeback)
@@ -524,6 +514,21 @@ def ingest_triples_json(
                 "status": "skipped",
                 "error": str(exc),
             }
+
+    if record_version:
+        from kg_tool.versioning import DEFAULT_VERSION_HISTORY_PATH, record_triple_version
+
+        history_path = version_history_path or DEFAULT_VERSION_HISTORY_PATH
+        version_record = record_triple_version(
+            load_triple_payload(payload),
+            write_summary,
+            history_path=history_path,
+            max_versions=max_versions,
+        )
+        write_summary["version"] = {
+            "version_id": version_record["version_id"],
+            "history_path": str(history_path),
+        }
 
     if report_path:
         output = Path(report_path)

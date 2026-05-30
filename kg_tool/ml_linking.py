@@ -8,7 +8,7 @@ from typing import Any
 import numpy as np
 
 from kg_tool.graphsage import GraphSAGEConfig, train_graphsage_embeddings
-from kg_tool.ml_text import BertTextEncoder, build_node_texts
+from kg_tool.ml_text import build_node_texts, get_bert_text_encoder
 from kg_tool.models import Edge, Graph, Node
 
 
@@ -87,6 +87,36 @@ EQUIPMENT_VARIANT_GROUPS = {
 }
 EQUIPMENT_VARIANT_TERMS = tuple(dict.fromkeys(term for terms in EQUIPMENT_VARIANT_GROUPS.values() for term in terms))
 IGNORED_SIMILARITY_ATTRIBUTE_KEYS = {"id"}
+SYSTEM_HINT_KEYS = ("system", "owner", "所属系统", "上层系统")
+EXCLUDED_LINK_NODE_TYPES = ("发生概率", "发生阶段", "严酷度等级", "是否单点")
+EXCLUDED_LINK_NODE_TYPE_KEYS = (
+    "type",
+    "node_type",
+    "entity_type",
+    "category",
+    "level",
+    "name_zh",
+    "display_name",
+)
+CROSS_LEVEL_EQUIPMENT_TYPE_ALIASES = {
+    "零部组件": "零部组件",
+    "组件": "零部组件",
+    "component": "零部组件",
+    "单机": "单机",
+    "machine": "单机",
+    "系统": "系统",
+    "system": "系统",
+}
+CROSS_LEVEL_FAULT_MODE_TYPE_ALIASES = {
+    "组件级故障模式": "组件级故障模式",
+    "componentfailuremode": "组件级故障模式",
+    "单机级故障模式": "单机级故障模式",
+    "unitfailuremode": "单机级故障模式",
+    "系统级故障模式": "系统级故障模式",
+    "systemfailuremode": "系统级故障模式",
+    "总体级故障模式": "总体级故障模式",
+    "overallfailuremode": "总体级故障模式",
+}
 
 
 
@@ -113,6 +143,14 @@ class GraphFeatureCache:
     model_tokens: dict[str, set[str]]
     equipment_variant_features: dict[str, dict[str, str]]
     equipment_name_cores: dict[str, str]
+    similar_pairs: set[tuple[str, str]]
+    similar_neighbors: dict[str, set[str]]
+    skip_link_node_ids: set[str]
+    cross_level_equipment_groups: dict[str, list[str]]
+    cross_level_fault_mode_groups: dict[str, list[str]]
+    same_name_groups: dict[str, list[str]]
+    name_prefix_groups: dict[str, list[str]]
+    system_hint_groups: dict[str, list[str]]
 
 
 def normalize_text(text: str) -> str:
@@ -290,7 +328,7 @@ def _is_fault_mode_type(node_type: str) -> bool:
 
 
 def _same_system_hint(left: Node, right: Node) -> bool:
-    for key in ("system", "owner", "所属系统", "上层系统"):
+    for key in SYSTEM_HINT_KEYS:
         left_value = str(left.attributes.get(key, "")).strip()
         right_value = str(right.attributes.get(key, "")).strip()
         if left_value and right_value and left_value == right_value:
@@ -309,6 +347,76 @@ def _same_owner_hint(left: Node, right: Node) -> bool:
 
 def _normalized_primary_name(node: Node) -> str:
     return normalize_text(node.name)
+
+
+def _name_prefix_key(normalized_name: str) -> str:
+    return normalized_name[:4] if len(normalized_name) >= 4 else ""
+
+
+def _pair_key(left_id: str, right_id: str) -> tuple[str, str]:
+    return tuple(sorted((left_id, right_id)))
+
+
+def _system_hint_values(node: Node) -> set[str]:
+    values: set[str] = set()
+    for key in SYSTEM_HINT_KEYS:
+        value = str(node.attributes.get(key, "")).strip()
+        if value:
+            values.add(f"{key}:{value}")
+    return values
+
+
+def _link_type_texts(node: Node) -> list[str]:
+    texts = [node.type]
+    for key in EXCLUDED_LINK_NODE_TYPE_KEYS:
+        value = node.attributes.get(key)
+        if value:
+            texts.append(_stringify(value))
+    labels = node.attributes.get("_labels", [])
+    if isinstance(labels, (list, tuple, set)):
+        texts.extend(str(label) for label in labels if label)
+    elif labels:
+        texts.append(str(labels))
+    return texts
+
+
+def _is_excluded_link_node(node: Node) -> bool:
+    excluded = {normalize_text(item) for item in EXCLUDED_LINK_NODE_TYPES}
+    for text in _link_type_texts(node):
+        normalized = normalize_text(text)
+        if normalized in excluded:
+            return True
+    return False
+
+
+def _cross_level_equipment_type(node: Node) -> str | None:
+    aliases = {normalize_text(key): value for key, value in CROSS_LEVEL_EQUIPMENT_TYPE_ALIASES.items()}
+    for text in _link_type_texts(node):
+        canonical = aliases.get(normalize_text(text))
+        if canonical:
+            return canonical
+    return None
+
+
+def _cross_level_fault_mode_type(node: Node) -> str | None:
+    aliases = {normalize_text(key): value for key, value in CROSS_LEVEL_FAULT_MODE_TYPE_ALIASES.items()}
+    for text in _link_type_texts(node):
+        canonical = aliases.get(normalize_text(text))
+        if canonical:
+            return canonical
+    return None
+
+
+def _is_cross_level_equipment_pair(left: Node, right: Node) -> bool:
+    left_type = _cross_level_equipment_type(left)
+    right_type = _cross_level_equipment_type(right)
+    return bool(left_type and right_type and left_type != right_type)
+
+
+def _is_cross_level_fault_mode_pair(left: Node, right: Node) -> bool:
+    left_type = _cross_level_fault_mode_type(left)
+    right_type = _cross_level_fault_mode_type(right)
+    return bool(left_type and right_type and left_type != right_type)
 
 
 def _extract_model_tokens(node: Node) -> set[str]:
@@ -389,25 +497,14 @@ class MLLinkConfig:
     attribute_weight: float = 0.05
     structure_weight: float = 0.05
     graph_weight: float = 0.05
-    relation_semantic_threshold: float = 0.88
-    relation_graph_threshold: float = 0.72
-    function_text_threshold: float = 0.88
-    phenomenon_text_threshold: float = 0.88
-    equipment_similar_name_threshold: float = 0.72
-    equipment_similar_semantic_threshold: float = 0.84
-    equipment_similar_graph_threshold: float = 0.65
-    similarity_threshold: float = 0.84
-    similarity_min_evidence: int = 3
-    similarity_name_reason_threshold: float = 0.84
-    similarity_name_anchor_threshold: float = 0.88
-    similarity_semantic_anchor_threshold: float = 0.9
-    similarity_structure_threshold: float = 0.45
-    similarity_attribute_threshold: float = 0.72
-    similar_name_weight: float = 0.25
-    similar_semantic_weight: float = 0.35
-    similar_attribute_weight: float = 0.12
-    similar_structure_weight: float = 0.13
-    similar_graph_weight: float = 0.15
+    cross_level_name_threshold: float = 0.96
+    cross_level_semantic_threshold: float = 0.985
+    cross_level_attribute_threshold: float = 0.75
+    cross_level_structure_threshold: float = 0.55
+    cross_level_graph_threshold: float = 0.9
+    cross_level_function_threshold: float = 0.95
+    cross_level_phenomenon_threshold: float = 0.95
+    cross_level_score_threshold: float = 0.95
     graphsage_hidden_dim: int = 128
     graphsage_output_dim: int = 96
     graphsage_epochs: int = 12
@@ -473,18 +570,48 @@ def _build_feature_cache(graph: Graph, node_order: list[str]) -> GraphFeatureCac
     }
     neighbor_types = {node_id: set() for node_id in graph.nodes}
     edge_types = {node_id: set() for node_id in graph.nodes}
+    similar_pairs: set[tuple[str, str]] = set()
+    similar_neighbors = {node_id: set() for node_id in graph.nodes}
     for edge in graph.edges:
         if edge.source in graph.nodes and edge.target in graph.nodes:
-            edge_types[edge.source].add(edge.type)
-            edge_types[edge.target].add(edge.type)
+            relation_type = _normalize_relation_type(edge.type)
+            edge_types[edge.source].add(relation_type)
+            edge_types[edge.target].add(relation_type)
             neighbor_types[edge.source].add(graph.nodes[edge.target].type)
             neighbor_types[edge.target].add(graph.nodes[edge.source].type)
+            if relation_type == SIMILAR_RELATION:
+                similar_pairs.add(_pair_key(edge.source, edge.target))
+                similar_neighbors[edge.source].add(edge.target)
+                similar_neighbors[edge.target].add(edge.source)
     function_texts = {node_id: _extract_function_text(node) for node_id, node in graph.nodes.items()}
     phenomenon_texts = {node_id: _extract_phenomenon_text(node) for node_id, node in graph.nodes.items()}
     normalized_names = {node_id: _normalized_primary_name(node) for node_id, node in graph.nodes.items()}
     model_tokens = {node_id: _extract_model_tokens(node) for node_id, node in graph.nodes.items()}
     equipment_variant_features = {node_id: _extract_equipment_variant_features(node) for node_id, node in graph.nodes.items()}
     equipment_name_cores = {node_id: _equipment_name_core(node) for node_id, node in graph.nodes.items()}
+    skip_link_node_ids = {node_id for node_id, node in graph.nodes.items() if _is_excluded_link_node(node)}
+    cross_level_equipment_groups: dict[str, list[str]] = {}
+    cross_level_fault_mode_groups: dict[str, list[str]] = {}
+    for node_id, node in graph.nodes.items():
+        if node_id in skip_link_node_ids:
+            continue
+        equipment_type = _cross_level_equipment_type(node)
+        if equipment_type:
+            cross_level_equipment_groups.setdefault(equipment_type, []).append(node_id)
+        fault_mode_type = _cross_level_fault_mode_type(node)
+        if fault_mode_type:
+            cross_level_fault_mode_groups.setdefault(fault_mode_type, []).append(node_id)
+    same_name_groups: dict[str, list[str]] = {}
+    name_prefix_groups: dict[str, list[str]] = {}
+    system_hint_groups: dict[str, list[str]] = {}
+    for node_id, normalized_name in normalized_names.items():
+        if normalized_name:
+            same_name_groups.setdefault(normalized_name, []).append(node_id)
+        prefix = _name_prefix_key(normalized_name)
+        if prefix:
+            name_prefix_groups.setdefault(prefix, []).append(node_id)
+        for value in _system_hint_values(graph.nodes[node_id]):
+            system_hint_groups.setdefault(value, []).append(node_id)
     return GraphFeatureCache(
         index_map=index_map,
         type_groups=type_groups,
@@ -498,11 +625,56 @@ def _build_feature_cache(graph: Graph, node_order: list[str]) -> GraphFeatureCac
         model_tokens=model_tokens,
         equipment_variant_features=equipment_variant_features,
         equipment_name_cores=equipment_name_cores,
+        similar_pairs=similar_pairs,
+        similar_neighbors=similar_neighbors,
+        skip_link_node_ids=skip_link_node_ids,
+        cross_level_equipment_groups=cross_level_equipment_groups,
+        cross_level_fault_mode_groups=cross_level_fault_mode_groups,
+        same_name_groups=same_name_groups,
+        name_prefix_groups=name_prefix_groups,
+        system_hint_groups=system_hint_groups,
     )
 
 
 def _structural_similarity(cache: GraphFeatureCache, left_id: str, right_id: str) -> float:
     return 0.6 * jaccard(cache.neighbor_types[left_id], cache.neighbor_types[right_id]) + 0.4 * jaccard(cache.edge_types[left_id], cache.edge_types[right_id])
+
+
+def _has_similar_relation(cache: GraphFeatureCache, left_id: str, right_id: str) -> bool:
+    return _pair_key(left_id, right_id) in cache.similar_pairs
+
+
+def _should_skip_link_node(cache: GraphFeatureCache, node_id: str) -> bool:
+    return node_id in cache.skip_link_node_ids
+
+
+def _candidate_group_ids_for_node(cache: GraphFeatureCache, node: Node) -> list[str]:
+    candidate_ids = [
+        node_id
+        for node_id in cache.type_groups.get(node.type, [])
+        if not _should_skip_link_node(cache, node_id)
+    ]
+    canonical_type = _cross_level_equipment_type(node)
+    if canonical_type:
+        for other_type, node_ids in cache.cross_level_equipment_groups.items():
+            if other_type == canonical_type:
+                continue
+            candidate_ids.extend(node_ids)
+    fault_mode_type = _cross_level_fault_mode_type(node)
+    if fault_mode_type:
+        for other_type, node_ids in cache.cross_level_fault_mode_groups.items():
+            if other_type == fault_mode_type:
+                continue
+            candidate_ids.extend(node_ids)
+    return list(dict.fromkeys(candidate_ids))
+
+
+def _linkable_node_ids(cache: GraphFeatureCache) -> list[str]:
+    return [
+        node_id
+        for node_id in cache.index_map
+        if not _should_skip_link_node(cache, node_id)
+    ]
 
 
 def _choose_canonical(left: Node, right: Node) -> Node:
@@ -562,24 +734,33 @@ def _cheap_name_hint(left_name: str, right_name: str) -> bool:
 
 
 def _recall_candidates(graph: Graph, node: Node, bert_embeddings: np.ndarray, cache: GraphFeatureCache, config: MLLinkConfig) -> list[Node]:
-    group_ids = cache.type_groups.get(node.type, [])
+    if _should_skip_link_node(cache, node.id):
+        return []
+    group_ids = _candidate_group_ids_for_node(cache, node)
     if len(group_ids) <= 1:
         return []
     candidate_ids: set[str] = set(_top_semantic_candidate_ids(group_ids, node.id, bert_embeddings, cache, config.recall_semantic_top_k))
     left_name = cache.normalized_names[node.id]
-    for other_id in group_ids:
-        if other_id == node.id:
-            continue
-        other = graph.nodes[other_id]
-        if _same_system_hint(node, other) or _cheap_name_hint(left_name, cache.normalized_names[other_id]):
-            candidate_ids.add(other_id)
+    group_id_lookup = set(group_ids)
+    for indexed_ids in (
+        cache.same_name_groups.get(left_name, []),
+        cache.name_prefix_groups.get(_name_prefix_key(left_name), []),
+        cache.similar_neighbors.get(node.id, set()),
+    ):
+        for other_id in indexed_ids:
+            if other_id != node.id and other_id in group_id_lookup:
+                candidate_ids.add(other_id)
+    for system_value in _system_hint_values(node):
+        for other_id in cache.system_hint_groups.get(system_value, []):
+            if other_id != node.id and other_id in group_id_lookup:
+                candidate_ids.add(other_id)
     left_idx = cache.index_map[node.id]
     scored: list[tuple[float, Node]] = []
     for other_id in candidate_ids:
         other = graph.nodes[other_id]
         lexical = name_similarity(node, other)
         semantic = float(bert_embeddings[left_idx] @ bert_embeddings[cache.index_map[other_id]])
-        if _same_system_hint(node, other) or lexical >= config.candidate_name_threshold or semantic >= config.candidate_semantic_threshold:
+        if _has_similar_relation(cache, node.id, other_id) or _same_system_hint(node, other) or lexical >= config.candidate_name_threshold or semantic >= config.candidate_semantic_threshold:
             scored.append((0.65 * semantic + 0.35 * lexical, other))
     scored.sort(key=lambda item: item[0], reverse=True)
     return [item[1] for item in scored[: config.top_k_candidates]]
@@ -595,16 +776,6 @@ def _merge_final_score(scores: dict[str, float], config: MLLinkConfig) -> float:
     )
 
 
-def _similar_final_score(scores: dict[str, float], config: MLLinkConfig) -> float:
-    return (
-        config.similar_name_weight * scores["name"]
-        + config.similar_semantic_weight * scores["semantic"]
-        + config.similar_attribute_weight * scores["attribute"]
-        + config.similar_structure_weight * scores["structure"]
-        + config.similar_graph_weight * scores["graph"]
-    )
-
-
 def _merge_kind_for_node(cache: GraphFeatureCache, node_id: str) -> str:
     if _is_equipment_node(cache, node_id):
         return "equipment"
@@ -615,6 +786,28 @@ def _merge_kind_for_node(cache: GraphFeatureCache, node_id: str) -> str:
 
 def _classify_merge(left: Node, right: Node, scores: dict[str, float], final_score: float, cache: GraphFeatureCache, config: MLLinkConfig) -> str | None:
     if left.type != right.type:
+        cross_level_kind: str | None = None
+        has_context = False
+        if _is_cross_level_equipment_pair(left, right):
+            if _equipment_distinguishing_conflict(cache, left.id, right.id):
+                return None
+            function_score = text_similarity(cache.function_texts[left.id], cache.function_texts[right.id])
+            cross_level_kind = "cross_level_equipment"
+            has_context = _same_system_hint(left, right) or function_score >= config.cross_level_function_threshold or scores["name"] >= 0.98
+        elif _is_cross_level_fault_mode_pair(left, right):
+            phenomenon_score = text_similarity(cache.phenomenon_texts[left.id], cache.phenomenon_texts[right.id])
+            cross_level_kind = "cross_level_fault_mode"
+            has_context = _same_owner_hint(left, right) or phenomenon_score >= config.cross_level_phenomenon_threshold or scores["name"] >= 0.98
+
+        if cross_level_kind and has_context and (
+            scores["name"] >= config.cross_level_name_threshold
+            and scores["semantic"] >= config.cross_level_semantic_threshold
+            and scores["attribute"] >= config.cross_level_attribute_threshold
+            and scores["structure"] >= config.cross_level_structure_threshold
+            and scores["graph"] >= config.cross_level_graph_threshold
+            and final_score >= config.cross_level_score_threshold
+        ):
+            return cross_level_kind
         return None
     left_name = cache.normalized_names[left.id]
     right_name = cache.normalized_names[right.id]
@@ -665,9 +858,17 @@ def _upsert_similar_edge(additions: dict[tuple[str, str, str], Edge], existing: 
         edge.attributes["reasons"] = list(dict.fromkeys([*edge.attributes.get("reasons", []), reason]))
 
     for attr_key, attr_value in attributes.items():
+        if isinstance(attr_value, str):
+            if attr_key not in edge.attributes:
+                edge.attributes[attr_key] = attr_value
+            continue
         rounded_value = round(float(attr_value), 4)
         previous = edge.attributes.get(attr_key)
-        if previous is None or float(previous) < rounded_value:
+        try:
+            previous_value = float(previous) if previous is not None else None
+        except (TypeError, ValueError):
+            previous_value = None
+        if previous_value is None or previous_value < rounded_value:
             edge.attributes[attr_key] = rounded_value
 
 
@@ -683,115 +884,61 @@ def _infer_focused_edges(
     additions: dict[tuple[str, str, str], Edge] = {}
     checked_pairs: set[tuple[str, str]] = set()
 
-    for node_type, group_ids in cache.type_groups.items():
+    for left_id in _linkable_node_ids(cache):
+        if focus_node_ids is not None and left_id not in focus_node_ids:
+            continue
+        left = graph.nodes[left_id]
+        group_ids = _candidate_group_ids_for_node(cache, left)
         if len(group_ids) <= 1:
             continue
-        for left_id in group_ids:
-            if focus_node_ids is not None and left_id not in focus_node_ids:
+        candidate_ids = _top_semantic_candidate_ids(group_ids, left_id, bert_embeddings, cache, config.relation_candidate_top_k)
+        for right_id in candidate_ids:
+            if focus_node_ids is not None and left_id not in focus_node_ids and right_id not in focus_node_ids:
                 continue
-            candidate_ids = _top_semantic_candidate_ids(group_ids, left_id, bert_embeddings, cache, config.relation_candidate_top_k)
-            for right_id in candidate_ids:
-                if focus_node_ids is not None and left_id not in focus_node_ids and right_id not in focus_node_ids:
-                    continue
-                pair = tuple(sorted((left_id, right_id)))
-                if pair in checked_pairs:
-                    continue
-                checked_pairs.add(pair)
-                left = graph.nodes[left_id]
-                right = graph.nodes[right_id]
-                left_idx = cache.index_map[left_id]
-                right_idx = cache.index_map[right_id]
-                semantic = float(bert_embeddings[left_idx] @ bert_embeddings[right_idx])
-                graph_score = float(graphsage_embeddings[left_idx] @ graphsage_embeddings[right_idx])
-                structure = _structural_similarity(cache, left_id, right_id)
+            pair = tuple(sorted((left_id, right_id)))
+            if pair in checked_pairs:
+                continue
+            checked_pairs.add(pair)
+            right = graph.nodes[right_id]
+            left_idx = cache.index_map[left_id]
+            right_idx = cache.index_map[right_id]
+            semantic = float(bert_embeddings[left_idx] @ bert_embeddings[right_idx])
+            graph_score = float(graphsage_embeddings[left_idx] @ graphsage_embeddings[right_idx])
+            structure = _structural_similarity(cache, left_id, right_id)
 
-                scores = {
-                    "name": name_similarity(left, right),
-                    "semantic": semantic,
-                    "attribute": attribute_similarity(left, right),
-                    "structure": structure,
-                    "graph": graph_score,
-                }
-                merge_score = _merge_final_score(scores, config)
-                if _classify_merge(left, right, scores, merge_score, cache, config) is not None:
-                    continue
+            scores = {
+                "name": name_similarity(left, right),
+                "semantic": semantic,
+                "attribute": attribute_similarity(left, right),
+                "structure": structure,
+                "graph": graph_score,
+            }
+            merge_score = _merge_final_score(scores, config)
+            strong_kind = _classify_merge(left, right, scores, merge_score, cache, config)
+            if strong_kind is None:
+                continue
 
-                similar_score = _similar_final_score(scores, config)
-                similar_kinds: list[str] = []
-                reasons: list[str] = []
-                attributes: dict[str, float | str] = {
-                    "similarity_score": similar_score,
-                    "name_score": scores["name"],
-                    "semantic_score": semantic,
-                    "attribute_score": scores["attribute"],
-                    "structure_score": structure,
-                    "graph_score": graph_score,
-                }
-
-                equipment_core_score = 0.0
-                if _is_equipment_node(cache, left_id):
-                    equipment_core_score = _equipment_core_similarity(cache, left_id, right_id)
-                    if (
-                        _equipment_distinguishing_conflict(cache, left_id, right_id)
-                        and equipment_core_score >= config.equipment_similar_name_threshold
-                        and semantic >= config.equipment_similar_semantic_threshold
-                        and graph_score >= config.equipment_similar_graph_threshold
-                    ):
-                        similar_kinds.append("equipment_variant")
-                        reasons.append("equipment_variant_core_name")
-                        attributes["equipment_core_score"] = equipment_core_score
-
-                function_left = cache.function_texts[left_id]
-                function_right = cache.function_texts[right_id]
-                function_score = text_similarity(function_left, function_right)
-                if function_left and function_right:
-                    attributes["function_score"] = function_score
-                    if function_score >= config.function_text_threshold:
-                        similar_kinds.append("function")
-                        reasons.append("similar_function_text")
-
-                phenomenon_score = 0.0
-                if _is_fault_mode_node(cache, left_id):
-                    phenomenon_left = cache.phenomenon_texts[left_id]
-                    phenomenon_right = cache.phenomenon_texts[right_id]
-                    phenomenon_score = text_similarity(phenomenon_left, phenomenon_right)
-                    if phenomenon_left and phenomenon_right:
-                        attributes["phenomenon_score"] = phenomenon_score
-                        if phenomenon_score >= config.phenomenon_text_threshold:
-                            similar_kinds.append("phenomenon")
-                            reasons.append("similar_fault_phenomenon")
-
-                if scores["name"] >= config.similarity_name_reason_threshold:
-                    reasons.append("similar_name")
-                if semantic >= config.relation_semantic_threshold:
-                    reasons.append("similar_semantic")
-                if graph_score >= config.relation_graph_threshold:
-                    reasons.append("similar_graph_context")
-                if structure >= config.similarity_structure_threshold:
-                    reasons.append("similar_structure")
-                if scores["attribute"] >= config.similarity_attribute_threshold:
-                    reasons.append("similar_attributes")
-
-                evidence_count = len(dict.fromkeys(reasons))
-                has_anchor = (
-                    bool(similar_kinds)
-                    or scores["name"] >= config.similarity_name_anchor_threshold
-                    or semantic >= config.similarity_semantic_anchor_threshold
-                )
-                if similar_score >= config.similarity_threshold and evidence_count >= config.similarity_min_evidence and has_anchor:
-                    if not similar_kinds:
-                        similar_kinds.append("composite")
-                    attributes["evidence_count"] = float(evidence_count)
-                    attributes["reason"] = "+".join(dict.fromkeys(reasons))
-                    for similar_kind in dict.fromkeys(similar_kinds):
-                        _upsert_similar_edge(
-                            additions,
-                            existing,
-                            left.id,
-                            right.id,
-                            similar_kind,
-                            dict(attributes),
-                        )
+            same_primary_name = bool(cache.normalized_names[left_id]) and cache.normalized_names[left_id] == cache.normalized_names[right_id]
+            attributes: dict[str, float | str] = {
+                "reason": "same_name" if same_primary_name else "strong_similarity",
+                "similarity_score": merge_score,
+                "strong_similarity_score": merge_score,
+                "strong_similarity_kind": strong_kind,
+                "name_score": scores["name"],
+                "semantic_score": semantic,
+                "attribute_score": scores["attribute"],
+                "structure_score": structure,
+                "graph_score": graph_score,
+                "evidence_count": 3.0 if same_primary_name else 4.0,
+            }
+            _upsert_similar_edge(
+                additions,
+                existing,
+                left.id,
+                right.id,
+                "same_name" if same_primary_name else f"strong_{strong_kind}",
+                attributes,
+            )
     return list(additions.values())
 
 
@@ -834,10 +981,10 @@ def connect_graph_with_ml(
     if focus_node_ids is not None:
         active_focus_node_ids = {node_id for node_id in focus_node_ids if node_id in working.nodes}
     node_order, node_texts = build_node_texts(working)
-    bert_encoder = BertTextEncoder(model_name=config.bert_model_name, device=config.device, max_length=config.bert_max_length)
+    bert_encoder = get_bert_text_encoder(model_name=config.bert_model_name, device=config.device, max_length=config.bert_max_length)
     bert_embeddings = bert_encoder.encode(node_texts, batch_size=config.bert_batch_size)
     initial_cache = _build_feature_cache(working, node_order)
-    graphsage_embeddings, _ = train_graphsage_embeddings(
+    graphsage_embeddings, training = train_graphsage_embeddings(
         working,
         node_order=node_order,
         initial_features=bert_embeddings,
@@ -849,127 +996,107 @@ def connect_graph_with_ml(
         ),
     )
 
-    merge_map: dict[str, str] = {}
-    merge_edges: list[Edge] = []
     similarity_details: list[dict[str, Any]] = []
     compared_pairs: set[tuple[str, str]] = set()
+    existing_edges = {(edge.source, edge.target, _normalize_relation_type(edge.type)) for edge in working.edges}
+    strong_similarity_additions: dict[tuple[str, str, str], Edge] = {}
 
-    for node_type, group_ids in initial_cache.type_groups.items():
-        if len(group_ids) <= 1:
+    for node_id in _linkable_node_ids(initial_cache):
+        if active_focus_node_ids is not None and node_id not in active_focus_node_ids:
             continue
-        for node_id in group_ids:
-            if active_focus_node_ids is not None and node_id not in active_focus_node_ids:
+        if node_id not in working.nodes:
+            continue
+        node = working.nodes[node_id]
+        for candidate in _recall_candidates(working, node, bert_embeddings, initial_cache, config):
+            if candidate.id not in working.nodes:
                 continue
-            if node_id in merge_map or node_id not in working.nodes:
+            pair = _pair_key(node.id, candidate.id)
+            if pair in compared_pairs:
                 continue
-            node = working.nodes[node_id]
-            for candidate in _recall_candidates(working, node, bert_embeddings, initial_cache, config):
-                if candidate.id in merge_map or candidate.id not in working.nodes:
-                    continue
-                pair = tuple(sorted((node.id, candidate.id)))
-                if pair in compared_pairs:
-                    continue
-                compared_pairs.add(pair)
-                left_idx = initial_cache.index_map[node.id]
-                right_idx = initial_cache.index_map[candidate.id]
-                scores = {
-                    "name": name_similarity(node, candidate),
-                    "semantic": float(bert_embeddings[left_idx] @ bert_embeddings[right_idx]),
-                    "attribute": attribute_similarity(node, candidate),
-                    "structure": _structural_similarity(initial_cache, node.id, candidate.id),
-                    "graph": float(graphsage_embeddings[left_idx] @ graphsage_embeddings[right_idx]),
-                }
-                final_score = _merge_final_score(scores, config)
-                if len(similarity_details) < config.max_similarity_details:
-                    similarity_details.append(
-                        {
-                            "left": node.id,
-                            "right": candidate.id,
-                            "score": round(final_score, 4),
-                            "detail": {key: round(value, 4) for key, value in scores.items()},
-                        }
-                    )
-                merge_kind = _classify_merge(node, candidate, scores, final_score, initial_cache, config)
-                if merge_kind is None:
-                    continue
-                canonical = _choose_canonical_with_focus(node, candidate, active_focus_node_ids)
-                other = candidate if canonical.id == node.id else node
-                working.nodes[canonical.id] = _merge_node_data(canonical, other)
-                merge_map[other.id] = canonical.id
-                same_primary_name = bool(initial_cache.normalized_names[node.id]) and initial_cache.normalized_names[node.id] == initial_cache.normalized_names[candidate.id]
-                merge_edges.append(
-                    Edge(
-                        source=other.id,
-                        target=canonical.id,
-                        type=MERGE_RELATION,
-                        attributes={
-                            "merge_kind": merge_kind,
-                            "merge_rule": "same_name" if same_primary_name else "strong_name_similarity",
-                            "score": round(final_score, 4),
-                            "name_score": round(scores["name"], 4),
-                            "semantic_score": round(scores["semantic"], 4),
-                            "attribute_score": round(scores["attribute"], 4),
-                            "structure_score": round(scores["structure"], 4),
-                            "graph_score": round(scores["graph"], 4),
-                        },
-                    )
+            compared_pairs.add(pair)
+            left_idx = initial_cache.index_map[node.id]
+            right_idx = initial_cache.index_map[candidate.id]
+            scores = {
+                "name": name_similarity(node, candidate),
+                "semantic": float(bert_embeddings[left_idx] @ bert_embeddings[right_idx]),
+                "attribute": attribute_similarity(node, candidate),
+                "structure": _structural_similarity(initial_cache, node.id, candidate.id),
+                "graph": float(graphsage_embeddings[left_idx] @ graphsage_embeddings[right_idx]),
+            }
+            final_score = _merge_final_score(scores, config)
+            if len(similarity_details) < config.max_similarity_details:
+                similarity_details.append(
+                    {
+                        "left": node.id,
+                        "right": candidate.id,
+                        "score": round(final_score, 4),
+                        "detail": {key: round(value, 4) for key, value in scores.items()},
+                    }
                 )
-
-    del graphsage_embeddings
-
-    if merge_map:
-        working.edges = redirect_edges(working.edges, merge_map)
-        working.remove_nodes(set(merge_map))
+            merge_kind = _classify_merge(node, candidate, scores, final_score, initial_cache, config)
+            if merge_kind is None:
+                continue
+            same_primary_name = bool(initial_cache.normalized_names[node.id]) and initial_cache.normalized_names[node.id] == initial_cache.normalized_names[candidate.id]
+            _upsert_similar_edge(
+                strong_similarity_additions,
+                existing_edges,
+                node.id,
+                candidate.id,
+                "same_name" if same_primary_name else f"strong_{merge_kind}",
+                {
+                    "reason": "same_name" if same_primary_name else "strong_similarity",
+                    "similarity_score": final_score,
+                    "strong_similarity_score": final_score,
+                    "strong_similarity_kind": merge_kind,
+                    "name_score": scores["name"],
+                    "semantic_score": scores["semantic"],
+                    "attribute_score": scores["attribute"],
+                    "structure_score": scores["structure"],
+                    "graph_score": scores["graph"],
+                    "evidence_count": 3.0 if same_primary_name else 4.0,
+                },
+            )
 
     working.edges = redirect_edges(working.edges, {})
-    merged_focus_node_ids = None
-    if active_focus_node_ids is not None:
-        merged_focus_node_ids = {
-            merge_map.get(node_id, node_id)
-            for node_id in active_focus_node_ids
-        }
-        merged_focus_node_ids = {node_id for node_id in merged_focus_node_ids if node_id in working.nodes}
-    merged_node_order, merged_node_texts = build_node_texts(working)
-    merged_bert = bert_encoder.encode(merged_node_texts, batch_size=config.bert_batch_size)
-    merged_cache = _build_feature_cache(working, merged_node_order)
-    merged_graphsage, merged_training = train_graphsage_embeddings(
-        working,
-        node_order=merged_node_order,
-        initial_features=merged_bert,
-        config=GraphSAGEConfig(
-            hidden_dim=config.graphsage_hidden_dim,
-            output_dim=config.graphsage_output_dim,
-            epochs=config.graphsage_epochs,
-            device=config.device,
-        ),
-    )
+    strong_edges = list(strong_similarity_additions.values())
+    edge_keys = {(edge.source, edge.target, edge.type) for edge in working.edges}
+    for edge in strong_edges:
+        key = (edge.source, edge.target, edge.type)
+        reverse_key = (edge.target, edge.source, edge.type)
+        if key in edge_keys or reverse_key in edge_keys:
+            continue
+        working.edges.append(edge)
+        edge_keys.add(key)
+
+    link_cache = _build_feature_cache(working, node_order)
 
     focused_edges = _infer_focused_edges(
         working,
-        merged_bert,
-        merged_graphsage,
-        merged_cache,
+        bert_embeddings,
+        graphsage_embeddings,
+        link_cache,
         config,
-        focus_node_ids=merged_focus_node_ids,
+        focus_node_ids=active_focus_node_ids,
     )
-    merged_edge_keys = {(edge.source, edge.target, edge.type) for edge in working.edges}
+    added_edges: list[Edge] = list(strong_edges)
     for edge in focused_edges:
         key = (edge.source, edge.target, edge.type)
         reverse_key = (edge.target, edge.source, edge.type)
-        if key in merged_edge_keys or reverse_key in merged_edge_keys:
+        if key in edge_keys or reverse_key in edge_keys:
             continue
         working.edges.append(edge)
-        merged_edge_keys.add(key)
+        edge_keys.add(key)
+        added_edges.append(edge)
 
     return MLLinkResult(
         merged_graph=working,
-        merge_map=merge_map,
-        merge_edges=merge_edges,
-        added_edges=focused_edges,
+        merge_map={},
+        merge_edges=[],
+        added_edges=added_edges,
         similarity_details=similarity_details,
-        node_order=merged_node_order,
-        node_texts=merged_node_texts,
-        bert_embeddings=merged_bert,
-        graphsage_embeddings=merged_graphsage,
-        graphsage_training=merged_training,
+        node_order=node_order,
+        node_texts=node_texts,
+        bert_embeddings=bert_embeddings,
+        graphsage_embeddings=graphsage_embeddings,
+        graphsage_training=training,
     )

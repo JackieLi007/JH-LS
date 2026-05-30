@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from threading import Lock
 from typing import Iterable
 
 import numpy as np
@@ -33,6 +34,10 @@ HF_CACHE_ROOT = Path.home() / ".cache" / "huggingface" / "hub"
 DEFAULT_BERT_MODEL_NAME = "bert-base-chinese"
 DEFAULT_SENTENCE_MODEL_NAME = DEFAULT_BERT_MODEL_NAME
 IGNORED_TEXT_ATTRIBUTE_KEYS = {"id"}
+_ENCODER_CACHE_LOCK = Lock()
+_BERT_ENCODER_CACHE: dict[tuple[str, str, int], "BertTextEncoder"] = {}
+_SENTENCE_ENCODER_CACHE: dict[tuple[str, str], "SentenceBertEncoder"] = {}
+_BERT_TEXT_EMBEDDING_CACHE: dict[tuple[str, int, str], np.ndarray] = {}
 
 
 def resolve_default_sentence_model_name() -> str:
@@ -45,6 +50,25 @@ def normalize_embeddings(matrix: np.ndarray) -> np.ndarray:
     norms = np.linalg.norm(matrix, axis=1, keepdims=True)
     norms[norms == 0.0] = 1.0
     return matrix / norms
+
+
+def _embedding_cache_limit() -> int:
+    raw = os.environ.get("KG_BERT_EMBEDDING_CACHE_SIZE", "20000").strip()
+    try:
+        return max(0, int(raw))
+    except ValueError:
+        return 20000
+
+
+def _remember_embedding(cache_key: tuple[str, int, str], embedding: np.ndarray) -> None:
+    limit = _embedding_cache_limit()
+    if limit <= 0:
+        return
+    if len(_BERT_TEXT_EMBEDDING_CACHE) >= limit and cache_key not in _BERT_TEXT_EMBEDDING_CACHE:
+        # Dicts preserve insertion order; trimming one item keeps the cache bounded.
+        oldest_key = next(iter(_BERT_TEXT_EMBEDDING_CACHE))
+        _BERT_TEXT_EMBEDDING_CACHE.pop(oldest_key, None)
+    _BERT_TEXT_EMBEDDING_CACHE[cache_key] = embedding
 
 
 def _model_cache_dir(model_name: str) -> Path:
@@ -172,10 +196,26 @@ class BertTextEncoder:
 
     @torch.inference_mode()
     def encode(self, texts: list[str], batch_size: int = 16) -> np.ndarray:
-        all_embeddings: list[np.ndarray] = []
         hidden_size = int(self.model.config.hidden_size)
-        for offset in range(0, len(texts), batch_size):
-            batch_texts = texts[offset : offset + batch_size]
+        if not texts:
+            return np.zeros((0, hidden_size), dtype=np.float32)
+
+        embeddings: list[np.ndarray | None] = [None] * len(texts)
+        pending_texts: list[str] = []
+        pending_positions: list[int] = []
+        cache_enabled = _embedding_cache_limit() > 0
+        for index, text in enumerate(texts):
+            cache_key = (self.model_name, self.max_length, text)
+            cached = _BERT_TEXT_EMBEDDING_CACHE.get(cache_key) if cache_enabled else None
+            if cached is None:
+                pending_texts.append(text)
+                pending_positions.append(index)
+            else:
+                embeddings[index] = cached
+
+        for offset in range(0, len(pending_texts), batch_size):
+            batch_texts = pending_texts[offset : offset + batch_size]
+            batch_positions = pending_positions[offset : offset + batch_size]
             encoded = self.tokenizer(
                 batch_texts,
                 padding=True,
@@ -186,10 +226,26 @@ class BertTextEncoder:
             encoded = {key: value.to(self.device) for key, value in encoded.items()}
             outputs = self.model(**encoded)
             pooled = _mean_pool(outputs.last_hidden_state, encoded["attention_mask"])
-            all_embeddings.append(pooled.detach().cpu().numpy().astype(np.float32))
-        if not all_embeddings:
-            return np.zeros((0, hidden_size), dtype=np.float32)
-        return normalize_embeddings(np.vstack(all_embeddings))
+            batch_embeddings = normalize_embeddings(pooled.detach().cpu().numpy().astype(np.float32))
+            for position, embedding in zip(batch_positions, batch_embeddings):
+                embeddings[position] = embedding
+                _remember_embedding((self.model_name, self.max_length, texts[position]), embedding)
+
+        return np.vstack([embedding for embedding in embeddings if embedding is not None]).astype(np.float32)
+
+
+def get_bert_text_encoder(
+    model_name: str = DEFAULT_BERT_MODEL_NAME,
+    device: str | None = None,
+    max_length: int = 128,
+) -> BertTextEncoder:
+    key = (model_name, device or "", max_length)
+    with _ENCODER_CACHE_LOCK:
+        encoder = _BERT_ENCODER_CACHE.get(key)
+        if encoder is None:
+            encoder = BertTextEncoder(model_name=model_name, device=device, max_length=max_length)
+            _BERT_ENCODER_CACHE[key] = encoder
+        return encoder
 
 
 class SentenceBertEncoder:
@@ -222,3 +278,17 @@ class SentenceBertEncoder:
             show_progress_bar=False,
         )
         return np.asarray(embeddings, dtype=np.float32)
+
+
+def get_sentence_bert_encoder(
+    model_name: str | None = None,
+    device: str | None = None,
+) -> SentenceBertEncoder:
+    resolved_name = model_name or resolve_default_sentence_model_name()
+    key = (resolved_name, device or "")
+    with _ENCODER_CACHE_LOCK:
+        encoder = _SENTENCE_ENCODER_CACHE.get(key)
+        if encoder is None:
+            encoder = SentenceBertEncoder(model_name=resolved_name, device=device)
+            _SENTENCE_ENCODER_CACHE[key] = encoder
+        return encoder

@@ -9,7 +9,7 @@ import numpy as np
 
 from kg_tool.graph_ops import subgraph
 from kg_tool.graphsage import GraphSAGEConfig, train_graphsage_embeddings
-from kg_tool.ml_text import SentenceBertEncoder, build_node_texts, resolve_default_sentence_model_name
+from kg_tool.ml_text import build_node_texts, get_sentence_bert_encoder, resolve_default_sentence_model_name
 from kg_tool.models import Graph
 
 
@@ -38,7 +38,7 @@ def build_semantic_index(graph: Graph, artifact_dir: str | Path, config: IndexCo
     artifact_root = Path(artifact_dir)
     artifact_root.mkdir(parents=True, exist_ok=True)
     node_order, node_texts = build_node_texts(graph)
-    sentence_encoder = SentenceBertEncoder(model_name=config.sentence_model_name, device=config.device)
+    sentence_encoder = get_sentence_bert_encoder(model_name=config.sentence_model_name, device=config.device)
     text_embeddings = sentence_encoder.encode(node_texts, batch_size=config.sentence_batch_size)
     graph_embeddings, training_info = train_graphsage_embeddings(
         graph,
@@ -107,7 +107,7 @@ def _keyword_score(query: str, text: str) -> float:
 
 def query_semantic_index(artifact_dir: str | Path, query_text: str, top_k: int = 10, expand_hops: int = 1) -> list[dict[str, Any]]:
     metadata, embeddings, graph = load_index(artifact_dir)
-    sentence_encoder = SentenceBertEncoder(model_name=metadata["sentence_model_name"])
+    sentence_encoder = get_sentence_bert_encoder(model_name=metadata["sentence_model_name"])
     query_embedding = sentence_encoder.encode([query_text])[0]
     text_scores = _cosine_scores(query_embedding, embeddings["text_embeddings"])
     seed_count = min(max(top_k, 3), len(text_scores))

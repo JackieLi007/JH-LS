@@ -30,7 +30,7 @@ def _link_summary(graph: Graph, result: Any, writeback: dict[str, Any] | None) -
         "similarity_details": result.similarity_details,
     }
     if writeback is not None:
-        summary["writeback"] = writeback
+        summary["writeback"] = {key: value for key, value in writeback.items() if key != "relationship_changes"}
     return summary
 
 
@@ -51,17 +51,6 @@ def ingest_triples_link_and_index(
 ) -> dict[str, Any]:
     """Incrementally ingest triples, run knowledge linking, and rebuild the local index."""
     write_summary = upsert_triples_to_neo4j(neo4j_config, payload)
-    if record_version:
-        version_record = record_triple_version(
-            load_triple_payload(payload),
-            write_summary,
-            history_path=version_history_path,
-            max_versions=max_versions,
-        )
-        write_summary["version"] = {
-            "version_id": version_record["version_id"],
-            "history_path": str(version_history_path),
-        }
 
     summary: dict[str, Any] = {"write": write_summary}
     try:
@@ -79,6 +68,10 @@ def ingest_triples_link_and_index(
                 merge_edges=link_result.merge_edges,
                 added_edges=link_result.added_edges,
             )
+            write_summary["link_relationship_changes"] = writeback.get("relationship_changes", [])
+            write_summary["link_writeback"] = {
+                key: value for key, value in writeback.items() if key != "relationship_changes"
+            }
 
         if output_graph:
             link_result.merged_graph.save(output_graph)
@@ -93,6 +86,18 @@ def ingest_triples_link_and_index(
         summary["postprocess"] = {
             "status": "skipped",
             "error": str(exc),
+        }
+
+    if record_version:
+        version_record = record_triple_version(
+            load_triple_payload(payload),
+            write_summary,
+            history_path=version_history_path,
+            max_versions=max_versions,
+        )
+        write_summary["version"] = {
+            "version_id": version_record["version_id"],
+            "history_path": str(version_history_path),
         }
 
     if report_path:

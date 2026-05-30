@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import random
-from typing import Sequence
 
 import numpy as np
 import torch
@@ -42,15 +41,9 @@ class GraphSAGELayer(nn.Module):
         super().__init__()
         self.linear = nn.Linear(input_dim * 2, output_dim)
 
-    def forward(self, x: torch.Tensor, adjacency: Sequence[list[int]]) -> torch.Tensor:
-        aggregated = []
-        for index, neighbors in enumerate(adjacency):
-            if neighbors:
-                neighbor_tensor = x[neighbors].mean(dim=0)
-            else:
-                neighbor_tensor = x[index]
-            aggregated.append(torch.cat([x[index], neighbor_tensor], dim=0))
-        stacked = torch.stack(aggregated, dim=0)
+    def forward(self, x: torch.Tensor, adjacency: torch.Tensor) -> torch.Tensor:
+        neighbor_tensor = torch.sparse.mm(adjacency, x)
+        stacked = torch.cat([x, neighbor_tensor], dim=1)
         return F.relu(self.linear(stacked))
 
 
@@ -60,7 +53,7 @@ class GraphSAGEModel(nn.Module):
         self.layer1 = GraphSAGELayer(input_dim, hidden_dim)
         self.layer2 = GraphSAGELayer(hidden_dim, output_dim)
 
-    def forward(self, x: torch.Tensor, adjacency: Sequence[list[int]]) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, adjacency: torch.Tensor) -> torch.Tensor:
         hidden = self.layer1(x, adjacency)
         output = self.layer2(hidden, adjacency)
         return F.normalize(output, p=2, dim=1)
@@ -82,6 +75,30 @@ def _build_graph_structures(graph: Graph, node_order: list[str]) -> tuple[list[l
         edge_set.add((min(left, right), max(left, right)))
     adjacency = [sorted(items) for items in adjacency_sets]
     return adjacency, list(edge_set)
+
+
+def _normalized_adjacency_tensor(adjacency: list[list[int]], device: str) -> torch.Tensor:
+    row_indices: list[int] = []
+    column_indices: list[int] = []
+    values: list[float] = []
+    for row, neighbors in enumerate(adjacency):
+        if not neighbors:
+            row_indices.append(row)
+            column_indices.append(row)
+            values.append(1.0)
+            continue
+        weight = 1.0 / len(neighbors)
+        for column in neighbors:
+            row_indices.append(row)
+            column_indices.append(column)
+            values.append(weight)
+    if row_indices:
+        indices = torch.tensor([row_indices, column_indices], dtype=torch.long, device=device)
+        value_tensor = torch.tensor(values, dtype=torch.float32, device=device)
+    else:
+        indices = torch.zeros((2, 0), dtype=torch.long, device=device)
+        value_tensor = torch.zeros((0,), dtype=torch.float32, device=device)
+    return torch.sparse_coo_tensor(indices, value_tensor, (len(adjacency), len(adjacency)), device=device).coalesce()
 
 
 def _negative_pairs(num_nodes: int, edge_lookup: set[tuple[int, int]], count: int, seed: int) -> list[tuple[int, int]]:
@@ -121,6 +138,7 @@ def train_graphsage_embeddings(
 
     edge_lookup = set(edge_pairs)
     x = torch.tensor(features, dtype=torch.float32, device=device)
+    adjacency_tensor = _normalized_adjacency_tensor(adjacency, device)
     model = GraphSAGEModel(x.shape[1], config.hidden_dim, config.output_dim).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
     pos_src = torch.tensor([src for src, _ in edge_pairs], device=device)
@@ -129,7 +147,7 @@ def train_graphsage_embeddings(
 
     for epoch in range(config.epochs):
         optimizer.zero_grad()
-        embeddings = model(x, adjacency)
+        embeddings = model(x, adjacency_tensor)
         pos_score = (embeddings[pos_src] * embeddings[pos_dst]).sum(dim=1)
 
         negative_pairs = _negative_pairs(
@@ -151,5 +169,5 @@ def train_graphsage_embeddings(
         final_loss = float(loss.detach().cpu().item())
 
     with torch.inference_mode():
-        trained = model(x, adjacency).detach().cpu().numpy().astype(np.float32)
+        trained = model(x, adjacency_tensor).detach().cpu().numpy().astype(np.float32)
     return normalize_embeddings(trained), {"loss": final_loss}

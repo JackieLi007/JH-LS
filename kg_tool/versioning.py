@@ -109,6 +109,41 @@ def _restore_relationship(tx: Any, change: Mapping[str, Any]) -> int:
     return int(record["count"] if record else 0)
 
 
+def _delete_link_relationship(tx: Any, change: Mapping[str, Any]) -> int:
+    relation_type = _quote_relation_type(str(change["relation_name"]))
+    result = tx.run(
+        "MATCH (s) WHERE elementId(s) = $source_element_id "
+        "MATCH (o) WHERE elementId(o) = $target_element_id "
+        f"MATCH (s)-[r:{relation_type}]->(o) "
+        "WITH collect(r) AS relationships "
+        "FOREACH (item IN relationships | DELETE item) "
+        "RETURN size(relationships) AS count",
+        source_element_id=change["source_element_id"],
+        target_element_id=change["target_element_id"],
+    )
+    record = result.single()
+    return int(record["count"] if record else 0)
+
+
+def _restore_link_relationship(tx: Any, change: Mapping[str, Any]) -> int:
+    before = change.get("before")
+    if not before:
+        return _delete_link_relationship(tx, change)
+    relation_type = _quote_relation_type(str(change["relation_name"]))
+    result = tx.run(
+        "MATCH (s) WHERE elementId(s) = $source_element_id "
+        "MATCH (o) WHERE elementId(o) = $target_element_id "
+        f"MERGE (s)-[r:{relation_type}]->(o) "
+        "SET r = $properties "
+        "RETURN count(r) AS count",
+        source_element_id=change["source_element_id"],
+        target_element_id=change["target_element_id"],
+        properties=dict(before.get("properties", {})),
+    )
+    record = result.single()
+    return int(record["count"] if record else 0)
+
+
 def _delete_node(tx: Any, change: Mapping[str, Any]) -> int:
     result = tx.run(
         "MATCH (n {id: $entity_id}) "
@@ -158,6 +193,7 @@ def rollback_latest_triple_version(
 
     record = deepcopy(versions[-1])
     write_summary = record.get("write_summary", {})
+    link_relationship_changes = list(write_summary.get("link_relationship_changes", []))
     relationship_changes = list(write_summary.get("relationship_changes", []))
     entity_changes = list(write_summary.get("entity_changes", []))
 
@@ -165,12 +201,20 @@ def rollback_latest_triple_version(
     driver = graph_db.driver(config.uri, auth=(config.user, config.password))
     deleted_relationships = 0
     restored_relationships = 0
+    deleted_link_relationships = 0
+    restored_link_relationships = 0
     deleted_nodes = 0
     restored_nodes = 0
     try:
         with driver.session(database=config.database) as session:
             tx = session.begin_transaction()
             try:
+                for change in reversed(link_relationship_changes):
+                    if change.get("created"):
+                        deleted_link_relationships += _delete_link_relationship(tx, change)
+                    else:
+                        restored_link_relationships += _restore_link_relationship(tx, change)
+
                 for change in reversed(relationship_changes):
                     if change.get("created"):
                         deleted_relationships += _delete_relationship(tx, change)
@@ -198,6 +242,8 @@ def rollback_latest_triple_version(
         "created_at": record.get("created_at"),
         "deleted_relationships": deleted_relationships,
         "restored_relationships": restored_relationships,
+        "deleted_link_relationships": deleted_link_relationships,
+        "restored_link_relationships": restored_link_relationships,
         "deleted_nodes": deleted_nodes,
         "restored_nodes": restored_nodes,
         "remaining_versions": len(history["versions"]),

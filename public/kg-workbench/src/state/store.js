@@ -24,6 +24,7 @@ export const state = {
   relationTypeDraft: '',
   parseConfig: null,
   extractionResult: null,
+  kgBuildProgress: null,
   selectedFileName: '',
   selectedFile: null,
   selectedFiles: [],
