@@ -8,7 +8,6 @@ import sys
 import time
 import zipfile
 from collections import defaultdict, deque
-from difflib import SequenceMatcher
 from functools import lru_cache
 from pathlib import Path
 from threading import Lock
@@ -35,6 +34,11 @@ DEFAULT_LOCAL_LLM_BASE_URL = 'http://192.168.102.240:8866/v1'
 DEFAULT_LOCAL_LLM_MODEL = 'Qwen3-Next-80B-A3B-Instruct'
 DEFAULT_BERT_MODEL_NAME = 'bert-base-chinese'
 ATTRIBUTE_MATERIALIZE_LOCK = Lock()
+
+
+class FaultQueryBertError(RuntimeError):
+    pass
+
 
 RELATION_LABELS = {
     'HAS_FAILURE_MODE': '故障模式',
@@ -344,10 +348,15 @@ def create_app() -> Flask:
             return jsonify(build_api_envelope(False, 400, '请先输入故障现象。', empty_query_result())), 400
 
         graph = fetch_graph_from_neo4j()
-        ranked = rank_fault_chain_query_nodes(text, graph)
+        try:
+            ranked = rank_fault_chain_query_nodes(text, graph)
+        except FaultQueryBertError as exc:
+            log_query_backend_strategy(text)
+            message = str(exc)
+            return jsonify(build_api_envelope(False, 500, message, {**empty_query_result(), 'summary': message})), 500
         if not ranked:
             log_query_backend_strategy(text)
-            return jsonify(build_api_envelope(False, 404, '未匹配到故障节点', {**empty_query_result(), 'summary': '未在 Neo4j 图数据库中匹配到相关故障节点。'})), 404
+            return jsonify(build_api_envelope(False, 404, 'BERT 未匹配到故障节点', {**empty_query_result(), 'summary': 'BERT 已完成向量匹配，但未在 Neo4j 图数据库中匹配到相关故障节点。'})), 404
 
         best = ranked[0]
         log_query_backend_strategy(text, best)
@@ -445,8 +454,8 @@ def normalize_top_matches_payload(raw_matches: Any) -> list[dict[str, Any]]:
             'name': name,
             'level': str(raw_match.get('level') or ''),
             'owner': str(raw_match.get('owner') or ''),
-            'score': float(raw_match.get('score') or 0),
-            'confidence': float(raw_match.get('confidence') or 0),
+            'score': max(1, min(100, float(raw_match.get('score') or 0))),
+            'confidence': max(1, min(100, float(raw_match.get('confidence') or 0))),
             'matchedKeywords': raw_match.get('matchedKeywords') if isinstance(raw_match.get('matchedKeywords'), list) else [],
         })
     return matches
@@ -708,7 +717,10 @@ def run_local_reasoning(item: dict[str, Any]) -> dict[str, Any]:
         return empty_query_result()
 
     graph = fetch_graph_from_neo4j()
-    ranked = rank_fault_chain_query_nodes(text, graph)
+    try:
+        ranked = rank_fault_chain_query_nodes(text, graph)
+    except FaultQueryBertError as exc:
+        return {**empty_query_result(), 'summary': str(exc)}
     if not ranked:
         return {**empty_query_result(), 'summary': '未在知识图谱中匹配到可推理的故障模式。'}
 
@@ -1366,61 +1378,12 @@ def build_ontology_tree(nodes: list[dict[str, Any]], edges: list[dict[str, Any]]
 
 
 def rank_nodes(query_text: str, nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return (
-        rank_nodes_with_llm_first(query_text, nodes)
-        or rank_nodes_with_project_bert(query_text, nodes)
-        or rank_nodes_with_local_similarity(query_text, nodes)
-    )
+    return rank_nodes_with_project_bert(query_text, nodes)
 
 
 def rank_fault_chain_query_nodes(query_text: str, graph: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
     candidates = semantic_candidate_pool(graph['nodes'])
-
-    for ranker in (rank_nodes_with_llm_first, rank_nodes_with_project_bert, rank_nodes_with_local_similarity):
-        ranked = prioritize_fault_chain_query_nodes(ranker(query_text, candidates), graph)
-        if ranked:
-            return ranked
-
-    fallback = (
-        find_fallback_node(query_text, graph['nodes'])
-        or find_first_failure_node(graph['nodes'])
-    )
-    if fallback:
-        update_llm_trace({'semanticFallback': 'local-first-failure'})
-        return [{**fallback, 'score': int(fallback.get('score', 1)) or 1}]
-    return []
-
-
-def local_node_match_score(
-    node: dict[str, Any],
-    variants: list[str],
-    terms: set[str],
-    query_has_failure_intent: bool,
-    query_has_open_failure: bool,
-) -> int:
-    corpus = node_corpus(node)
-    node_name = normalize(node['name'])
-    owner = normalize(node.get('owner', ''))
-    score = sum(max(2, len(term) * 2) for term in terms if term and term in corpus)
-
-    for variant in variants:
-        if node_name and node_name in variant:
-            score += 24
-        if variant and variant in node_name:
-            score += 18
-        if owner and owner in variant:
-            score += 8
-
-    score += fuzzy_text_score(variants, node_name, corpus)
-
-    if query_has_failure_intent and node.get('type') in {'root-cause', 'fault', 'impact'}:
-        score += 6
-    if query_has_open_failure and any(term in corpus for term in OPEN_FAILURE_EXPANSIONS):
-        score += 16
-    if query_has_open_failure and any(term in corpus for term in OPEN_SUBJECT_TERMS):
-        score += 6
-
-    return score
+    return prioritize_fault_chain_query_nodes(rank_nodes_with_project_bert(query_text, candidates), graph)
 
 
 OPEN_FAILURE_EXPANSIONS = (
@@ -1591,25 +1554,6 @@ def node_corpus(node: dict[str, Any]) -> str:
     return normalize(' '.join(str(node.get(field, '')) for field in ('name', 'owner', 'rawText', 'key', 'level', 'label')))
 
 
-def fuzzy_text_score(variants: list[str], node_name: str, corpus: str) -> int:
-    if not node_name and not corpus:
-        return 0
-
-    best_name_ratio = max((SequenceMatcher(None, variant, node_name).ratio() for variant in variants if variant and node_name), default=0)
-    score = 0
-    if best_name_ratio >= 0.62:
-        score += int(best_name_ratio * 24)
-
-    query_grams = set().union(*(ngrams(variant) for variant in variants))
-    corpus_grams = ngrams(corpus)
-    if query_grams and corpus_grams:
-        overlap = len(query_grams & corpus_grams) / len(query_grams)
-        if overlap >= 0.28:
-            score += int(overlap * 18)
-
-    return score
-
-
 def ngrams(text: str) -> set[str]:
     value = normalize(text)
     grams: set[str] = set()
@@ -1629,12 +1573,7 @@ def rank_nodes_with_semantic_fallback(
     candidates = semantic_candidate_pool(nodes, allowed_ids)
     if not candidates:
         return []
-
-    bert_ranked = rank_nodes_with_project_bert(query_text, candidates)
-    if bert_ranked:
-        return bert_ranked
-
-    return rank_nodes_with_local_similarity(query_text, candidates)
+    return rank_nodes_with_project_bert(query_text, candidates)
 
 
 def semantic_candidate_pool(nodes: list[dict[str, Any]], allowed_ids: set[str] | None = None) -> list[dict[str, Any]]:
@@ -1642,151 +1581,195 @@ def semantic_candidate_pool(nodes: list[dict[str, Any]], allowed_ids: set[str] |
     return sorted(allowed, key=query_candidate_sort_key)
 
 
-def rank_nodes_with_llm_first(query_text: str, candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def unique_non_empty_texts(values: list[str], limit: int = 8) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        text = str(value or '').strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        result.append(text)
+        if len(result) >= limit:
+            break
+    return result
+
+
+def llm_rewrite_query_texts(query_text: str, candidates: list[dict[str, Any]]) -> list[str]:
+    if not is_llm_query_enabled():
+        set_llm_trace({
+            'enabled': False,
+            'called': False,
+            'rewriteSource': 'input',
+            'fallback': 'input-query',
+        })
+        return [query_text]
+
     llm_candidates = llm_candidate_pool(candidates)
     if not llm_candidates:
-        return []
-    if not is_llm_query_enabled():
-        set_llm_trace({'enabled': False, 'called': False, 'fallback': 'bert'})
-        return []
+        set_llm_trace({
+            'enabled': True,
+            'called': False,
+            'rewriteSource': 'input',
+            'fallback': 'input-query',
+            'error': '没有可供大模型参考的图谱文本，已直接使用原始问题做 BERT 匹配',
+        })
+        return [query_text]
 
     try:
-        set_llm_trace({'enabled': True, 'called': True, 'model': get_llm_model(), 'candidateCount': len(llm_candidates)})
-        selection = call_query_llm(query_text, llm_candidates)
+        set_llm_trace({
+            'enabled': True,
+            'called': True,
+            'model': get_llm_model(),
+            'candidateCount': len(llm_candidates),
+            'rewriteSource': 'llm',
+        })
+        payload = call_query_rewrite_llm(query_text, llm_candidates)
     except Exception as exc:
         set_llm_trace({
             'enabled': True,
             'called': True,
             'model': get_llm_model(),
             'candidateCount': len(llm_candidates),
-            'error': f'大模型调用失败，已降级为 BERT：{exc}',
+            'rewriteSource': 'input',
+            'fallback': 'input-query',
+            'error': f'大模型改写失败，已直接使用原始问题做 BERT 匹配：{exc}',
         })
-        return []
+        return [query_text]
 
-    selected_id = str(selection.get('selectedNodeId', '')).strip()
-    if not selected_id:
-        set_llm_trace({
-            'enabled': True,
-            'called': True,
-            'model': get_llm_model(),
-            'candidateCount': len(llm_candidates),
-            'selection': selection,
-            'error': '大模型未返回 selectedNodeId，已降级为 BERT',
+    rewrites = parse_llm_rewrite_texts(payload)
+    if not rewrites:
+        update_llm_trace({
+            'rewriteSource': 'input',
+            'fallback': 'input-query',
+            'selection': payload,
+            'error': '大模型未返回可用改写，已直接使用原始问题做 BERT 匹配',
         })
-        return []
+        return [query_text]
 
-    confidence = selection.get('confidence', 0.7)
-    try:
-        confidence_value = max(0.0, min(1.0, float(confidence)))
-    except (TypeError, ValueError):
-        confidence_value = 0.7
-
-    selected = next((node for node in llm_candidates if node.get('id') == selected_id), None)
-    if not selected:
-        set_llm_trace({
-            'enabled': True,
-            'called': True,
-            'model': get_llm_model(),
-            'candidateCount': len(llm_candidates),
-            'selection': selection,
-            'error': '大模型返回的 selectedNodeId 不在候选集中，已降级为 BERT',
-        })
-        return []
-
-    if not llm_selection_semantically_valid(query_text, selected):
-        set_llm_trace({
-            'enabled': True,
-            'called': True,
-            'model': get_llm_model(),
-            'candidateCount': len(llm_candidates),
-            'selectedNodeId': selected_id,
-            'selectedNodeName': selected.get('name'),
-            'selection': selection,
-            'error': '大模型返回节点与查询主语义不一致，已降级为 BERT',
-        })
-        return []
-
-    ranked: list[dict[str, Any]] = []
-    for index, node in enumerate(llm_candidates):
-        score = 1 if node.get('id') != selected_id else 100 + int(confidence_value * 100)
-        ranked.append({**node, 'score': score, 'semanticScore': score, 'rankSource': 'llm', 'llmRank': index + 1})
-
-    ranked.sort(key=lambda item: (-int(item.get('score', 0)), int(item.get('llmRank', 9999)), item.get('name', '')))
-    set_llm_trace({
-        'enabled': True,
-        'called': True,
-        'model': get_llm_model(),
-        'candidateCount': len(llm_candidates),
-        'selectedNodeId': selected_id,
-        'selectedNodeName': selected.get('name'),
-        'confidence': confidence_value,
-        'reason': selection.get('reason'),
+    query_texts = unique_non_empty_texts([query_text, *rewrites])
+    update_llm_trace({
+        'rewriteSource': 'llm',
+        'rewrites': rewrites,
+        'rewriteCount': len(rewrites),
+        'reason': payload.get('reason'),
     })
-    return ranked
+    return query_texts
 
 
-def rank_nodes_with_local_similarity(query_text: str, candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    variants = query_variants(query_text)
-    terms = expanded_query_terms(variants)
-    query_has_failure_intent = has_failure_intent(variants)
-    query_has_open_failure = any(is_open_failure_query(variant) for variant in variants)
-    ranked: list[dict[str, Any]] = []
+def parse_llm_rewrite_texts(payload: dict[str, Any]) -> list[str]:
+    raw_values = payload.get('rewrites')
+    if not isinstance(raw_values, list):
+        single = raw_values if isinstance(raw_values, str) else payload.get('canonicalQuery') or payload.get('rewrite')
+        raw_values = [single] if single else []
+    return unique_non_empty_texts([str(item) for item in raw_values if item], limit=6)
 
-    for node in candidates:
-        score = local_node_match_score(
-            node,
-            variants,
-            terms,
-            query_has_failure_intent,
-            query_has_open_failure,
-        )
-        ranked.append({**node, 'score': max(1, score)})
 
-    ranked.sort(key=lambda item: (-item['score'], item['name']))
-    if ranked:
-        update_llm_trace({'semanticFallback': 'local-text'})
-    return ranked
+def bert_query_texts(query_text: str, candidates: list[dict[str, Any]]) -> list[str]:
+    return llm_rewrite_query_texts(query_text, candidates)
+
+
+def compact_exact_text(text: str) -> str:
+    return re.sub(r'\s+', '', str(text or '').strip().lower())
+
+
+def node_exact_texts(node: dict[str, Any]) -> list[str]:
+    fields = ('name', 'rawText', 'key')
+    return unique_non_empty_texts([str(node.get(field, '')) for field in fields], limit=6)
+
+
+def query_exactly_matches_node(query_texts: list[str], node: dict[str, Any]) -> bool:
+    query_values = {compact_exact_text(text) for text in query_texts if compact_exact_text(text)}
+    node_values = {compact_exact_text(text) for text in node_exact_texts(node) if compact_exact_text(text)}
+    return bool(query_values & node_values)
+
+
+def semantic_confidence_ratio(value: Any, exact_match: bool = False) -> float:
+    try:
+        score = float(value)
+    except (TypeError, ValueError):
+        score = 0.0
+    score = max(0.0, min(1.0, score))
+    if not exact_match:
+        score = min(score, 0.99)
+    return score
+
+
+def confidence_ratio_to_percent(value: float) -> int:
+    return max(1, min(100, int(round(value * 100))))
+
+
+def bounded_percent_score(value: Any, exact_match: bool = False) -> int:
+    try:
+        score = int(round(float(value)))
+    except (TypeError, ValueError):
+        score = 0
+    upper_bound = 100 if exact_match else 99
+    return max(1, min(upper_bound, score))
 
 
 def rank_nodes_with_project_bert(query_text: str, candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
     encoder = get_project_bert_encoder()
     if not encoder:
-        return []
+        message = 'BERT 模型未加载，故障链查询已停止：请检查 FAULT_QUERY_BERT_MODEL 或本地 bert-base-chinese 模型文件。'
+        update_llm_trace({'semanticFallback': 'bert-error', 'error': message})
+        raise FaultQueryBertError(message)
 
     tokenizer, model, device, source = encoder
     limit = max(1, int(os.environ.get('FAULT_QUERY_BERT_CANDIDATE_LIMIT', '256')))
     selected_candidates = candidates[:limit]
+    if not selected_candidates:
+        return []
+    query_texts = bert_query_texts(query_text, selected_candidates)
     node_texts = [node_primary_semantic_text(node) for node in selected_candidates]
     object_texts = [node_object_semantic_text(node) for node in selected_candidates]
-    texts = [semantic_query_text(query_text), *node_texts, *object_texts]
+    texts = [*query_texts, *node_texts, *object_texts]
 
     try:
         import torch
 
         embeddings = encode_with_project_bert(tokenizer, model, device, texts)
-        if embeddings.size(0) < 1 + len(selected_candidates):
-            return []
-        query_embedding = embeddings[0]
-        node_scores = torch.matmul(embeddings[1:1 + len(selected_candidates)], query_embedding)
-        object_scores = torch.matmul(embeddings[1 + len(selected_candidates):], query_embedding)
-    except Exception:
-        return []
+        query_count = len(query_texts)
+        if embeddings.size(0) < query_count + len(selected_candidates):
+            message = 'BERT 向量输出数量异常，故障链查询已停止。'
+            update_llm_trace({'semanticFallback': 'bert-error', 'semanticModel': source, 'error': message})
+            raise FaultQueryBertError(message)
+        query_embeddings = embeddings[:query_count]
+        node_embeddings = embeddings[query_count:query_count + len(selected_candidates)]
+        object_embeddings = embeddings[query_count + len(selected_candidates):]
+        node_score_matrix = torch.matmul(node_embeddings, query_embeddings.T)
+        object_score_matrix = torch.matmul(object_embeddings, query_embeddings.T) if object_embeddings.size(0) else None
+        node_scores, node_query_indexes = torch.max(node_score_matrix, dim=1)
+        if object_score_matrix is not None and object_score_matrix.size(0):
+            object_scores, _ = torch.max(object_score_matrix, dim=1)
+        else:
+            object_scores = torch.zeros(len(selected_candidates))
+    except FaultQueryBertError:
+        raise
+    except Exception as exc:
+        message = f'BERT 向量匹配失败，故障链查询已停止：{exc}'
+        update_llm_trace({'semanticFallback': 'bert-error', 'semanticModel': source, 'error': message})
+        raise FaultQueryBertError(message) from exc
 
     ranked: list[dict[str, Any]] = []
     for index, (node, similarity) in enumerate(zip(selected_candidates, node_scores.tolist())):
         node_score = float(node_scores[index])
         object_score = float(object_scores[index]) if index < len(object_scores) else 0.0
-        canonical_score = canonical_node_semantic_score(query_text, node)
-        final_node_score = max(node_score, canonical_score)
-        semantic_score = max(1, int(max(0.0, float(similarity)) * 100))
+        matched_query_text = query_texts[int(node_query_indexes[index])] if index < len(node_query_indexes) else query_text
+        exact_match = query_exactly_matches_node([query_text], node)
+        raw_node_score = 1.0 if exact_match else node_score
+        final_node_score = semantic_confidence_ratio(raw_node_score, exact_match)
+        semantic_score = confidence_ratio_to_percent(final_node_score)
         ranked.append({
             **node,
             'score': semantic_score,
             'semanticScore': semantic_score,
             'nodeSemanticScore': round(final_node_score, 6),
             'bertNodeSemanticScore': round(node_score, 6),
-            'canonicalSemanticScore': round(canonical_score, 6),
-            'objectSemanticScore': round(object_score, 4),
+            'objectSemanticScore': round(semantic_confidence_ratio(object_score, exact_match), 4),
+            'matchedQueryText': matched_query_text,
+            'queryRewrites': query_texts,
+            'exactTextMatch': exact_match,
             'rankSource': 'bert',
         })
 
@@ -1797,26 +1780,34 @@ def rank_nodes_with_project_bert(query_text: str, candidates: list[dict[str, Any
 
 
 @lru_cache(maxsize=1)
-def get_project_bert_encoder() -> tuple[Any, Any, str, str] | None:
+def get_project_bert_encoder() -> tuple[Any, Any, str, str]:
     try:
         import torch
         from transformers import AutoModel, AutoTokenizer
-    except Exception:
-        return None
+    except Exception as exc:
+        raise FaultQueryBertError(
+            f'BERT 依赖未安装或不可导入：{exc}。请在启动 Flask 的同一个 Python 环境中安装 backend/requirements.txt。'
+        ) from exc
 
     source = resolve_project_bert_source()
     if not source:
-        return None
+        raise FaultQueryBertError(
+            f'未找到 BERT 模型目录。当前 FAULT_QUERY_BERT_MODEL={os.environ.get("FAULT_QUERY_BERT_MODEL", "")!r}，'
+            f'默认查找 {PROJECT_ROOT / "models" / DEFAULT_BERT_MODEL_NAME}。'
+        )
 
     try:
         tokenizer = AutoTokenizer.from_pretrained(source, local_files_only=True)
-        model = AutoModel.from_pretrained(source, local_files_only=True)
+        model_kwargs: dict[str, Any] = {'local_files_only': True}
+        if (Path(source) / 'pytorch_model.bin').exists():
+            model_kwargs['use_safetensors'] = False
+        model = AutoModel.from_pretrained(source, **model_kwargs)
         device = os.environ.get('FAULT_QUERY_BERT_DEVICE', '').strip() or ('cuda' if torch.cuda.is_available() else 'cpu')
         model = model.to(device)
         model.eval()
         return tokenizer, model, device, source
-    except Exception:
-        return None
+    except Exception as exc:
+        raise FaultQueryBertError(f'BERT 模型加载失败：source={source}，error={exc}') from exc
 
 
 def resolve_project_bert_source() -> str | None:
@@ -1917,10 +1908,6 @@ def node_semantic_text(node: dict[str, Any]) -> str:
     return '；'.join(part for part in (node_primary_semantic_text(node), node_object_semantic_text(node)) if part)
 
 
-def semantic_query_text(query_text: str) -> str:
-    return '；'.join([*query_variants(query_text), *canonical_fault_phrases(query_text)])
-
-
 def node_primary_semantic_text(node: dict[str, Any]) -> str:
     fields = ('name', 'level', 'rawText', 'key', 'status', 'description', 'label')
     return '；'.join(str(node.get(field, '')).strip() for field in fields if str(node.get(field, '')).strip())
@@ -1929,119 +1916,6 @@ def node_primary_semantic_text(node: dict[str, Any]) -> str:
 def node_object_semantic_text(node: dict[str, Any]) -> str:
     fields = ('owner',)
     return '；'.join(str(node.get(field, '')).strip() for field in fields if str(node.get(field, '')).strip())
-
-
-def canonical_fault_phrases(query_text: str) -> list[str]:
-    normalized = normalize(query_text)
-    phrases: list[str] = []
-    if any(term in normalized for term in ENGINE_TERMS) and is_open_failure_query(normalized):
-        phrases.extend([
-            '发动机一次起动失败',
-            '发动机一次启动失败',
-            '发动机一次打不开',
-            '一次起动失败',
-            '一次启动失败',
-            '一次打不开',
-        ])
-    return phrases
-
-
-def canonical_node_semantic_score(query_text: str, node: dict[str, Any]) -> float:
-    phrases = canonical_fault_phrases(query_text)
-    if not phrases:
-        return 0.0
-
-    name = normalize(str(node.get('name', '')))
-    primary_text = normalize(node_primary_semantic_text(node))
-    normalized_query = normalize(query_text)
-    query_is_engine_open_failure = any(term in normalized_query for term in ENGINE_TERMS) and is_open_failure_query(normalized_query)
-
-    if query_is_engine_open_failure:
-        if any(term in name for term in ('一次起动失败', '一次启动失败', '一次打不开')):
-            return 1.0
-        if name in {'打不开', '无法打开', '不能打开', '开不了'}:
-            return 0.97
-        if '打不开' in name:
-            return 0.94
-        if any(term in primary_text for term in ('一次起动失败', '一次启动失败', '一次打不开')):
-            return 0.93
-
-    for phrase in phrases:
-        normalized_phrase = normalize(phrase)
-        if normalized_phrase and normalized_phrase in name:
-            return 1.0
-        if normalized_phrase and normalized_phrase in primary_text:
-            return 0.96
-    return 0.0
-
-
-def llm_selection_semantically_valid(query_text: str, node: dict[str, Any]) -> bool:
-    normalized_query = normalize(query_text)
-    if any(term in normalized_query for term in ENGINE_TERMS) and is_open_failure_query(normalized_query):
-        return canonical_node_semantic_score(query_text, node) > 0
-    return True
-
-
-def rerank_nodes_with_llm(query_text: str, ranked: list[dict[str, Any]], nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    if not is_llm_query_enabled():
-        set_llm_trace({'enabled': False, 'called': False, 'fallback': 'semantic'})
-        return rank_nodes_with_semantic_fallback(query_text, ranked or nodes) or ranked
-
-    candidates = ranked[:16] if ranked else llm_candidate_pool(nodes)
-    if not candidates:
-        set_llm_trace({'enabled': True, 'called': False, 'error': '没有可供大模型重排的候选节点'})
-        return ranked
-
-    try:
-        set_llm_trace({'enabled': True, 'called': True, 'model': get_llm_model(), 'candidateCount': len(candidates)})
-        selection = call_query_llm(query_text, candidates)
-    except Exception:
-        set_llm_trace({'enabled': True, 'called': True, 'model': get_llm_model(), 'candidateCount': len(candidates), 'error': '大模型调用失败，已降级为本地语义匹配'})
-        return rank_nodes_with_semantic_fallback(query_text, ranked or candidates) or ranked
-
-    selected_id = str(selection.get('selectedNodeId', '')).strip()
-    if not selected_id:
-        set_llm_trace({
-            'enabled': True,
-            'called': True,
-            'model': get_llm_model(),
-            'candidateCount': len(candidates),
-            'selection': selection,
-            'error': '大模型未返回 selectedNodeId，已使用本地语义匹配',
-        })
-        return rank_nodes_with_semantic_fallback(query_text, ranked or candidates) or ranked
-
-    confidence = selection.get('confidence', 0.7)
-    try:
-        confidence_value = max(0.0, min(1.0, float(confidence)))
-    except (TypeError, ValueError):
-        confidence_value = 0.7
-
-    boosted: list[dict[str, Any]] = []
-    ranked_ids = {node['id'] for node in ranked}
-    for node in ranked:
-        if node['id'] == selected_id:
-            boosted.append({**node, 'score': node.get('score', 0) + 40 + int(confidence_value * 60)})
-        else:
-            boosted.append(node)
-
-    if selected_id not in ranked_ids:
-        selected = next((node for node in candidates if node['id'] == selected_id), None)
-        if selected:
-            boosted.append({**selected, 'score': 40 + int(confidence_value * 60)})
-
-    boosted.sort(key=lambda item: (-item['score'], item['name']))
-    set_llm_trace({
-        'enabled': True,
-        'called': True,
-        'model': get_llm_model(),
-        'candidateCount': len(candidates),
-        'selectedNodeId': selected_id,
-        'selectedNodeName': next((node.get('name') for node in candidates if node.get('id') == selected_id), None),
-        'confidence': confidence_value,
-        'reason': selection.get('reason'),
-    })
-    return boosted
 
 
 def set_llm_trace(trace: dict[str, Any]) -> None:
@@ -2065,18 +1939,16 @@ def get_llm_trace() -> dict[str, Any]:
 
 def log_query_backend_strategy(query_text: str, best_node: dict[str, Any] | None = None) -> None:
     trace = get_llm_trace()
-    if trace.get('selectedNodeId'):
-        strategy = '大模型'
-        detail = str(trace.get('model') or get_llm_model())
-    elif trace.get('semanticFallback') == 'bert':
-        strategy = 'BERT'
-        detail = str(trace.get('semanticModel') or resolve_project_bert_source() or DEFAULT_BERT_MODEL_NAME)
-    elif trace.get('semanticFallback') == 'local-text':
-        strategy = '本地文本匹配'
-        detail = str(trace.get('error') or trace.get('fallback') or '未使用大模型')
-    elif trace.get('semanticFallback') == 'local-first-failure':
-        strategy = '本地兜底节点'
-        detail = str(trace.get('error') or '无精确匹配，返回图谱故障节点')
+    if trace.get('semanticFallback') == 'bert':
+        if trace.get('rewriteSource') == 'llm':
+            strategy = '大模型改写+BERT'
+            detail = f"{trace.get('model') or get_llm_model()} -> {trace.get('semanticModel') or resolve_project_bert_source() or DEFAULT_BERT_MODEL_NAME}"
+        else:
+            strategy = 'BERT'
+            detail = str(trace.get('semanticModel') or resolve_project_bert_source() or DEFAULT_BERT_MODEL_NAME)
+    elif trace.get('semanticFallback') == 'bert-error':
+        strategy = 'BERT失败'
+        detail = str(trace.get('error') or 'BERT 未跑通')
     elif trace.get('called'):
         strategy = '本地规则匹配'
         detail = str(trace.get('error') or '大模型未选中节点')
@@ -2085,7 +1957,7 @@ def log_query_backend_strategy(query_text: str, best_node: dict[str, Any] | None
         detail = '大模型未调用'
 
     best_name = best_node.get('name', '') if best_node else ''
-    best_score = best_node.get('score', '') if best_node else ''
+    best_score = top_match_score(query_text, best_node) if best_node else ''
     print(
         f"[FaultQuery] query={query_text!r} strategy={strategy} detail={detail} "
         f"best={best_name!r} score={best_score}",
@@ -2098,6 +1970,7 @@ def log_runtime_config() -> None:
     llm_state = 'enabled' if is_llm_query_enabled() else 'disabled'
     print(
         "[Startup] Fault query logging enabled. "
+        f"Python={sys.executable} "
         f"offline={offline_enabled()} "
         f"LLM={llm_state} model={get_llm_model()} base={get_llm_base_url()} "
         f"BERT={bert_source or 'not found'} "
@@ -2153,7 +2026,7 @@ def llm_candidate_pool(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(nodes, key=query_candidate_sort_key)[:limit]
 
 
-def call_query_llm(query_text: str, candidates: list[dict[str, Any]]) -> dict[str, Any]:
+def call_query_rewrite_llm(query_text: str, candidates: list[dict[str, Any]]) -> dict[str, Any]:
     base_url = get_llm_base_url().rstrip('/')
     if not url_allowed_in_offline(base_url):
         raise RuntimeError(f'离线模式禁止访问公网大模型接口：{base_url}')
@@ -2171,13 +2044,12 @@ def call_query_llm(query_text: str, candidates: list[dict[str, Any]]) -> dict[st
     } for item in candidates]
 
     prompt = (
-        '你是故障知识图谱查询改写与候选选择器。'
-        '请把用户口语化描述归一到已有故障节点语义，并只从候选节点中选择最匹配的一项。'
-        '只用候选节点自身的 name、rawText、key、level 判断主语义匹配，不要让 owner/所属对象参与主判断。'
-        '只有多个候选节点的主语义完全一致、都能匹配查询时，才用 owner/所属对象作为最后的并列裁决。'
-        '不要按关键词包含关系机械选择，要判断语义等价或最接近的故障模式。'
-        '例如“发动机多次才能打开”优先等价于“发动机一次起动失败/发动机一次打不开”，不要优先选孤立的“打不开”。'
-        '只输出 JSON：{"canonicalQuery":"...","selectedNodeId":"...","confidence":0.0,"reason":"..."}。'
+        '你是故障知识图谱查询语义转写器，不负责选择节点、排序或打分。'
+        '请根据候选图谱文本的 name、rawText、key、level、owner 的命名结构，'
+        '把用户口语化问题改写成 1 到 6 个更可能出现在图谱节点中的表达方式。'
+        '改写应尽量短，优先接近故障模式、故障现象或实体对象名称；不要输出候选节点 ID；不要做最终匹配。'
+        '例如“发动机多次才能打开”可改写为“发动机一次起动失败”“发动机一次打不开”“一次起动失败”。'
+        '只输出 JSON：{"rewrites":["..."],"reason":"..."}。'
     )
     payload = {
         'model': model,
@@ -2248,7 +2120,7 @@ def build_top_matches(query_text: str, ranked: list[dict[str, Any]]) -> list[dic
 
     top_matches: list[dict[str, Any]] = []
     for index, item in enumerate(matches, start=1):
-        score = int(item.get('score', 0))
+        score = top_match_score(query_text, item)
         top_matches.append({
             'rank': index,
             'id': item['id'],
@@ -2256,20 +2128,33 @@ def build_top_matches(query_text: str, ranked: list[dict[str, Any]]) -> list[dic
             'level': item.get('level', ''),
             'owner': item.get('owner', ''),
             'score': score,
-            'confidence': top_match_confidence(item),
+            'confidence': top_match_confidence(query_text, item),
             'matchedKeywords': matched_terms(query_text, item),
         })
     return top_matches
 
 
-def top_match_confidence(item: dict[str, Any]) -> float:
+def top_match_score(query_text: str, item: dict[str, Any]) -> int:
+    exact_match = bool(item.get('exactTextMatch')) or query_exactly_matches_node([query_text], item)
+    return bounded_percent_score(item.get('score', 0), exact_match)
+
+
+def top_match_confidence(query_text: str, item: dict[str, Any]) -> float:
+    exact_match = bool(item.get('exactTextMatch')) or query_exactly_matches_node([query_text], item)
     if item.get('rankSource') == 'bert':
         try:
             node_score = max(0.0, float(item.get('nodeSemanticScore', 0.0)))
         except (TypeError, ValueError):
             node_score = 0.0
-        return max(1, min(100, round(node_score * 100, 1)))
-    return max(1, min(100, round(float(item.get('score', 0) or 0))))
+        confidence = round(semantic_confidence_ratio(node_score, exact_match) * 100, 1)
+        return max(1, min(100, confidence))
+    try:
+        confidence = round(float(item.get('score', 0) or 0), 1)
+    except (TypeError, ValueError):
+        confidence = 0.0
+    if not exact_match:
+        confidence = min(confidence, 99.0)
+    return max(1, min(100, confidence))
 
 
 def query_candidate_sort_key(node: dict[str, Any]) -> tuple[Any, ...]:
@@ -2319,43 +2204,6 @@ def fault_chain_connected_node_ids(graph: dict[str, list[dict[str, Any]]]) -> se
 
 def is_failure_mode_node(node: dict[str, Any]) -> bool:
     return node.get('type') in {'root-cause', 'fault', 'impact'} or '故障模式' in str(node.get('level', ''))
-
-
-def find_fallback_node(query_text: str, nodes: list[dict[str, Any]], allowed_ids: set[str] | None = None) -> dict[str, Any] | None:
-    preferred_names = ('发动机一次打不开', '发动机打不开', '发动机无法打开')
-    for preferred in preferred_names:
-        for node in nodes:
-            if allowed_ids is not None and node.get('id') not in allowed_ids:
-                continue
-            if not is_failure_mode_node(node):
-                continue
-            if normalize(node.get('name', '')) == normalize(preferred):
-                return {**node, 'score': 12}
-
-    for node in nodes:
-        if allowed_ids is not None and node.get('id') not in allowed_ids:
-            continue
-        if not is_failure_mode_node(node):
-            continue
-        corpus = normalize(' '.join(str(node.get(field, '')) for field in ('name', 'rawText', 'key', 'level')))
-        if any(term in corpus for term in OPEN_FAILURE_EXPANSIONS):
-            return {**node, 'score': 10}
-    return None
-
-
-def find_first_failure_node(nodes: list[dict[str, Any]], allowed_ids: set[str] | None = None) -> dict[str, Any] | None:
-    candidates = [
-        node for node in nodes
-        if (allowed_ids is None or node.get('id') in allowed_ids) and is_failure_mode_node(node)
-    ]
-    if not candidates:
-        return None
-    candidates.sort(key=lambda item: (
-        LEVEL_ORDER.get(item.get('level', ''), 999),
-        item.get('owner', ''),
-        item.get('name', ''),
-    ))
-    return {**candidates[0], 'score': int(candidates[0].get('score', 1) or 1)}
 
 
 def collect_related(node_id: str, graph: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:

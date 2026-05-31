@@ -165,6 +165,7 @@ type DragState =
     originX: number
     originY: number
     radius: number
+    canvasWidth: number
     scaleX: number
     scaleY: number
   }
@@ -192,6 +193,8 @@ const selectedOntologyNodeId = ref('')
 const selectedFaultNodeId = ref('')
 const selectedOntologyTreeId = ref('graph-ontology-tree-root')
 const selectedFaultTreeId = ref('')
+const isInitialOntologySampleMode = ref(false)
+const initialOntologySampleIds = ref<Set<string> | null>(null)
 const expandedOntologyIds = ref<string[]>([])
 const expandedFaultIds = ref<string[]>([])
 const activeView = ref<AppView>(props.initialView)
@@ -220,12 +223,16 @@ const isNodeSaving = ref(false)
 const STAGE_WIDTH = 1600
 const STAGE_HEIGHT = 900
 const GRAPH_WIDTH = 1520
+const INITIAL_GRAPH_NODE_LIMIT = 1000
 const GRAPH_MAX_ZOOM = 2.4
 const GRAPH_ZOOM_STEP = 0.1
 const ONTOLOGY_MAP_WIDTH = 2400
 const ONTOLOGY_MAP_HEIGHT = 1220
 const ONTOLOGY_MAP_MAX_ZOOM = 2.2
 const ONTOLOGY_MAP_ZOOM_STEP = 0.1
+const ONTOLOGY_TEMPLATE_TREE_ROOT_ID = 'graph-ontology-tree-root'
+const ONTOLOGY_TEMPLATE_GROUP_PREFIX = 'ontology-template-group::'
+const ONTOLOGY_TEMPLATE_LEAF_PREFIX = 'ontology-template-leaf::'
 const faultChainRelationTypes = new Set([
   'HAS_FAILURE_MODE',
   'HAS',
@@ -244,6 +251,30 @@ const attributeRelationOptions = ['发生阶段', '是否单点', '严酷度等�
 
 function isFaultChainEdge(edge: GraphEdge) {
   return faultChainRelationTypes.has(edge.relationType) || faultChainRelationLabels.has(edge.label)
+}
+
+function isSimilarEdge(edge: GraphEdge) {
+  return [edge.label, edge.relationType, edge.rawRelationType].some((value) => {
+    const text = String(value ?? '').trim()
+    return text.includes('相似') || text.toLowerCase().includes('similar')
+  })
+}
+
+function createRandomNodeSample(nodes: GraphNode[], limit: number) {
+  if (nodes.length <= limit) return null
+
+  const ids = nodes.map((node) => node.id)
+  for (let index = 0; index < limit; index += 1) {
+    const swapIndex = index + Math.floor(Math.random() * (ids.length - index))
+    const current = ids[index]!
+    ids[index] = ids[swapIndex]!
+    ids[swapIndex] = current
+  }
+  return new Set(ids.slice(0, limit))
+}
+
+function refreshInitialOntologySample(nextGraph: GraphPayload) {
+  initialOntologySampleIds.value = createRandomNodeSample(nextGraph.nodes, INITIAL_GRAPH_NODE_LIMIT)
 }
 
 const builderOntologyNodeSpecs = [
@@ -340,6 +371,16 @@ const builderOntologyEdges: GraphEdge[] = builderOntologyEdgeSpecs.map((edge) =>
 
 const builderOntologyNodeMap = new Map(builderOntologyNodes.map((node) => [node.id, node] as const))
 const builderOntologyGroupOrder = ['实体对象', '故障模式', '故障现象']
+const ontologyTemplateTreeOrder = new Map([
+  ['global-main', 0],
+  ['system-main', 1],
+  ['machine-main', 2],
+  ['component-main', 3],
+  ['global-fault', 0],
+  ['system-fault', 1],
+  ['machine-fault', 2],
+  ['component-fault', 3],
+])
 const attributeRelationTypes = new Set(['OCCURRENCE_STAGE', 'YES_OR_NO', 'LEVEL_CLASSIFICATION', 'PROBABILITY', 'SOLUTION'])
 const attributeRelationLabels = new Set(['发生阶段', '是否单点', '严酷度等级', '发生概率', '设计措施'])
 const entityTemplateIds = new Set(['component-main', 'machine-main', 'system-main', 'global-main'])
@@ -396,6 +437,118 @@ const ontologyMapPreset: Record<string, { x: number; y: number; r: number; fill:
 }
 
 const nodeMap = computed(() => new Map(graph.value?.nodes.map((node) => [node.id, node] as const) ?? []))
+
+function findSimilarParent(parent: Map<string, string>, nodeId: string) {
+  let cursor = parent.get(nodeId) ?? nodeId
+  const trail: string[] = []
+
+  while ((parent.get(cursor) ?? cursor) !== cursor) {
+    trail.push(cursor)
+    cursor = parent.get(cursor) ?? cursor
+  }
+
+  for (const item of trail) parent.set(item, cursor)
+  return cursor
+}
+
+function buildSimilarRepresentativeMap(nodes: GraphNode[], edges: GraphEdge[]) {
+  const parent = new Map(nodes.map((node) => [node.id, node.id] as const))
+
+  const union = (left: string, right: string) => {
+    if (!parent.has(left) || !parent.has(right)) return
+    const leftRoot = findSimilarParent(parent, left)
+    const rightRoot = findSimilarParent(parent, right)
+    if (leftRoot !== rightRoot) parent.set(rightRoot, leftRoot)
+  }
+
+  for (const edge of edges) {
+    if (isSimilarEdge(edge)) union(edge.from, edge.to)
+  }
+
+  const nodeById = new Map(nodes.map((node) => [node.id, node] as const))
+  const groups = new Map<string, string[]>()
+  for (const node of nodes) {
+    const root = findSimilarParent(parent, node.id)
+    const members = groups.get(root) ?? []
+    members.push(node.id)
+    groups.set(root, members)
+  }
+
+  const representativeById = new Map<string, string>()
+  for (const members of groups.values()) {
+    const representative = members
+      .slice()
+      .sort((left, right) => {
+        const leftNode = nodeById.get(left)
+        const rightNode = nodeById.get(right)
+        const nameCompare = (leftNode?.name ?? left).localeCompare(rightNode?.name ?? right, 'zh-CN')
+        return nameCompare || left.localeCompare(right)
+      })[0]!
+    for (const member of members) representativeById.set(member, representative)
+  }
+
+  return representativeById
+}
+
+const similarRepresentativeByNodeId = computed(() => {
+  if (!graph.value) return new Map<string, string>()
+  return buildSimilarRepresentativeMap(graph.value.nodes, graph.value.edges)
+})
+
+const similarMembersByRepresentative = computed(() => {
+  const members = new Map<string, string[]>()
+  for (const node of graph.value?.nodes ?? []) {
+    const representative = similarRepresentativeByNodeId.value.get(node.id) ?? node.id
+    const group = members.get(representative) ?? []
+    group.push(node.id)
+    members.set(representative, group)
+  }
+  return members
+})
+
+function normalizeGraphNodeId(nodeId: string) {
+  return similarRepresentativeByNodeId.value.get(nodeId) ?? nodeId
+}
+
+function expandGraphIdsWithSimilarGroups(ids: Set<string>) {
+  const expanded = new Set(ids)
+  for (const id of ids) {
+    const representative = normalizeGraphNodeId(id)
+    for (const member of similarMembersByRepresentative.value.get(representative) ?? [id]) {
+      expanded.add(member)
+    }
+  }
+  return expanded
+}
+
+function mergeSimilarGraphNodes(nodes: GraphNode[]) {
+  const merged = new Map<string, GraphNode>()
+  for (const node of nodes) {
+    const representative = normalizeGraphNodeId(node.id)
+    if (!merged.has(representative)) merged.set(representative, nodeMap.value.get(representative) ?? node)
+  }
+  return Array.from(merged.values())
+}
+
+function mergeSimilarGraphEdges(edges: GraphEdge[]) {
+  const merged: GraphEdge[] = []
+  const seen = new Set<string>()
+
+  for (const edge of edges) {
+    if (isSimilarEdge(edge)) continue
+
+    const from = normalizeGraphNodeId(edge.from)
+    const to = normalizeGraphNodeId(edge.to)
+    if (from === to) continue
+
+    const key = `${from}::${to}::${edge.label}::${edge.relationType}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    merged.push({ ...edge, from, to })
+  }
+
+  return merged
+}
 
 const selectedFaultNode = computed(() => {
   const map = nodeMap.value
@@ -466,7 +619,147 @@ const stageByLevel = (level: string) => {
   return 4
 }
 
+function compareOntologyTemplateTreeNode(left: GraphNode, right: GraphNode) {
+  const leftOrder = ontologyTemplateTreeOrder.get(left.id)
+  const rightOrder = ontologyTemplateTreeOrder.get(right.id)
+  if (leftOrder !== undefined || rightOrder !== undefined) {
+    return (leftOrder ?? 999) - (rightOrder ?? 999)
+  }
+  return 0
+}
+
+function isOntologyTemplateGroupTreeNode(treeNode: TreeNode | null | undefined) {
+  return Boolean(
+    treeNode
+      && treeNode.id.startsWith(ONTOLOGY_TEMPLATE_GROUP_PREFIX)
+      && builderOntologyGroupOrder.includes(treeNode.label),
+  )
+}
+
+function isOntologyTemplateTreeNode(treeNode: TreeNode | null | undefined) {
+  return Boolean(
+    treeNode
+      && (
+        treeNode.id === ONTOLOGY_TEMPLATE_TREE_ROOT_ID
+        || treeNode.id.startsWith(ONTOLOGY_TEMPLATE_LEAF_PREFIX)
+        || isOntologyTemplateGroupTreeNode(treeNode)
+      ),
+  )
+}
+
+function isOntologyTemplateRenderModeActive() {
+  return isOntologyView.value
+    && !isInitialOntologySampleMode.value
+    && !selectedOntologyNodeId.value
+    && isOntologyTemplateTreeNode(selectedOntologyTree.value)
+}
+
+function isFocusedOntologyGraphRenderMode(activeNodeId: string) {
+  return isOntologyView.value
+    && !isOntologyTemplateRenderModeActive()
+    && Boolean(activeNodeId)
+    && Boolean(selectedOntologyNodeId.value)
+}
+
+function relatedFocusSortKey(node: GraphNode, activeNodeId: string) {
+  const edge = graphSubsetEdges.value.find((item) => item.from === activeNodeId && item.to === node.id)
+    ?? graphSubsetEdges.value.find((item) => item.to === activeNodeId && item.from === node.id)
+  const directionOrder = edge?.from === activeNodeId ? 0 : edge?.to === activeNodeId ? 1 : 2
+  return [
+    directionOrder,
+    stageByLevel(node.level),
+    edge?.label ?? '',
+    node.name,
+  ] as const
+}
+
+function compareFocusRelatedNodes(left: GraphNode, right: GraphNode, activeNodeId: string) {
+  const leftKey = relatedFocusSortKey(left, activeNodeId)
+  const rightKey = relatedFocusSortKey(right, activeNodeId)
+  for (let index = 0; index < leftKey.length; index += 1) {
+    const leftValue = leftKey[index]
+    const rightValue = rightKey[index]
+    if (typeof leftValue === 'number' && typeof rightValue === 'number') {
+      if (leftValue !== rightValue) return leftValue - rightValue
+      continue
+    }
+    const result = String(leftValue).localeCompare(String(rightValue), 'zh-CN')
+    if (result) return result
+  }
+  return left.id.localeCompare(right.id)
+}
+
+function buildFocusedGraphRenderNodes(positionOverrides: Record<string, NodePoint>, activeNodeId: string) {
+  const nodes = graphSubsetNodes.value
+  const focusNode = nodes.find((node) => node.id === activeNodeId) ?? nodes[0]
+  if (!focusNode) return []
+
+  const relatedNodes = nodes
+    .filter((node) => node.id !== focusNode.id)
+    .sort((left, right) => compareFocusRelatedNodes(left, right, focusNode.id))
+  const ringCapacity = 10
+  const ringCount = Math.max(1, Math.ceil(relatedNodes.length / ringCapacity))
+  const centerX = GRAPH_WIDTH / 2
+  const centerY = 360 + Math.min(ringCount, 5) * 110
+  const focusOverride = positionOverrides[focusNode.id]
+  const renderNodes: RenderNode[] = [{
+    id: focusNode.id,
+    name: focusNode.name,
+    shortName: focusNode.shortName || focusNode.name,
+    level: focusNode.level,
+    x: focusOverride?.x ?? centerX,
+    y: focusOverride?.y ?? centerY,
+    r: 62,
+    fill: toneByNode(focusNode),
+  }]
+
+  relatedNodes.forEach((node, index) => {
+    const ring = Math.floor(index / ringCapacity)
+    const ringStart = ring * ringCapacity
+    const itemsInRing = Math.min(ringCapacity, relatedNodes.length - ringStart)
+    const ringIndex = index - ringStart
+    const angleOffset = ring % 2 ? Math.PI / Math.max(itemsInRing, 1) : 0
+    const angle = -Math.PI / 2 + angleOffset + (Math.PI * 2 * ringIndex) / Math.max(itemsInRing, 1)
+    const horizontalRadius = 300 + ring * 175
+    const verticalRadius = 190 + ring * 130
+    const override = positionOverrides[node.id]
+
+    renderNodes.push({
+      id: node.id,
+      name: node.name,
+      shortName: node.shortName || node.name,
+      level: node.level,
+      x: override?.x ?? centerX + Math.cos(angle) * horizontalRadius,
+      y: override?.y ?? centerY + Math.sin(angle) * verticalRadius,
+      r: 50,
+      fill: toneByNode(node),
+    })
+  })
+
+  return renderNodes
+}
+
 function buildRenderNodes(positionOverrides: Record<string, NodePoint>, activeNodeId: string) {
+  if (isOntologyTemplateRenderModeActive()) {
+    return graphSubsetNodes.value.map((node) => {
+      const override = positionOverrides[node.id]
+      return {
+        id: node.id,
+        name: node.name,
+        shortName: node.shortName || node.name,
+        level: node.level,
+        x: override?.x ?? node.x,
+        y: override?.y ?? node.y,
+        r: activeNodeId === node.id ? ontologyNodeRadius(node.name) + 8 : ontologyNodeRadius(node.name),
+        fill: toneByNode(node),
+      }
+    })
+  }
+
+  if (isFocusedOntologyGraphRenderMode(activeNodeId)) {
+    return buildFocusedGraphRenderNodes(positionOverrides, activeNodeId)
+  }
+
   const columns = [160, 470, 800, 1130, 1420]
   const grouped = new Map<number, GraphNode[]>()
 
@@ -533,27 +826,35 @@ function measureGraphCanvasHeight(nodes: RenderNode[]) {
   return Math.max(960, bottom)
 }
 
+function measureGraphCanvasWidth(nodes: RenderNode[]) {
+  if (!nodes.length) return GRAPH_WIDTH
+  const right = Math.max(...nodes.map((node) => node.x + node.r + 120))
+  return Math.max(GRAPH_WIDTH, right)
+}
+
 const currentPageGraphPositions = computed(() => (isOntologyView.value ? ontologyGraphPositions.value : faultGraphPositions.value))
 
 const pageRenderNodes = computed<RenderNode[]>(() => buildRenderNodes(currentPageGraphPositions.value, graphActiveNodeId.value))
 const pageRenderNodeMap = computed(() => new Map(pageRenderNodes.value.map((node) => [node.id, node] as const)))
 const pageRenderEdges = computed<RenderEdge[]>(() => buildRenderEdges(graphSubsetEdges.value, pageRenderNodeMap.value))
 const pageGraphCanvasHeight = computed(() => measureGraphCanvasHeight(pageRenderNodes.value))
+const pageGraphCanvasWidth = computed(() => measureGraphCanvasWidth(pageRenderNodes.value))
 
 const zoomRenderNodes = computed<RenderNode[]>(() => buildRenderNodes(zoomGraphPositions.value, graphActiveNodeId.value))
 const zoomRenderNodeMap = computed(() => new Map(zoomRenderNodes.value.map((node) => [node.id, node] as const)))
 const zoomRenderEdges = computed<RenderEdge[]>(() => buildRenderEdges(graphSubsetEdges.value, zoomRenderNodeMap.value))
 const zoomGraphCanvasHeight = computed(() => measureGraphCanvasHeight(zoomRenderNodes.value))
+const zoomGraphCanvasWidth = computed(() => measureGraphCanvasWidth(zoomRenderNodes.value))
 
 const pageGraphSvgStyle = computed(() => ({
-  width: `${GRAPH_WIDTH * graphZoomScale.value}px`,
-  minWidth: `${GRAPH_WIDTH * graphZoomScale.value}px`,
+  width: `${pageGraphCanvasWidth.value * graphZoomScale.value}px`,
+  minWidth: `${pageGraphCanvasWidth.value * graphZoomScale.value}px`,
   height: `${pageGraphCanvasHeight.value * graphZoomScale.value}px`,
 }))
 
 const zoomGraphSvgStyle = computed(() => ({
-  width: `${GRAPH_WIDTH * graphZoomScale.value}px`,
-  minWidth: `${GRAPH_WIDTH * graphZoomScale.value}px`,
+  width: `${zoomGraphCanvasWidth.value * graphZoomScale.value}px`,
+  minWidth: `${zoomGraphCanvasWidth.value * graphZoomScale.value}px`,
   height: `${zoomGraphCanvasHeight.value * graphZoomScale.value}px`,
 }))
 
@@ -678,7 +979,7 @@ function collectTreeNodeIds(nodes: TreeNode[]) {
 function countGraphRelations(nodeIds: string[]) {
   if (!graph.value || !nodeIds.length) return 0
   const ids = new Set(nodeIds)
-  return graph.value.edges.filter((edge) => ids.has(edge.from) || ids.has(edge.to)).length
+  return graph.value.edges.filter((edge) => !isSimilarEdge(edge) && (ids.has(edge.from) || ids.has(edge.to))).length
 }
 
 function formatGraphMeta(nodeIds: string[]) {
@@ -837,7 +1138,9 @@ function buildGraphOntologyTree(): TreeNode | null {
   }
 
   const children: TreeNode[] = builderOntologyGroupOrder.map((group) => {
-    const groupNodes = builderOntologyNodes.filter((node) => node.level === group)
+    const groupNodes = builderOntologyNodes
+      .filter((node) => node.level === group)
+      .sort(compareOntologyTemplateTreeNode)
     const leafNodes = groupNodes.map((node) => makeTemplateNode(node))
     return makeGroupNode(group, leafNodes)
   })
@@ -856,9 +1159,9 @@ function buildGraphOntologyTree(): TreeNode | null {
   const allGraphNodeIds = graphNodes.map((node) => node.id)
 
   return {
-    id: 'graph-ontology-tree-root',
+    id: ONTOLOGY_TEMPLATE_TREE_ROOT_ID,
     label: '图谱树',
-    meta: `${graph.value?.stats.nodeCount ?? 0} 个节点 / ${graph.value?.stats.edgeCount ?? 0} 条关系`,
+    meta: `${graph.value?.stats.nodeCount ?? 0} 个节点 / ${(graph.value?.edges ?? []).filter((edge) => !isSimilarEdge(edge)).length} 条关系`,
     graphNodeIds: allGraphNodeIds.length ? allGraphNodeIds : collectTreeNodeIds(children),
     children,
   }
@@ -923,6 +1226,35 @@ const faultTreeIdByNodeId = computed(() => {
 
 const selectedOntologyTree = computed(() => ontologyTreeNodeMap.value.get(selectedOntologyTreeId.value) ?? graphOntologyTree.value)
 
+const ontologyTemplateRenderNodeIds = computed(() => {
+  if (!isOntologyTemplateRenderModeActive()) return new Set<string>()
+
+  const focusTreeNode = selectedOntologyTree.value
+  if (!focusTreeNode || focusTreeNode.id === ONTOLOGY_TEMPLATE_TREE_ROOT_ID) {
+    return new Set(builderOntologyNodes.map((node) => node.id))
+  }
+
+  const baseIds = new Set<string>()
+  if (focusTreeNode.ontologyNodeId) {
+    baseIds.add(focusTreeNode.ontologyNodeId)
+  } else if (isOntologyTemplateGroupTreeNode(focusTreeNode)) {
+    for (const node of builderOntologyNodes) {
+      if (node.level === focusTreeNode.label) baseIds.add(node.id)
+    }
+  }
+
+  if (!baseIds.size) return new Set(builderOntologyNodes.map((node) => node.id))
+
+  const ids = new Set(baseIds)
+  for (const edge of builderOntologyEdges) {
+    if (baseIds.has(edge.from) || baseIds.has(edge.to)) {
+      ids.add(edge.from)
+      ids.add(edge.to)
+    }
+  }
+  return ids
+})
+
 const selectedOntologyMapKey = computed(() => {
   const focusTreeNode = selectedOntologyTree.value
   if (focusTreeNode?.ontologyNodeId) return focusTreeNode.ontologyNodeId
@@ -953,39 +1285,49 @@ const currentFocusLabel = computed(() => {
 })
 
 const graphActiveNodeId = computed(() => {
-  if (isOntologyView.value) return selectedOntologyNodeId.value
-  return selectedFaultNodeId.value
+  if (isOntologyTemplateRenderModeActive()) return selectedOntologyTree.value?.ontologyNodeId ?? ''
+  if (isOntologyView.value) return selectedOntologyNodeId.value ? normalizeGraphNodeId(selectedOntologyNodeId.value) : ''
+  return selectedFaultNodeId.value ? normalizeGraphNodeId(selectedFaultNodeId.value) : ''
 })
 
 const graphSubsetIds = computed(() => {
   if (isOntologyView.value) {
+    if (isOntologyTemplateRenderModeActive()) return new Set(ontologyTemplateRenderNodeIds.value)
     if (!graph.value?.nodes.length) return new Set<string>()
+    if (isInitialOntologySampleMode.value && initialOntologySampleIds.value?.size) {
+      return new Set(initialOntologySampleIds.value)
+    }
+
     const focusTreeNode = selectedOntologyTree.value ?? graphOntologyTree.value
     if (!focusTreeNode) return new Set(graph.value.nodes.map((node) => node.id))
 
     if (selectedOntologyNodeId.value) {
-      const ids = new Set<string>([selectedOntologyNodeId.value])
+      const baseIds = expandGraphIdsWithSimilarGroups(new Set<string>([selectedOntologyNodeId.value]))
+      const ids = new Set(baseIds)
       for (const edge of graph.value.edges) {
-        if (edge.from === selectedOntologyNodeId.value || edge.to === selectedOntologyNodeId.value) {
+        if (isSimilarEdge(edge)) continue
+        if (baseIds.has(edge.from) || baseIds.has(edge.to)) {
           ids.add(edge.from)
           ids.add(edge.to)
         }
       }
-      return ids
+      return expandGraphIdsWithSimilarGroups(ids)
     }
 
-    const baseIds = new Set(focusTreeNode.graphNodeIds)
+    const baseIds = expandGraphIdsWithSimilarGroups(new Set(focusTreeNode.graphNodeIds))
     const ids = new Set(baseIds)
     for (const edge of graph.value.edges) {
+      if (isSimilarEdge(edge)) continue
       if (baseIds.has(edge.from) || baseIds.has(edge.to)) {
         ids.add(edge.from)
         ids.add(edge.to)
       }
     }
-    return ids
+    return expandGraphIdsWithSimilarGroups(ids)
   }
 
   if (!graph.value?.nodes.length) return new Set<string>()
+  if (!queryResult.value && !selectedFaultNodeId.value) return new Set<string>()
 
   const ids = new Set<string>()
   if (queryResult.value?.pathNodeIds?.length) {
@@ -994,51 +1336,59 @@ const graphSubsetIds = computed(() => {
   if (selectedFaultNodeId.value) ids.add(selectedFaultNodeId.value)
 
   if (selectedFaultNodeId.value && graph.value) {
+    const baseIds = expandGraphIdsWithSimilarGroups(new Set([selectedFaultNodeId.value]))
+    for (const id of baseIds) ids.add(id)
     for (const edge of graph.value.edges) {
-      if (!isFaultChainEdge(edge)) continue
-      if (edge.from === selectedFaultNodeId.value || edge.to === selectedFaultNodeId.value) {
+      if (!isFaultChainEdge(edge) || isSimilarEdge(edge)) continue
+      if (baseIds.has(edge.from) || baseIds.has(edge.to)) {
         ids.add(edge.from)
         ids.add(edge.to)
       }
     }
   }
 
-  if (!ids.size) {
-    for (const node of graph.value.nodes) ids.add(node.id)
-  }
-
-  return ids
+  return expandGraphIdsWithSimilarGroups(ids)
 })
 
 const graphSubsetNodes = computed(() => {
-  const ids = graphSubsetIds.value
-  if (isOntologyView.value) return graph.value?.nodes.filter((node) => ids.has(node.id)) ?? []
+  if (isOntologyTemplateRenderModeActive()) {
+    const ids = ontologyTemplateRenderNodeIds.value
+    return builderOntologyNodes.filter((node) => ids.has(node.id))
+  }
+
   if (!graph.value) return []
-  if (!queryResult.value && !selectedFaultNodeId.value) return graph.value.nodes
+  const ids = graphSubsetIds.value
+  if (isOntologyView.value) return mergeSimilarGraphNodes(graph.value.nodes.filter((node) => ids.has(node.id)))
+  if (!queryResult.value && !selectedFaultNodeId.value) return []
 
   const connectedIds = new Set<string>()
   for (const edge of graph.value.edges) {
-    if (!isFaultChainEdge(edge) || !ids.has(edge.from) || !ids.has(edge.to)) continue
+    if (!isFaultChainEdge(edge) || isSimilarEdge(edge) || !ids.has(edge.from) || !ids.has(edge.to)) continue
     connectedIds.add(edge.from)
     connectedIds.add(edge.to)
   }
   if (selectedFaultNodeId.value) connectedIds.add(selectedFaultNodeId.value)
 
-  return graph.value.nodes.filter((node) => ids.has(node.id) && connectedIds.has(node.id))
+  return mergeSimilarGraphNodes(graph.value.nodes.filter((node) => ids.has(node.id) && connectedIds.has(node.id)))
 })
 
 const graphSubsetEdges = computed(() => {
+  if (isOntologyTemplateRenderModeActive()) {
+    const ids = ontologyTemplateRenderNodeIds.value
+    return builderOntologyEdges.filter((edge) => ids.has(edge.from) && ids.has(edge.to))
+  }
+
   if (isOntologyView.value) {
     if (!graph.value) return []
     const ids = graphSubsetIds.value
-    return graph.value.edges.filter((edge) => ids.has(edge.from) && ids.has(edge.to))
+    return mergeSimilarGraphEdges(graph.value.edges.filter((edge) => ids.has(edge.from) && ids.has(edge.to)))
   }
 
   if (!graph.value) return []
-  if (!queryResult.value && !selectedFaultNodeId.value) return graph.value.edges
+  if (!queryResult.value && !selectedFaultNodeId.value) return []
 
   const ids = graphSubsetIds.value
-  return graph.value.edges.filter((edge) => ids.has(edge.from) && ids.has(edge.to) && isFaultChainEdge(edge))
+  return mergeSimilarGraphEdges(graph.value.edges.filter((edge) => ids.has(edge.from) && ids.has(edge.to) && isFaultChainEdge(edge)))
 })
 
 function syncOntologyExpandedState(focusNodeId = selectedOntologyNodeId.value) {
@@ -1098,7 +1448,9 @@ function setGraphNodePosition(target: 'ontologyPage' | 'faultPage' | 'zoom', id:
 
 function applyGraphPayload(nextGraph: GraphPayload, focusNodeId = '') {
   graph.value = nextGraph
+  refreshInitialOntologySample(nextGraph)
   if (focusNodeId && nodeMap.value.has(focusNodeId)) {
+    isInitialOntologySampleMode.value = false
     if (isOntologyView.value) {
       selectedOntologyNodeId.value = focusNodeId
       selectedOntologyTreeId.value = ontologyTreeIdByNodeId.value.get(focusNodeId) ?? selectedOntologyTreeId.value
@@ -1124,12 +1476,14 @@ async function loadGraph() {
     const nextGraph = graphPayloadFromResponse(payload)
     if (!nextGraph) throw new Error('empty graph payload')
     graph.value = nextGraph
+    refreshInitialOntologySample(nextGraph)
     ontologyGraphPositions.value = {}
     faultGraphPositions.value = {}
     zoomGraphPositions.value = {}
     ontologyMapPositions.value = {}
     selectedOntologyNodeId.value = ''
-    selectedOntologyTreeId.value = 'graph-ontology-tree-root'
+    selectedOntologyTreeId.value = ONTOLOGY_TEMPLATE_TREE_ROOT_ID
+    isInitialOntologySampleMode.value = false
     syncGraphBoardCenter()
     syncOntologyMapBoardCenter()
     syncOntologyExpandedState()
@@ -1366,13 +1720,24 @@ function switchView(nextView: AppView) {
 
 function selectNode(nodeId: string) {
   if (isOntologyView.value) {
-    selectedOntologyNodeId.value = nodeId
-    selectedOntologyTreeId.value = ontologyTreeIdByNodeId.value.get(nodeId) ?? selectedOntologyTreeId.value
-    syncOntologyExpandedState(nodeId)
+    if (builderOntologyNodeMap.has(nodeId)) {
+      const label = builderOntologyNodeMap.get(nodeId)?.name ?? ''
+      const treeId = ontologyMapTreeIdByLabel.value.get(nodeId) ?? ontologyMapTreeIdByLabel.value.get(label)
+      const treeNode = treeId ? ontologyTreeNodeMap.value.get(treeId) : null
+      if (treeNode) selectOntologyTreeNode(treeNode)
+      return
+    }
+
+    isInitialOntologySampleMode.value = false
+    const normalizedNodeId = normalizeGraphNodeId(nodeId)
+    selectedOntologyNodeId.value = normalizedNodeId
+    selectedOntologyTreeId.value = ontologyTreeIdByNodeId.value.get(normalizedNodeId) ?? selectedOntologyTreeId.value
+    syncOntologyExpandedState(normalizedNodeId)
   } else {
-    selectedFaultNodeId.value = nodeId
-    selectedFaultTreeId.value = faultTreeIdByNodeId.value.get(nodeId) ?? selectedFaultTreeId.value
-    syncFaultExpandedState(nodeId)
+    const normalizedNodeId = normalizeGraphNodeId(nodeId)
+    selectedFaultNodeId.value = normalizedNodeId
+    selectedFaultTreeId.value = faultTreeIdByNodeId.value.get(normalizedNodeId) ?? selectedFaultTreeId.value
+    syncFaultExpandedState(normalizedNodeId)
   }
 }
 
@@ -1427,16 +1792,24 @@ async function selectTopMatch(match: QueryTopMatch) {
 }
 
 function selectOntologyTreeNode(treeNode: TreeNode) {
+  isInitialOntologySampleMode.value = false
   selectedOntologyTreeId.value = treeNode.id
 
+  if (isOntologyTemplateTreeNode(treeNode)) {
+    selectedOntologyNodeId.value = ''
+    syncOntologyExpandedState('')
+    return
+  }
+
   if (treeNode.nodeId) {
-    selectedOntologyNodeId.value = treeNode.nodeId
-    syncOntologyExpandedState(treeNode.nodeId)
+    const normalizedNodeId = normalizeGraphNodeId(treeNode.nodeId)
+    selectedOntologyNodeId.value = normalizedNodeId
+    syncOntologyExpandedState(normalizedNodeId)
     return
   }
 
   if (treeNode.graphNodeIds.length === 1) {
-    selectedOntologyNodeId.value = treeNode.graphNodeIds[0] ?? ''
+    selectedOntologyNodeId.value = normalizeGraphNodeId(treeNode.graphNodeIds[0] ?? '')
     syncOntologyExpandedState(selectedOntologyNodeId.value)
     return
   }
@@ -1495,10 +1868,46 @@ function closeGraphZoom() {
   isGraphZoomOpen.value = false
 }
 
-function setGraphZoom(nextScale: number) {
+function createZoomScrollSync(
+  board: HTMLElement | null,
+  previousScale: number,
+  nextScale: number,
+  anchor?: { x: number; y: number },
+) {
+  if (!board) return null
+  const anchorX = anchor?.x ?? board.clientWidth / 2
+  const anchorY = anchor?.y ?? board.clientHeight / 2
+  const contentX = (board.scrollLeft + anchorX) / previousScale
+  const contentY = (board.scrollTop + anchorY) / previousScale
+
+  return () => {
+    board.scrollLeft = Math.max(contentX * nextScale - anchorX, 0)
+    board.scrollTop = Math.max(contentY * nextScale - anchorY, 0)
+  }
+}
+
+function graphZoomBoards(focusBoard?: HTMLElement | null) {
+  if (focusBoard) return [focusBoard]
+  return [graphBoardRef.value, zoomBoardRef.value].filter((board): board is HTMLElement => Boolean(board))
+}
+
+function setGraphZoom(nextScale: number, anchor?: { board?: HTMLElement | null; x: number; y: number }) {
   if (!Number.isFinite(nextScale) || nextScale <= 0) return
-  graphZoomScale.value = Math.min(GRAPH_MAX_ZOOM, Number(nextScale.toFixed(3)))
-  syncGraphBoardCenter()
+  const previousScale = graphZoomScale.value
+  const nextZoomScale = Math.min(GRAPH_MAX_ZOOM, Number(nextScale.toFixed(3)))
+  if (Math.abs(nextZoomScale - previousScale) < 0.001) return
+
+  const scrollSyncs = graphZoomBoards(anchor?.board).map((board) => createZoomScrollSync(
+    board,
+    previousScale,
+    nextZoomScale,
+    anchor?.board === board ? { x: anchor.x, y: anchor.y } : undefined,
+  ))
+
+  graphZoomScale.value = nextZoomScale
+  void nextTick(() => {
+    for (const sync of scrollSyncs) sync?.()
+  })
 }
 
 function zoomGraph(direction: 1 | -1) {
@@ -1512,13 +1921,27 @@ function resetGraphZoom() {
 
 function handleGraphWheel(event: WheelEvent) {
   event.preventDefault()
-  zoomGraph(event.deltaY < 0 ? 1 : -1)
+  const board = event.currentTarget instanceof HTMLElement ? event.currentTarget : null
+  const rect = board?.getBoundingClientRect()
+  const factor = 1 + GRAPH_ZOOM_STEP
+  const nextScale = event.deltaY < 0 ? graphZoomScale.value * factor : graphZoomScale.value / factor
+  setGraphZoom(nextScale, rect && board
+    ? { board, x: event.clientX - rect.left, y: event.clientY - rect.top }
+    : undefined)
 }
 
-function setOntologyMapZoom(nextScale: number) {
+function setOntologyMapZoom(nextScale: number, anchor?: { board?: HTMLElement | null; x: number; y: number }) {
   if (!Number.isFinite(nextScale) || nextScale <= 0) return
-  ontologyMapZoomScale.value = Math.min(ONTOLOGY_MAP_MAX_ZOOM, Number(nextScale.toFixed(3)))
-  syncOntologyMapBoardCenter()
+  const previousScale = ontologyMapZoomScale.value
+  const nextZoomScale = Math.min(ONTOLOGY_MAP_MAX_ZOOM, Number(nextScale.toFixed(3)))
+  if (Math.abs(nextZoomScale - previousScale) < 0.001) return
+
+  const board = anchor?.board ?? ontologyMapBoardRef.value
+  const anchorPoint = anchor && anchor.board === board ? { x: anchor.x, y: anchor.y } : undefined
+  const scrollSync = createZoomScrollSync(board, previousScale, nextZoomScale, anchorPoint)
+
+  ontologyMapZoomScale.value = nextZoomScale
+  void nextTick(() => scrollSync?.())
 }
 
 function zoomOntologyMap(direction: 1 | -1) {
@@ -1532,12 +1955,19 @@ function resetOntologyMapZoom() {
 
 function handleOntologyMapWheel(event: WheelEvent) {
   event.preventDefault()
-  zoomOntologyMap(event.deltaY < 0 ? 1 : -1)
+  const board = event.currentTarget instanceof HTMLElement ? event.currentTarget : null
+  const rect = board?.getBoundingClientRect()
+  const factor = 1 + ONTOLOGY_MAP_ZOOM_STEP
+  const nextScale = event.deltaY < 0 ? ontologyMapZoomScale.value * factor : ontologyMapZoomScale.value / factor
+  setOntologyMapZoom(nextScale, rect && board
+    ? { board, x: event.clientX - rect.left, y: event.clientY - rect.top }
+    : undefined)
 }
 
 function centerScrollableBoard(board: HTMLElement | null) {
   if (!board) return
   board.scrollLeft = Math.max((board.scrollWidth - board.clientWidth) / 2, 0)
+  board.scrollTop = Math.max((board.scrollHeight - board.clientHeight) / 2, 0)
 }
 
 function syncGraphBoardCenter() {
@@ -1565,9 +1995,9 @@ function getSvgScale(target: EventTarget | null, viewWidth: number, viewHeight: 
   }
 }
 
-function clampGraphPoint(point: NodePoint, radius: number): NodePoint {
+function clampGraphPoint(point: NodePoint, radius: number, canvasWidth = GRAPH_WIDTH): NodePoint {
   return {
-    x: Math.min(Math.max(point.x, radius + 20), GRAPH_WIDTH - radius - 20),
+    x: Math.min(Math.max(point.x, radius + 20), canvasWidth - radius - 20),
     y: Math.max(point.y, radius + 20),
   }
 }
@@ -1584,8 +2014,9 @@ function startGraphDrag(event: PointerEvent, nodeId: string, target: 'ontologyPa
 
   const map = target === 'zoom' ? zoomRenderNodeMap.value : pageRenderNodeMap.value
   const canvasHeight = target === 'zoom' ? zoomGraphCanvasHeight.value : pageGraphCanvasHeight.value
+  const canvasWidth = target === 'zoom' ? zoomGraphCanvasWidth.value : pageGraphCanvasWidth.value
   const node = map.get(nodeId)
-  const scale = getSvgScale(event.currentTarget, GRAPH_WIDTH, canvasHeight)
+  const scale = getSvgScale(event.currentTarget, canvasWidth, canvasHeight)
   if (!node || !scale) return
 
   dragState.value = {
@@ -1597,6 +2028,7 @@ function startGraphDrag(event: PointerEvent, nodeId: string, target: 'ontologyPa
     originX: node.x,
     originY: node.y,
     radius: node.r,
+    canvasWidth,
     scaleX: scale.scaleX,
     scaleY: scale.scaleY,
   }
@@ -1634,7 +2066,7 @@ function handlePointerMove(event: PointerEvent) {
   }
 
   if (active.kind === 'graph') {
-    setGraphNodePosition(active.target, active.id, clampGraphPoint(nextPoint, active.radius))
+    setGraphNodePosition(active.target, active.id, clampGraphPoint(nextPoint, active.radius, active.canvasWidth))
     return
   }
 
@@ -1890,7 +2322,7 @@ const TreeBranch: ReturnType<typeof defineComponent> = defineComponent({
 
                   <div ref="graphBoardRef" class="graph-board" role="button" tabindex="0" @click="openGraphZoom" @wheel="handleGraphWheel" @keydown.enter.prevent="openGraphZoom" @keydown.space.prevent="openGraphZoom" @contextmenu.prevent>
                     <div v-if="pageRenderNodes.length" class="canvas-center-wrap">
-                      <svg :viewBox="`0 0 ${GRAPH_WIDTH} ${pageGraphCanvasHeight}`" class="graph-svg" :style="pageGraphSvgStyle" aria-label="图谱视图">
+                      <svg :viewBox="`0 0 ${pageGraphCanvasWidth} ${pageGraphCanvasHeight}`" class="graph-svg" :style="pageGraphSvgStyle" aria-label="图谱视图">
                         <defs>
                           <marker id="graph-arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
                             <path d="M 1 1 L 10 6 L 1 11 z" class="graph-arrow-head" />
@@ -1999,7 +2431,7 @@ const TreeBranch: ReturnType<typeof defineComponent> = defineComponent({
 
                   <div ref="graphBoardRef" class="graph-board" role="button" tabindex="0" @click="openGraphZoom" @wheel="handleGraphWheel" @keydown.enter.prevent="openGraphZoom" @keydown.space.prevent="openGraphZoom" @contextmenu.prevent>
                     <div v-if="pageRenderNodes.length" class="canvas-center-wrap">
-                      <svg :viewBox="`0 0 ${GRAPH_WIDTH} ${pageGraphCanvasHeight}`" class="graph-svg" :style="pageGraphSvgStyle" aria-label="图谱视图">
+                      <svg :viewBox="`0 0 ${pageGraphCanvasWidth} ${pageGraphCanvasHeight}`" class="graph-svg" :style="pageGraphSvgStyle" aria-label="图谱视图">
                         <defs>
                           <marker id="graph-arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
                             <path d="M 1 1 L 10 6 L 1 11 z" class="graph-arrow-head" />
@@ -2071,7 +2503,7 @@ const TreeBranch: ReturnType<typeof defineComponent> = defineComponent({
       </div>
       <div ref="zoomBoardRef" class="zoom-board" @wheel="handleGraphWheel" @contextmenu.prevent>
         <div v-if="zoomRenderNodes.length" class="canvas-center-wrap">
-          <svg :viewBox="`0 0 ${GRAPH_WIDTH} ${zoomGraphCanvasHeight}`" class="zoom-svg" :style="zoomGraphSvgStyle" aria-label="图谱放大视图">
+          <svg :viewBox="`0 0 ${zoomGraphCanvasWidth} ${zoomGraphCanvasHeight}`" class="zoom-svg" :style="zoomGraphSvgStyle" aria-label="图谱放大视图">
             <defs>
               <marker id="zoom-graph-arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
                 <path d="M 1 1 L 10 6 L 1 11 z" class="graph-arrow-head" />
@@ -2171,7 +2603,7 @@ textarea,.query-input{width:100%;min-height:64px;height:64px;border:1px solid #d
 .top-match-meta{display:flex;gap:6px;min-width:0;color:#6b7f9d;font-size:10px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .top-match-score{font-size:12px;font-weight:900;color:#0f766e}
 .content-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;min-height:0;overflow:hidden;align-items:stretch}
-.canvas-center-wrap{min-width:100%;width:max-content;min-height:100%;display:flex;justify-content:center;align-items:flex-start}
+.canvas-center-wrap{min-width:100%;width:max-content;min-height:100%;display:flex;justify-content:center;align-items:center}
 .graph-panel{position:relative;display:grid;grid-template-rows:auto minmax(0,1fr);min-height:0;height:100%}
 .graph-panel--ontology .graph-board{min-height:0}
 .panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
