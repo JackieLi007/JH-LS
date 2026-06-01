@@ -450,6 +450,7 @@ function sourceHint(type) {
 }
 
 function mergeExtractionResults(results = [], sourceType = 'table') {
+  if (results.length === 1) return results[0] || null;
   const entityMap = new Map();
   const relationCount = new Map();
   const tripleRows = [];
@@ -463,7 +464,9 @@ function mergeExtractionResults(results = [], sourceType = 'table') {
     (result?.relations || []).forEach((item) => {
       relationCount.set(item.name, (relationCount.get(item.name) || 0) + Number(item.count || 0));
     });
-    tripleRows.push(...(result?.tripleRows || []));
+    for (const item of (result?.tripleRows || [])) {
+      tripleRows.push(item);
+    }
     if (result?.kgBuild) {
       kgBuildItems.push({
         fileName: result.fileName || '',
@@ -952,6 +955,7 @@ export function createApp(root, options = {}) {
 
   const renderExtractClean = () => {
     if (state.currentPage !== 'extract') return '';
+    const EXTRACT_SAMPLE_LIMIT = 20;
     if (!['table', 'document', 'image'].includes(state.sourceType)) state.sourceType = 'table';
     const isDocument = state.sourceType === 'document';
     const isImage = state.sourceType === 'image';
@@ -960,17 +964,21 @@ export function createApp(root, options = {}) {
     const kgBuild = result?.kgBuild;
     const kgProgress = state.kgBuildProgress || kgProgressFromBuild(kgBuild);
     const relationRows = isImage ? [] : (result?.tripleRows || []);
-    const relationSamples = Array.from(new Map(
-      relationRows.map((item) => [
-        `${item.subjectType}__${item.predicate}__${item.objectType}`,
-        {
-          subject: item.subjectType || item.subject,
-          predicate: item.predicate,
-          object: item.objectType || item.object,
-        },
-      ]),
-    ).values());
-    const tripleRows = relationRows;
+    const relationSamples = [];
+    const relationSampleKeys = new Set();
+    for (const item of relationRows) {
+      const key = `${item.subjectType}__${item.predicate}__${item.objectType}`;
+      if (relationSampleKeys.has(key)) continue;
+      relationSampleKeys.add(key);
+      relationSamples.push({
+        subject: item.subjectType || item.subject,
+        predicate: item.predicate,
+        object: item.objectType || item.object,
+      });
+      if (relationSamples.length >= EXTRACT_SAMPLE_LIMIT) break;
+    }
+    const relationSampleRows = relationSamples;
+    const tripleRows = relationRows.slice(0, EXTRACT_SAMPLE_LIMIT);
     const selectedFiles = [state.selectedFile, ...(state.extraTableFiles || [])].filter(Boolean);
     const hasGeneratedContent = Boolean(result);
     const extractError = String(result?.error || '').trim();
@@ -1122,13 +1130,13 @@ export function createApp(root, options = {}) {
           ${renderKgBuildProgress(kgProgress)}
         </section>
         <section class="panel config-panel">
-          <div class="panel__header panel__header--compact"><div><p class="panel__eyebrow">${T.pageExtract}</p><h3>节点关系展示</h3></div></div>
-          ${relationSamples.length ? `<div class="results-list">${relationSamples.map((item) => `<article class="results-item"><strong>${escapeHtml(item.subject)}</strong><p>${escapeHtml(item.predicate)} -> ${escapeHtml(item.object)}</p></article>`).join('')}</div>` : `<div class="empty-state">暂无关系概括</div>`}
+          <div class="panel__header panel__header--compact"><div><p class="panel__eyebrow">${T.pageExtract}</p><h3>节点关系展示（前 ${EXTRACT_SAMPLE_LIMIT} 条样例）</h3></div></div>
+          ${relationSampleRows.length ? `<div class="results-list">${relationSampleRows.map((item) => `<article class="results-item"><strong>${escapeHtml(item.subject)}</strong><p>${escapeHtml(item.predicate)} -> ${escapeHtml(item.object)}</p></article>`).join('')}</div>` : `<div class="empty-state">暂无关系概括</div>`}
         </section>
         <section class="result-stack">
           ${documentSummaryPanel}
           <section class="panel">
-            <div class="panel__header panel__header--compact"><div><p class="panel__eyebrow">${T.pageExtract}</p><h3>三元组展示（真实抽取数据）</h3></div></div>
+            <div class="panel__header panel__header--compact"><div><p class="panel__eyebrow">${T.pageExtract}</p><h3>三元组展示（前 ${EXTRACT_SAMPLE_LIMIT} 条样例）</h3></div></div>
             ${tripleRows.length ? `<div class="triple-list">${tripleRows.map((item) => `<article class="triple-item"><div class="triple-line"><span class="triple-node">${escapeHtml(item.subject)}</span><span class="triple-rel">${escapeHtml(item.predicate)}</span><span class="triple-node">${escapeHtml(item.object)}</span></div></article>`).join('')}</div>` : `<div class="empty-state">${T.extractNoResult}</div>`}
           </section>
         </section>

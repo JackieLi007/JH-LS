@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """Import fault-analysis spreadsheet data into Neo4j."""
 
 from __future__ import annotations
@@ -15,32 +15,64 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Sequence, Tupl
 from xml.etree import ElementTree as ET
 
 
+HEADER_MACHINE = "系统树节点"
+HEADER_FUNCTION = "功能"
+HEADER_UNIT_FAILURE = "故障模式名称"
+HEADER_COMPONENT_REASON = "故障原因"
+HEADER_SYSTEM_EFFECT = "高一层级影响"
+HEADER_FINAL_EFFECT = "最终影响"
+HEADER_SINGLE_POINT = "是否单点"
+HEADER_SEVERITY = "严酷度等级"
+HEADER_PROBABILITY = "发生概率等级"
+HEADER_PHASE = "任务阶段"
+HEADER_MEASURE = "设计措施"
+
+HEADER_CANONICAL_MAP = {
+    HEADER_MACHINE: HEADER_MACHINE,
+    HEADER_FUNCTION: HEADER_FUNCTION,
+    HEADER_UNIT_FAILURE: HEADER_UNIT_FAILURE,
+    HEADER_COMPONENT_REASON: HEADER_COMPONENT_REASON,
+    HEADER_SYSTEM_EFFECT: HEADER_SYSTEM_EFFECT,
+    "高一层次影响": HEADER_SYSTEM_EFFECT,
+    "高一层影响": HEADER_SYSTEM_EFFECT,
+    HEADER_FINAL_EFFECT: HEADER_FINAL_EFFECT,
+    HEADER_SINGLE_POINT: HEADER_SINGLE_POINT,
+    HEADER_SEVERITY: HEADER_SEVERITY,
+    "严重度等级": HEADER_SEVERITY,
+    "严重度": HEADER_SEVERITY,
+    HEADER_PROBABILITY: HEADER_PROBABILITY,
+    "发生概率": HEADER_PROBABILITY,
+    HEADER_PHASE: HEADER_PHASE,
+    "发生阶段": HEADER_PHASE,
+    HEADER_MEASURE: HEADER_MEASURE,
+}
+
 REQUIRED_HEADERS = [
-    "系统树节点",
-    "功能",
-    "故障模式名称",
-    "故障原因",
-    "高一层次影响",
-    "最终影响",
-    "是否单点",
-    "严酷度等级",
-    "发生概率等级",
-    "任务阶段",
-    "设计措施",
+    HEADER_MACHINE,
+    HEADER_FUNCTION,
+    HEADER_UNIT_FAILURE,
+    HEADER_COMPONENT_REASON,
+    HEADER_SYSTEM_EFFECT,
+    HEADER_FINAL_EFFECT,
+    HEADER_SINGLE_POINT,
+    HEADER_SEVERITY,
+    HEADER_PROBABILITY,
+    HEADER_PHASE,
+    HEADER_MEASURE,
 ]
 
 HEADER_ALIASES = {
-    "系统树节点": "machine_name",
-    "功能": "function_name",
-    "故障模式名称": "unit_failure_mode",
-    "故障原因": "component_reason",
-    "高一层次影响": "system_effect",
-    "最终影响": "overall_effect",
-    "是否单点": "is_single_point",
-    "严酷度等级": "severity_level",
-    "发生概率等级": "probability_level",
-    "任务阶段": "mission_phase",
-    "设计措施": "design_measure",
+    HEADER_MACHINE: "machine_name",
+    HEADER_FUNCTION: "function_name",
+    HEADER_UNIT_FAILURE: "unit_failure_mode",
+    HEADER_COMPONENT_REASON: "component_reason",
+    HEADER_SYSTEM_EFFECT: "system_effect",
+    HEADER_FINAL_EFFECT: "overall_effect",
+    HEADER_SINGLE_POINT: "is_single_point",
+    HEADER_SEVERITY: "severity_level",
+    HEADER_PROBABILITY: "probability_level",
+    HEADER_PHASE: "mission_phase",
+    HEADER_MEASURE: "design_measure",
 }
 
 NS = {"a": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
@@ -199,6 +231,11 @@ def normalize_text(value: object) -> str:
     return text
 
 
+def canonicalize_header_name(value: object) -> str:
+    text = normalize_text(value)
+    return HEADER_CANONICAL_MAP.get(text, text)
+
+
 OPENING_BRACKETS = "([{（【"
 CLOSING_BRACKETS = ")]}）】"
 BRACKET_PAIRS = dict(zip(CLOSING_BRACKETS, OPENING_BRACKETS))
@@ -250,21 +287,46 @@ def split_prefixed_text(value: str) -> Tuple[str, str]:
     return "", text
 
 
+def split_numbered_texts(value: str) -> List[str]:
+    text = normalize_text(value).replace("\uFF1A", ":")
+    if not text:
+        return []
+    matches = list(re.finditer(r"\d+\s*:", text))
+    if not matches:
+        return []
+
+    segments: List[str] = []
+    current_start = matches[0].end() if matches[0].start() == 0 else 0
+    iter_matches = matches[1:] if matches[0].start() == 0 else matches
+    for match in iter_matches:
+        segment = text[current_start:match.start()].strip(" ;\uFF1B,\uFF0C\u3001")
+        if segment:
+            segments.append(segment)
+        current_start = match.end()
+    tail = text[current_start:].strip(" ;\uFF1B,\uFF0C\u3001")
+    if tail:
+        segments.append(tail)
+    return segments if len(segments) > 1 else []
+
+
 def split_prefixed_texts(value: str) -> List[Tuple[str, str]]:
     text = normalize_text(value)
     if not text:
         return []
-    segments = split_top_level_text(text, {"\n", ";", "；"})
-    if len(segments) <= 1:
-        colon_count = sum(1 for ch in text if ch in {":", "："})
-        if colon_count > 1:
-            segmented = split_top_level_text(text, {"\n", ";", "；", ",", "，"})
-            if len(segmented) > 1:
-                segments = segmented
+    segments = split_numbered_texts(text)
+    if not segments:
+        segments = split_top_level_text(text, {"\n", ";", "；"})
+        if len(segments) <= 1:
+            colon_count = sum(1 for ch in text if ch in {":", "："})
+            if colon_count > 1:
+                segmented = split_top_level_text(text, {"\n", ";", "；", ",", "，"})
+                if len(segmented) > 1:
+                    segments = segmented
     parsed: List[Tuple[str, str]] = []
     for segment in segments or [text]:
         parsed.append(split_prefixed_text(segment))
     return parsed
+
 
 
 def get_shared_strings(xlsx: zipfile.ZipFile) -> List[str]:
@@ -400,7 +462,7 @@ def rows_to_records(
     if is_xlsx:
         header_map = rows[0]
         ordered_headers = {
-            column: normalize_text(value)
+            column: canonicalize_header_name(value)
             for column, value in header_map.items()
             if normalize_text(value)
         }
@@ -418,11 +480,14 @@ def rows_to_records(
             records.append(record)
         return records
 
-    header_names = set(rows[0].keys())
+    header_names = {canonicalize_header_name(header) for header in rows[0].keys()}
     missing = [header for header in REQUIRED_HEADERS if header not in header_names]
     if require_required_headers and missing:
         raise ValueError(f"Missing required headers: {', '.join(missing)}")
-    return [{header: normalize_text(value) for header, value in row.items()} for row in rows]
+    return [
+        {canonicalize_header_name(header): normalize_text(value) for header, value in row.items()}
+        for row in rows
+    ]
 
 
 def build_graph_rows(records: Sequence[Dict[str, str]]) -> List[GraphRow]:
@@ -436,12 +501,12 @@ def build_graph_rows(records: Sequence[Dict[str, str]]) -> List[GraphRow]:
         return pairs[-1]
 
     for offset, record in enumerate(records, start=2):
-        machine_name = normalize_text(record["系统树节点"])
-        function_name = normalize_text(record["功能"])
-        unit_failure_mode = normalize_text(record["故障模式名称"])
-        component_reason_raw = normalize_text(record["故障原因"])
-        system_effect_raw = normalize_text(record["高一层次影响"])
-        overall_failure_mode = normalize_text(record["最终影响"])
+        machine_name = normalize_text(record[HEADER_MACHINE])
+        function_name = normalize_text(record[HEADER_FUNCTION])
+        unit_failure_mode = normalize_text(record[HEADER_UNIT_FAILURE])
+        component_reason_raw = normalize_text(record[HEADER_COMPONENT_REASON])
+        system_effect_raw = normalize_text(record[HEADER_SYSTEM_EFFECT])
+        overall_failure_mode = normalize_text(record[HEADER_FINAL_EFFECT])
 
         if not machine_name or not unit_failure_mode:
             continue
@@ -476,11 +541,11 @@ def build_graph_rows(records: Sequence[Dict[str, str]]) -> List[GraphRow]:
                     system_name=system_name,
                     system_failure_mode=system_failure_mode,
                     overall_failure_mode=overall_failure_mode,
-                    is_single_point=normalize_text(record["是否单点"]),
-                    severity_level=normalize_text(record["严酷度等级"]),
-                    probability_level=normalize_text(record["发生概率等级"]),
-                    mission_phase=normalize_text(record["任务阶段"]),
-                    design_measure=normalize_text(record["设计措施"]),
+                    is_single_point=normalize_text(record[HEADER_SINGLE_POINT]),
+                    severity_level=normalize_text(record[HEADER_SEVERITY]),
+                    probability_level=normalize_text(record[HEADER_PROBABILITY]),
+                    mission_phase=normalize_text(record[HEADER_PHASE]),
+                    design_measure=normalize_text(record[HEADER_MEASURE]),
                     component_reason_raw=component_reason_raw,
                     system_effect_raw=system_effect_raw,
                     extra_columns={
@@ -792,7 +857,7 @@ def import_to_neo4j(
     UNWIND $rows AS row
     MERGE (machine:`单机` {name: row.machine_name})
     MERGE (function:`功能` {name: row.function_name})
-    MERGE (machine)-[:`具有功能（HAS_FUNCTION）`]->(function)
+    MERGE (machine)-[:`具有功能`]->(function)
 
     MERGE (component:`组件` {name: row.component_name})
     MERGE (system:`系统` {name: row.system_name})
@@ -801,28 +866,28 @@ def import_to_neo4j(
       ON CREATE SET
         unitMode.name = row.unit_failure_mode,
         unitMode.owner = row.machine_name
-    MERGE (machine)-[:`具有故障模式（HAS_FAILURE_MODE）`]->(unitMode)
+    MERGE (machine)-[:`具有故障模式`]->(unitMode)
 
     MERGE (componentMode:`组件级故障模式` {key: row.component_failure_key})
       ON CREATE SET
         componentMode.name = row.component_failure_mode,
         componentMode.owner = row.component_name,
         componentMode.raw_text = row.component_reason_raw
-    MERGE (component)-[:`具有故障模式（HAS_FAILURE_MODE）`]->(componentMode)
-    MERGE (componentMode)-[:`导致（LEADS_TO）`]->(unitMode)
+    MERGE (component)-[:`具有故障模式`]->(componentMode)
+    MERGE (componentMode)-[:`导致`]->(unitMode)
 
     MERGE (systemMode:`系统级故障模式` {key: row.system_failure_key})
       ON CREATE SET
         systemMode.name = row.system_failure_mode,
         systemMode.owner = row.system_name,
         systemMode.raw_text = row.system_effect_raw
-    MERGE (system)-[:`具有故障模式（HAS_FAILURE_MODE）`]->(systemMode)
-    MERGE (unitMode)-[:`导致（LEADS_TO）`]->(systemMode)
+    MERGE (system)-[:`具有故障模式`]->(systemMode)
+    MERGE (unitMode)-[:`导致`]->(systemMode)
 
     MERGE (overallMode:`总体级故障模式` {key: row.overall_failure_key})
       ON CREATE SET
         overallMode.name = row.overall_failure_mode
-    MERGE (systemMode)-[:`导致（LEADS_TO）`]->(overallMode)
+    MERGE (systemMode)-[:`导致`]->(overallMode)
 
     MERGE (singlePoint:`是否单点` {key: row.single_point_key})
       ON CREATE SET singlePoint.name = row.is_single_point
@@ -835,11 +900,11 @@ def import_to_neo4j(
     MERGE (measure:`设计措施` {key: row.measure_key})
       ON CREATE SET measure.name = row.design_measure
 
-    MERGE (unitMode)-[:`是否单点（YES_OR_NO）`]->(singlePoint)
-    MERGE (unitMode)-[:`等级分类（LEVEL_CLASSIFICATION）`]->(severity)
-    MERGE (unitMode)-[:`发生概率（PROBABILITY）`]->(probability)
-    MERGE (unitMode)-[:`发生阶段（OCCURRENCE_STAGE）`]->(phase)
-    MERGE (unitMode)-[:`解决措施（SOLUTION）`]->(measure)
+    MERGE (unitMode)-[:`是否单点`]->(singlePoint)
+    MERGE (unitMode)-[:`严酷度等级`]->(severity)
+    MERGE (unitMode)-[:`发生概率`]->(probability)
+    MERGE (unitMode)-[:`发生阶段`]->(phase)
+    MERGE (unitMode)-[:`设计措施`]->(measure)
     """
 
     driver = GraphDatabase.driver(uri, auth=(user, password))

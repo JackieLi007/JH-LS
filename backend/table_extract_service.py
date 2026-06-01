@@ -165,6 +165,28 @@ def _unique_preserve_order(values: list[str]) -> list[str]:
     return result
 
 
+def _split_numbered_segments(value: str) -> list[str]:
+    normalized = str(value or '').strip().replace('：', ':')
+    if not normalized:
+        return []
+    matches = list(re.finditer(r'\d+\s*:', normalized))
+    if not matches:
+        return []
+
+    segments: list[str] = []
+    current_start = matches[0].end() if matches[0].start() == 0 else 0
+    iter_matches = matches[1:] if matches[0].start() == 0 else matches
+    for match in iter_matches:
+        segment = normalized[current_start:match.start()].strip(' ;；,，、')
+        if segment:
+            segments.append(segment)
+        current_start = match.end()
+    tail = normalized[current_start:].strip(' ;；,，、')
+    if tail:
+        segments.append(tail)
+    return segments if len(segments) > 1 else []
+
+
 def _split_prefixed_pairs(value: str) -> list[tuple[str, str]]:
     text = str(value or '').strip()
     if not text:
@@ -173,23 +195,26 @@ def _split_prefixed_pairs(value: str) -> list[tuple[str, str]]:
     pairs: list[tuple[str, str]] = []
     seen: set[tuple[str, str]] = set()
 
+    numbered_segments = _split_numbered_segments(normalized)
+    if numbered_segments:
+        segments = numbered_segments
+    else:
+        segments = [segment.strip() for segment in re.split(r'[。；;\n]+', normalized) if segment.strip()]
+
     # 先按句号/分号/换行拆，再按并列逗号拆，最后按冒号配对。
-    segments = [segment.strip() for segment in re.split(r'[。；;\n]+', normalized) if segment.strip()]
     for segment in segments:
         subsegments = [sub.strip() for sub in re.split(r'[，,、]+', segment) if sub.strip()]
         for sub in subsegments:
             if ':' not in sub:
                 continue
-            parts = [part.strip() for part in sub.split(':') if part.strip()]
-            if len(parts) < 2:
+            left, right = sub.split(':', 1)
+            pair = (left.strip(), right.strip())
+            if not pair[0] or not pair[1]:
                 continue
-            # 支持一个片段中出现多个冒号：A:B:C:D -> (A,B), (C,D)
-            for idx in range(0, len(parts) - 1, 2):
-                pair = (parts[idx], parts[idx + 1])
-                if pair in seen:
-                    continue
-                seen.add(pair)
-                pairs.append(pair)
+            if pair in seen:
+                continue
+            seen.add(pair)
+            pairs.append(pair)
     return pairs
 
 
@@ -744,5 +769,3 @@ def get_table_extraction_result(
     result['definition'] = declaration_payload
     result['tripleJsonPath'] = _export_triple_json(triple_definition, primary_file_name)
     return result
-
-
