@@ -6,6 +6,7 @@ import re
 import shutil
 import sys
 import time
+import traceback
 import zipfile
 from collections import defaultdict, deque
 from functools import lru_cache
@@ -307,7 +308,15 @@ def create_app() -> Flask:
             'llmEnabled': is_llm_query_enabled(),
             'llmBaseUrl': get_llm_base_url(),
             'llmModel': get_llm_model(),
+            'bert': bert_diagnostics(load_model=False),
         })
+
+    @app.get('/api/bert/status')
+    def bert_status() -> Any:
+        load_model = str(request.args.get('load', '')).strip().lower() in {'1', 'true', 'yes'}
+        diagnostics = bert_diagnostics(load_model=load_model)
+        status_code = 200 if diagnostics.get('ok') else 500
+        return jsonify(build_api_envelope(bool(diagnostics.get('ok')), status_code, diagnostics.get('message', ''), diagnostics)), status_code
 
     @app.get('/api/graph')
     def graph() -> Any:
@@ -352,8 +361,12 @@ def create_app() -> Flask:
             ranked = rank_fault_chain_query_nodes(text, graph)
         except FaultQueryBertError as exc:
             log_query_backend_strategy(text)
+            diagnostics = bert_diagnostics(load_model=False)
+            print(f"[FaultQuery][BERT_ERROR] {exc}", flush=True)
+            print(f"[FaultQuery][BERT_DIAGNOSTICS] {json.dumps(diagnostics, ensure_ascii=False)}", flush=True)
+            traceback.print_exception(type(exc), exc, exc.__traceback__)
             message = str(exc)
-            return jsonify(build_api_envelope(False, 500, message, {**empty_query_result(), 'summary': message})), 500
+            return jsonify(build_api_envelope(False, 500, message, {**empty_query_result(), 'summary': message, 'bertDiagnostics': diagnostics})), 500
         if not ranked:
             log_query_backend_strategy(text)
             return jsonify(build_api_envelope(False, 404, 'BERT 未匹配到故障节点', {**empty_query_result(), 'summary': 'BERT 已完成向量匹配，但未在 Neo4j 图数据库中匹配到相关故障节点。'})), 404
@@ -1837,6 +1850,94 @@ def fault_query_bert_candidates(configured: str = '') -> list[Path]:
     return candidates
 
 
+def describe_bert_source(path: Path) -> dict[str, Any]:
+    required_files = ['config.json', 'vocab.txt']
+    weight_files = ['pytorch_model.bin', 'model.safetensors']
+    return {
+        'path': str(path),
+        'exists': path.exists(),
+        'isDir': path.is_dir(),
+        'requiredFiles': {name: (path / name).exists() for name in required_files},
+        'weightFiles': {name: (path / name).exists() for name in weight_files},
+        'hasWeights': any((path / name).exists() for name in weight_files),
+    }
+
+
+def dependency_status(module_name: str) -> dict[str, Any]:
+    try:
+        module = __import__(module_name)
+        return {
+            'ok': True,
+            'version': str(getattr(module, '__version__', 'unknown')),
+            'file': str(getattr(module, '__file__', '')),
+        }
+    except Exception as exc:
+        return {'ok': False, 'error': str(exc)}
+
+
+def bert_diagnostics(load_model: bool = False) -> dict[str, Any]:
+    configured = os.environ.get('FAULT_QUERY_BERT_MODEL', '').strip()
+    candidates = fault_query_bert_candidates(configured)
+    resolved_source = resolve_project_bert_source()
+    torch_status = dependency_status('torch')
+    transformers_status = dependency_status('transformers')
+    diagnostics: dict[str, Any] = {
+        'ok': False,
+        'message': '',
+        'pythonExecutable': sys.executable,
+        'pythonVersion': sys.version,
+        'projectRoot': str(PROJECT_ROOT),
+        'cwd': str(Path.cwd()),
+        'env': {
+            'FAULT_QUERY_BERT_MODEL': configured,
+            'FAULT_QUERY_BERT_DEVICE': os.environ.get('FAULT_QUERY_BERT_DEVICE', '').strip(),
+            'FAULT_QUERY_BERT_CANDIDATE_LIMIT': os.environ.get('FAULT_QUERY_BERT_CANDIDATE_LIMIT', '').strip(),
+            'FAULT_QUERY_BERT_MAX_LENGTH': os.environ.get('FAULT_QUERY_BERT_MAX_LENGTH', '').strip(),
+            'FAULT_QUERY_BERT_BATCH_SIZE': os.environ.get('FAULT_QUERY_BERT_BATCH_SIZE', '').strip(),
+        },
+        'dependencies': {
+            'torch': torch_status,
+            'transformers': transformers_status,
+        },
+        'candidates': [describe_bert_source(path) for path in candidates],
+        'resolvedSource': resolved_source or '',
+        'loadRequested': load_model,
+    }
+
+    if not torch_status.get('ok') or not transformers_status.get('ok'):
+        diagnostics['message'] = 'BERT 依赖未安装或不可导入，请检查 Flask 启动所用 Python 环境。'
+        return diagnostics
+
+    if not resolved_source:
+        diagnostics['message'] = '未找到 BERT 模型目录，请检查 FAULT_QUERY_BERT_MODEL 或 models/bert-base-chinese。'
+        return diagnostics
+
+    source_info = describe_bert_source(Path(resolved_source))
+    diagnostics['resolvedSourceFiles'] = source_info
+    missing_required = [name for name, exists in source_info['requiredFiles'].items() if not exists]
+    if missing_required or not source_info['hasWeights']:
+        diagnostics['message'] = f"BERT 模型文件不完整，缺少：{', '.join(missing_required) or '权重文件 pytorch_model.bin/model.safetensors'}。"
+        return diagnostics
+
+    if load_model:
+        try:
+            _, _, device, source = get_project_bert_encoder()
+            diagnostics['device'] = device
+            diagnostics['resolvedSource'] = source
+        except FaultQueryBertError as exc:
+            diagnostics['message'] = str(exc)
+            diagnostics['traceback'] = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+            return diagnostics
+        except Exception as exc:
+            diagnostics['message'] = f'BERT 诊断加载失败：{exc}'
+            diagnostics['traceback'] = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+            return diagnostics
+
+    diagnostics['ok'] = True
+    diagnostics['message'] = 'BERT 配置检查通过。' if not load_model else 'BERT 模型加载成功。'
+    return diagnostics
+
+
 def resolve_huggingface_snapshot(model_name: str) -> Path | None:
     if not model_name or any(separator in model_name for separator in ('\\', '/')) and Path(model_name).exists():
         return None
@@ -2429,9 +2530,6 @@ if __name__ == '__main__':
     debug_enabled = os.environ.get('FLASK_DEBUG', '').strip().lower() in {'1', 'true', 'yes', 'on'}
     log_runtime_config()
     app.run(host='0.0.0.0', port=5000, debug=debug_enabled, use_reloader=debug_enabled)
-
-
-
 
 
 
