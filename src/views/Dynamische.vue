@@ -1034,7 +1034,15 @@ function buildFaultTree(): TreeNode | null {
 
 function buildGraphOntologyTree(): TreeNode | null {
   const graphNodes = graph.value?.nodes ?? []
+  const graphEdges = graph.value?.edges ?? []
   const graphNodeById = new Map(graphNodes.map((node) => [node.id, node] as const))
+  const graphEdgesByNode = new Map<string, GraphEdge[]>()
+  for (const edge of graphEdges) {
+    if (!graphEdgesByNode.has(edge.from)) graphEdgesByNode.set(edge.from, [])
+    if (!graphEdgesByNode.has(edge.to)) graphEdgesByNode.set(edge.to, [])
+    graphEdgesByNode.get(edge.from)!.push(edge)
+    graphEdgesByNode.get(edge.to)!.push(edge)
+  }
   const graphIdsByOntologyNode = new Map(builderOntologyNodes.map((node) => [node.id, [] as string[]]))
   const matchedGraphIds = new Set<string>()
   for (const node of graphNodes) {
@@ -1061,7 +1069,7 @@ function buildGraphOntologyTree(): TreeNode | null {
   const relatedNodes = (nodeId: string, edgeMatcher: (edge: GraphEdge) => boolean, nodeMatcher: (node: GraphNode) => boolean) => {
     const related: GraphNode[] = []
     const seen = new Set<string>()
-    for (const edge of graph.value?.edges ?? []) {
+    for (const edge of graphEdgesByNode.get(nodeId) ?? []) {
       if (!edgeMatcher(edge)) continue
       const relatedId = edge.from === nodeId ? edge.to : edge.to === nodeId ? edge.from : ''
       if (!relatedId || seen.has(relatedId)) continue
@@ -1147,7 +1155,7 @@ function buildGraphOntologyTree(): TreeNode | null {
   return {
     id: ONTOLOGY_TEMPLATE_TREE_ROOT_ID,
     label: '图谱树',
-    meta: `${graph.value?.stats.nodeCount ?? 0} 个节点 / ${(graph.value?.edges ?? []).filter((edge) => !isSimilarEdge(edge)).length} 条关系`,
+    meta: `${graph.value?.stats.nodeCount ?? 0} 个节点 / ${graphEdges.filter((edge) => !isSimilarEdge(edge)).length} 条关系`,
     graphNodeIds: allGraphNodeIds.length ? allGraphNodeIds : collectTreeNodeIds(children),
     children,
   }
@@ -1493,11 +1501,7 @@ async function loadGraph(options: LoadGraphOptions = {}) {
 
 function ensureGraphLoadedForOntology() {
   if (activeView.value !== 'ontology' || graph.value || isLoading.value) return
-  void nextTick(() => {
-    if (activeView.value === 'ontology' && !graph.value) {
-      void loadGraph({ resetViewState: false })
-    }
-  })
+  void loadGraph({ resetViewState: false })
 }
 
 async function refreshQueryResultAfterGraphChange() {
@@ -2264,7 +2268,11 @@ const TreeBranch: ReturnType<typeof defineComponent> = defineComponent({
             <template v-if="isOntologyView">
               <section class="view-grid view-grid--ontology">
                 <section class="card tree-card">
-                  <div class="eyebrow">图谱树</div>
+                  <div class="tree-card-head">
+                    <div class="eyebrow">图谱树</div>
+                    <span class="tree-load-state">{{ graph ? `${graph.stats.nodeCount} 个节点` : isLoading ? '加载中...' : graphError ? '加载失败' : '本体模板' }}</span>
+                  </div>
+                  <p v-if="graphError" class="tree-load-error">{{ graphError }}</p>
                   <ul v-if="graphOntologyTree" class="tree-root">
                     <TreeBranch :node="graphOntologyTree" :active-tree-id="selectedOntologyTreeId" :active-node-id="selectedOntologyNodeId" :expanded-ids="expandedOntologyIds" tone="system" @select="selectOntologyTreeNode" @toggle="toggleExpanded" />
                   </ul>
@@ -2664,6 +2672,9 @@ box-shadow:inset 0 1px 0 rgba(255,255,255,.9);cursor:zoom-in}
 .side-column{display:grid;grid-template-rows:minmax(0,1fr);gap:12px;min-height:0;height:100%}
 .card-hint{margin:6px 0 0;color:#667a98;line-height:1.45;font-size:12px}
 .tree-card{background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(244,249,255,.92));display:flex;flex-direction:column;min-height:0;overflow:hidden;padding:14px 14px 14px 8px}
+.tree-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-left:0}
+.tree-load-state{min-width:0;color:#607799;font-size:11px;font-weight:800;white-space:nowrap}
+.tree-load-error{margin:8px 0 0 8px;color:#b3354b;font-size:12px;font-weight:800;line-height:1.35}
 :deep(.tree-root),:deep(.tree-children){list-style:none;margin:12px 0 0;padding:0;overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable both-edges;flex:1;min-height:0}
 :deep(.tree-root){padding-right:4px;padding-left:0;margin-left:-2px}
 :deep(.tree-children){position:relative;margin:5px 0 0 6px;padding:2px 0 0 7px;overflow:visible}
