@@ -223,7 +223,6 @@ const isNodeSaving = ref(false)
 const STAGE_WIDTH = 1600
 const STAGE_HEIGHT = 900
 const GRAPH_WIDTH = 1520
-const INITIAL_GRAPH_NODE_LIMIT = 1000
 const GRAPH_MAX_ZOOM = 2.4
 const GRAPH_ZOOM_STEP = 0.1
 const ONTOLOGY_MAP_WIDTH = 2400
@@ -260,21 +259,8 @@ function isSimilarEdge(edge: GraphEdge) {
   })
 }
 
-function createRandomNodeSample(nodes: GraphNode[], limit: number) {
-  if (nodes.length <= limit) return null
-
-  const ids = nodes.map((node) => node.id)
-  for (let index = 0; index < limit; index += 1) {
-    const swapIndex = index + Math.floor(Math.random() * (ids.length - index))
-    const current = ids[index]!
-    ids[index] = ids[swapIndex]!
-    ids[swapIndex] = current
-  }
-  return new Set(ids.slice(0, limit))
-}
-
-function refreshInitialOntologySample(nextGraph: GraphPayload) {
-  initialOntologySampleIds.value = createRandomNodeSample(nextGraph.nodes, INITIAL_GRAPH_NODE_LIMIT)
+function refreshInitialOntologySample() {
+  initialOntologySampleIds.value = null
 }
 
 const builderOntologyNodeSpecs = [
@@ -1448,7 +1434,7 @@ function setGraphNodePosition(target: 'ontologyPage' | 'faultPage' | 'zoom', id:
 
 function applyGraphPayload(nextGraph: GraphPayload, focusNodeId = '') {
   graph.value = nextGraph
-  refreshInitialOntologySample(nextGraph)
+  refreshInitialOntologySample()
   if (focusNodeId && nodeMap.value.has(focusNodeId)) {
     isInitialOntologySampleMode.value = false
     if (isOntologyView.value) {
@@ -1467,7 +1453,13 @@ function graphPayloadFromResponse(payload: Record<string, any>): GraphPayload | 
   return (payload.graph ?? payload.result?.graph ?? null) as GraphPayload | null
 }
 
-async function loadGraph() {
+type LoadGraphOptions = {
+  resetViewState?: boolean
+}
+
+async function loadGraph(options: LoadGraphOptions = {}) {
+  const { resetViewState = true } = options
+  if (graph.value) return true
   graphError.value = ''
   isLoading.value = true
   try {
@@ -1476,19 +1468,24 @@ async function loadGraph() {
     const nextGraph = graphPayloadFromResponse(payload)
     if (!nextGraph) throw new Error('empty graph payload')
     graph.value = nextGraph
-    refreshInitialOntologySample(nextGraph)
+    refreshInitialOntologySample()
     ontologyGraphPositions.value = {}
     faultGraphPositions.value = {}
     zoomGraphPositions.value = {}
     ontologyMapPositions.value = {}
-    selectedOntologyNodeId.value = ''
-    selectedOntologyTreeId.value = ONTOLOGY_TEMPLATE_TREE_ROOT_ID
-    isInitialOntologySampleMode.value = false
+    if (resetViewState) {
+      selectedOntologyNodeId.value = ''
+      selectedOntologyTreeId.value = ONTOLOGY_TEMPLATE_TREE_ROOT_ID
+      isInitialOntologySampleMode.value = false
+    }
     syncGraphBoardCenter()
     syncOntologyMapBoardCenter()
     syncOntologyExpandedState()
+    syncFaultExpandedState()
+    return true
   } catch {
     graphError.value = '图谱加载失败，请检查 Flask 服务和 Neo4j 连接'
+    return false
   } finally {
     isLoading.value = false
   }
@@ -1662,7 +1659,7 @@ function routeQueryText() {
 
 async function applyRouteQuery() {
   const text = routeQueryText()
-  if (!text || !graph.value) return
+  if (!text) return
   if (text === lastAutoQuery.value && queryResult.value) return
 
   query.value = text
@@ -1673,7 +1670,6 @@ async function applyRouteQuery() {
 }
 
 async function runQuery() {
-  if (!graph.value) return
   const text = query.value.trim()
   queryError.value = ''
   if (!text) {
@@ -1698,8 +1694,11 @@ async function runQuery() {
     currentQuery.value = text
     activeView.value = 'fault'
     selectedFaultNodeId.value = queryResult.value.nodeId || selectedFaultNodeId.value
+    if (!graph.value) await loadGraph({ resetViewState: false })
+    await nextTick()
     selectedFaultTreeId.value = faultTreeIdByNodeId.value.get(selectedFaultNodeId.value) ?? selectedFaultTreeId.value
     syncFaultExpandedState(selectedFaultNodeId.value)
+    syncGraphBoardCenter()
   } catch {
     queryError.value = '查询失败，请检查 Flask 服务是否正常'
   } finally {
@@ -1749,7 +1748,7 @@ async function selectTopMatch(match: QueryTopMatch) {
 
   const text = currentQuery.value || query.value.trim()
   const previousTopMatches = queryResult.value?.topMatches ?? []
-  if (!text || !graph.value) {
+  if (!text) {
     syncGraphBoardCenter()
     return
   }
@@ -1780,6 +1779,7 @@ async function selectTopMatch(match: QueryTopMatch) {
     }
     currentQuery.value = text
     selectedFaultNodeId.value = nextResult.nodeId || match.id
+    if (!graph.value) await loadGraph({ resetViewState: false })
     await nextTick()
     selectedFaultTreeId.value = faultTreeIdByNodeId.value.get(selectedFaultNodeId.value) ?? selectedFaultTreeId.value
     syncFaultExpandedState(selectedFaultNodeId.value)
@@ -2105,7 +2105,6 @@ onMounted(async () => {
   window.addEventListener('pointerup', stopDrag)
   window.addEventListener('pointercancel', stopDrag)
   window.addEventListener('contextmenu', suppressGraphAreaContextMenu)
-  await loadGraph()
   syncOntologyExpandedState()
   await applyRouteQuery()
 })

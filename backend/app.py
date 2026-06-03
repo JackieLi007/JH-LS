@@ -1939,22 +1939,15 @@ def get_llm_trace() -> dict[str, Any]:
 
 def log_query_backend_strategy(query_text: str, best_node: dict[str, Any] | None = None) -> None:
     trace = get_llm_trace()
-    if trace.get('semanticFallback') == 'bert':
-        if trace.get('rewriteSource') == 'llm':
-            strategy = '大模型改写+BERT'
-            detail = f"{trace.get('model') or get_llm_model()} -> {trace.get('semanticModel') or resolve_project_bert_source() or DEFAULT_BERT_MODEL_NAME}"
-        else:
-            strategy = 'BERT'
-            detail = str(trace.get('semanticModel') or resolve_project_bert_source() or DEFAULT_BERT_MODEL_NAME)
-    elif trace.get('semanticFallback') == 'bert-error':
+    if trace.get('semanticFallback') == 'bert-error':
         strategy = 'BERT失败'
         detail = str(trace.get('error') or 'BERT 未跑通')
-    elif trace.get('called'):
-        strategy = '本地规则匹配'
-        detail = str(trace.get('error') or '大模型未选中节点')
+    elif trace.get('rewriteSource') == 'llm':
+        strategy = '大模型改写+BERT'
+        detail = f"{trace.get('model') or get_llm_model()} -> {trace.get('semanticModel') or resolve_project_bert_source() or DEFAULT_BERT_MODEL_NAME}"
     else:
-        strategy = '本地规则匹配'
-        detail = '大模型未调用'
+        strategy = 'BERT'
+        detail = str(trace.get('semanticModel') or resolve_project_bert_source() or DEFAULT_BERT_MODEL_NAME)
 
     best_name = best_node.get('name', '') if best_node else ''
     best_score = top_match_score(query_text, best_node) if best_node else ''
@@ -2436,7 +2429,6 @@ if __name__ == '__main__':
     debug_enabled = os.environ.get('FLASK_DEBUG', '').strip().lower() in {'1', 'true', 'yes', 'on'}
     log_runtime_config()
     app.run(host='0.0.0.0', port=5000, debug=debug_enabled, use_reloader=debug_enabled)
-
 
 
 
