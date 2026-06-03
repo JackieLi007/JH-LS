@@ -1491,6 +1491,15 @@ async function loadGraph(options: LoadGraphOptions = {}) {
   }
 }
 
+function ensureGraphLoadedForOntology() {
+  if (activeView.value !== 'ontology' || graph.value || isLoading.value) return
+  void nextTick(() => {
+    if (activeView.value === 'ontology' && !graph.value) {
+      void loadGraph({ resetViewState: false })
+    }
+  })
+}
+
 async function refreshQueryResultAfterGraphChange() {
   const text = currentQuery.value || query.value.trim()
   if (!text || !graph.value) return
@@ -1710,6 +1719,7 @@ function switchView(nextView: AppView) {
   activeView.value = nextView
   if (nextView === 'ontology') {
     syncOntologyExpandedState()
+    ensureGraphLoadedForOntology()
   } else {
     syncFaultExpandedState()
   }
@@ -2107,6 +2117,7 @@ onMounted(async () => {
   window.addEventListener('contextmenu', suppressGraphAreaContextMenu)
   syncOntologyExpandedState()
   await applyRouteQuery()
+  ensureGraphLoadedForOntology()
 })
 
 watch(() => route.fullPath, () => {
