@@ -43,14 +43,14 @@ const menuItems: MenuItem[] = [
     index: '04',
     title: '图谱展示',
     note: '查看图谱树、全量图谱和节点关系',
-    roles: ['viewer'],
+    roles: ['editor', 'viewer'],
   },
   {
     to: '/fault-query',
     index: '05',
     title: '故障链查询',
     note: '输入故障现象并查看推演链路',
-    roles: ['viewer'],
+    roles: ['editor', 'viewer'],
   },
 ]
 

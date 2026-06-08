@@ -10,7 +10,7 @@ import OntologyGraphView from '@/views/OntologyGraphView.vue'
 import VersionManagementView from '@/views/VersionManagementView.vue'
 
 const editorRoles: AuthRole[] = ['editor']
-const viewerRoles: AuthRole[] = ['viewer']
+const allRoles: AuthRole[] = ['editor', 'viewer']
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -81,7 +81,7 @@ const router = createRouter({
           component: OntologyGraphView,
           meta: {
             requiresAuth: true,
-            roles: viewerRoles,
+            roles: allRoles,
             title: '图谱展示',
             subtitle: 'Neo4j 图谱视图',
           },
@@ -92,7 +92,7 @@ const router = createRouter({
           component: FaultQueryView,
           meta: {
             requiresAuth: true,
-            roles: viewerRoles,
+            roles: allRoles,
             title: '故障链查询',
             subtitle: '故障现象推演',
           },
