@@ -46,12 +46,12 @@ AUTH_PUBLIC_API_PATHS = {
     '/api/auth/logout',
     '/api/auth/me',
 }
-VIEWER_API_RULES = {
-    ('GET', '/api/health'),
-    ('GET', '/api/bert/status'),
-    ('GET', '/api/graph'),
-    ('POST', '/api/query'),
-    ('POST', '/api/query/node'),
+AUTH_EDITOR_API_RULES = {
+    ('POST', '/api/graph/nodes'),
+    ('POST', '/api/parse-preview'),
+    ('POST', '/api/extract'),
+    ('POST', '/api/kg/build'),
+    ('POST', '/api/kg/rollback'),
 }
 
 
@@ -356,10 +356,10 @@ def read_auth_user() -> dict[str, str] | None:
     return user
 
 
-def viewer_api_allowed() -> bool:
-    if request.method == 'OPTIONS':
+def editor_api_required() -> bool:
+    if request.method in {'PATCH', 'DELETE'} and request.path.startswith('/api/graph/nodes/'):
         return True
-    return (request.method, request.path) in VIEWER_API_RULES
+    return (request.method, request.path) in AUTH_EDITOR_API_RULES
 
 
 def auth_cookie_secure() -> bool:
@@ -375,7 +375,12 @@ def create_app() -> Flask:
     def authenticate_api_request() -> Any:
         if request.path.startswith('/api/'):
             print(f"[API] {request.method} {request.path} from={request.remote_addr}", flush=True)
-        if request.method == 'OPTIONS' or not request.path.startswith('/api/') or request.path in AUTH_PUBLIC_API_PATHS:
+        if (
+            request.method == 'OPTIONS'
+            or not request.path.startswith('/api/')
+            or request.path in AUTH_PUBLIC_API_PATHS
+            or not editor_api_required()
+        ):
             return None
 
         user = read_auth_user()
@@ -388,7 +393,7 @@ def create_app() -> Flask:
             }), 401
 
         g.auth_user = user
-        if user['role'] == 'viewer' and not viewer_api_allowed():
+        if user['role'] != 'editor':
             return jsonify({
                 'success': False,
                 'code': 403,
