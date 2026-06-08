@@ -1,8 +1,10 @@
 ﻿from __future__ import annotations
 
 import os
+import hmac
 import json
 import re
+import secrets
 import shutil
 import sys
 import time
@@ -19,6 +21,7 @@ from urllib import request as urlrequest
 
 from flask import Flask, g, has_request_context, jsonify, request
 from flask_cors import CORS
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from neo4j import GraphDatabase
 from neo4j.exceptions import TransientError
 
@@ -35,6 +38,21 @@ DEFAULT_LOCAL_LLM_BASE_URL = 'http://192.168.102.240:8866/v1'
 DEFAULT_LOCAL_LLM_MODEL = 'Qwen3-Next-80B-A3B-Instruct'
 DEFAULT_BERT_MODEL_NAME = 'bert-base-chinese'
 ATTRIBUTE_MATERIALIZE_LOCK = Lock()
+AUTH_COOKIE_NAME = 'jh_auth'
+AUTH_SESSION_MAX_AGE = 12 * 60 * 60
+AUTH_RUNTIME_SECRET = secrets.token_urlsafe(32)
+AUTH_PUBLIC_API_PATHS = {
+    '/api/auth/login',
+    '/api/auth/logout',
+    '/api/auth/me',
+}
+VIEWER_API_RULES = {
+    ('GET', '/api/health'),
+    ('GET', '/api/bert/status'),
+    ('GET', '/api/graph'),
+    ('POST', '/api/query'),
+    ('POST', '/api/query/node'),
+}
 
 
 class FaultQueryBertError(RuntimeError):
@@ -278,21 +296,171 @@ SUPPORT_LEVELS = {
 }
 FAULT_CHAIN_SUPPORT_LEVELS = SUPPORT_LEVELS
 
+
+def auth_users() -> dict[str, dict[str, str]]:
+    editor_username = os.environ.get('AUTH_EDITOR_USERNAME', 'admin').strip() or 'admin'
+    viewer_username = os.environ.get('AUTH_VIEWER_USERNAME', 'viewer').strip() or 'viewer'
+    return {
+        editor_username: {
+            'username': editor_username,
+            'password': os.environ.get('AUTH_EDITOR_PASSWORD', 'admin123'),
+            'displayName': os.environ.get('AUTH_EDITOR_DISPLAY_NAME', '本体管理员').strip() or '本体管理员',
+            'role': 'editor',
+            'homePath': '/ontology-builder',
+        },
+        viewer_username: {
+            'username': viewer_username,
+            'password': os.environ.get('AUTH_VIEWER_PASSWORD', 'viewer123'),
+            'displayName': os.environ.get('AUTH_VIEWER_DISPLAY_NAME', '查询用户').strip() or '查询用户',
+            'role': 'viewer',
+            'homePath': '/ontology',
+        },
+    }
+
+
+def auth_serializer() -> URLSafeTimedSerializer:
+    secret = os.environ.get('AUTH_SECRET_KEY', '').strip() or AUTH_RUNTIME_SECRET
+    return URLSafeTimedSerializer(secret, salt='jh-auth-session')
+
+
+def public_auth_user(user: dict[str, str]) -> dict[str, str]:
+    return {
+        'username': user['username'],
+        'displayName': user['displayName'],
+        'role': user['role'],
+        'homePath': user['homePath'],
+    }
+
+
+def create_auth_token(user: dict[str, str]) -> str:
+    return auth_serializer().dumps({
+        'username': user['username'],
+        'role': user['role'],
+    })
+
+
+def read_auth_user() -> dict[str, str] | None:
+    token = request.cookies.get(AUTH_COOKIE_NAME, '').strip()
+    if not token:
+        return None
+    try:
+        payload = auth_serializer().loads(token, max_age=AUTH_SESSION_MAX_AGE)
+    except (BadSignature, SignatureExpired):
+        return None
+
+    username = str(payload.get('username') or '').strip() if isinstance(payload, dict) else ''
+    role = str(payload.get('role') or '').strip() if isinstance(payload, dict) else ''
+    user = auth_users().get(username)
+    if not user or user['role'] != role:
+        return None
+    return user
+
+
+def viewer_api_allowed() -> bool:
+    if request.method == 'OPTIONS':
+        return True
+    return (request.method, request.path) in VIEWER_API_RULES
+
+
+def auth_cookie_secure() -> bool:
+    return os.environ.get('AUTH_COOKIE_SECURE', '').strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
 def create_app() -> Flask:
     app = Flask(__name__)
     app.json.sort_keys = False
-    CORS(app)
+    CORS(app, supports_credentials=True)
 
     @app.before_request
-    def log_api_request() -> None:
+    def authenticate_api_request() -> Any:
         if request.path.startswith('/api/'):
             print(f"[API] {request.method} {request.path} from={request.remote_addr}", flush=True)
+        if request.method == 'OPTIONS' or not request.path.startswith('/api/') or request.path in AUTH_PUBLIC_API_PATHS:
+            return None
+
+        user = read_auth_user()
+        if not user:
+            return jsonify({
+                'success': False,
+                'code': 401,
+                'message': '登录已失效，请重新登录。',
+                'result': None,
+            }), 401
+
+        g.auth_user = user
+        if user['role'] == 'viewer' and not viewer_api_allowed():
+            return jsonify({
+                'success': False,
+                'code': 403,
+                'message': '当前账号没有本体修改权限。',
+                'result': None,
+            }), 403
+        return None
 
     @app.after_request
     def prevent_api_cache(response: Any) -> Any:
         if request.path.startswith('/api/'):
             response.headers['Cache-Control'] = 'no-store'
         return response
+
+    @app.post('/api/auth/login')
+    def auth_login() -> Any:
+        payload = request.get_json(silent=True) or {}
+        username = str(payload.get('username') or '').strip()
+        password = str(payload.get('password') or '')
+        user = auth_users().get(username)
+        if not user or not hmac.compare_digest(password, user['password']):
+            return jsonify({
+                'success': False,
+                'code': 401,
+                'message': '用户名或密码错误。',
+                'result': None,
+            }), 401
+
+        response = jsonify({
+            'success': True,
+            'code': 200,
+            'message': '登录成功。',
+            'result': public_auth_user(user),
+        })
+        response.set_cookie(
+            AUTH_COOKIE_NAME,
+            create_auth_token(user),
+            max_age=AUTH_SESSION_MAX_AGE,
+            httponly=True,
+            secure=auth_cookie_secure(),
+            samesite='Lax',
+            path='/',
+        )
+        return response
+
+    @app.post('/api/auth/logout')
+    def auth_logout() -> Any:
+        response = jsonify({
+            'success': True,
+            'code': 200,
+            'message': '已退出登录。',
+            'result': None,
+        })
+        response.delete_cookie(AUTH_COOKIE_NAME, path='/')
+        return response
+
+    @app.get('/api/auth/me')
+    def auth_me() -> Any:
+        user = read_auth_user()
+        if not user:
+            return jsonify({
+                'success': False,
+                'code': 401,
+                'message': '尚未登录。',
+                'result': None,
+            }), 401
+        return jsonify({
+            'success': True,
+            'code': 200,
+            'message': '登录状态有效。',
+            'result': public_auth_user(user),
+        })
 
     @app.get('/api/health')
     def health() -> Any:
@@ -2062,6 +2230,9 @@ def log_query_backend_strategy(query_text: str, best_node: dict[str, Any] | None
 def log_runtime_config() -> None:
     bert_source = resolve_project_bert_source()
     llm_state = 'enabled' if is_llm_query_enabled() else 'disabled'
+    users = auth_users()
+    editor = next((user for user in users.values() if user['role'] == 'editor'), None)
+    viewer = next((user for user in users.values() if user['role'] == 'viewer'), None)
     print(
         "[Startup] Fault query logging enabled. "
         f"Python={sys.executable} "
@@ -2069,6 +2240,15 @@ def log_runtime_config() -> None:
         f"LLM={llm_state} model={get_llm_model()} base={get_llm_base_url()} "
         f"BERT={bert_source or 'not found'} "
         f"Neo4j={get_neo4j_uri()} database={get_database() or 'neo4j'}",
+        flush=True,
+    )
+    print(
+        "[Startup] Authentication enabled. "
+        f"editor={editor['username'] if editor else 'not configured'} "
+        f"viewer={viewer['username'] if viewer else 'not configured'} "
+        f"sessionHours={AUTH_SESSION_MAX_AGE // 3600} "
+        f"secureCookie={auth_cookie_secure()} "
+        f"persistentSecret={bool(os.environ.get('AUTH_SECRET_KEY', '').strip())}",
         flush=True,
     )
 
@@ -2530,6 +2710,3 @@ if __name__ == '__main__':
     debug_enabled = os.environ.get('FLASK_DEBUG', '').strip().lower() in {'1', 'true', 'yes', 'on'}
     log_runtime_config()
     app.run(host='0.0.0.0', port=5000, debug=debug_enabled, use_reloader=debug_enabled)
-
-
-

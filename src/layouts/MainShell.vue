@@ -1,15 +1,20 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { RouterLink, RouterView, useRoute } from 'vue-router'
+import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
+
+import { useAuthStore, type AuthRole } from '@/stores/auth'
 
 type MenuItem = {
   to: string
   index: string
   title: string
   note: string
+  roles: AuthRole[]
 }
 
 const route = useRoute()
+const router = useRouter()
+const auth = useAuthStore()
 
 const menuItems: MenuItem[] = [
   {
@@ -17,35 +22,47 @@ const menuItems: MenuItem[] = [
     index: '01',
     title: '本体构建',
     note: '可视化编辑排故知识图谱本体',
+    roles: ['editor'],
   },
   {
     to: '/knowledge-extraction',
     index: '02',
     title: '图谱构建',
     note: '表格、文档、图片多源图谱构建',
+    roles: ['editor'],
   },
   {
     to: '/version-management',
     index: '03',
     title: '版本管理',
     note: '查看和回退图谱导入版本',
+    roles: ['editor'],
   },
   {
     to: '/ontology',
     index: '04',
     title: '图谱展示',
     note: '查看图谱树、全量图谱和节点关系',
+    roles: ['viewer'],
   },
   {
     to: '/fault-query',
     index: '05',
     title: '故障链查询',
     note: '输入故障现象并查看推演链路',
+    roles: ['viewer'],
   },
 ]
 
 const title = computed(() => String(route.meta.title ?? '智能排故知识图谱'))
 const subtitle = computed(() => String(route.meta.subtitle ?? '统一菜单入口'))
+const visibleMenuItems = computed(() => menuItems.filter((item) => auth.user && item.roles.includes(auth.user.role)))
+const roleLabel = computed(() => auth.user?.role === 'editor' ? '本体管理员' : '查询用户')
+
+async function logout() {
+  await auth.logout()
+  await router.replace('/login')
+}
 </script>
 
 <template>
@@ -58,7 +75,7 @@ const subtitle = computed(() => String(route.meta.subtitle ?? '统一菜单入�
 
       <nav class="nav-list" aria-label="主菜单">
           <RouterLink
-            v-for="item in menuItems"
+            v-for="item in visibleMenuItems"
             :key="item.to"
             :to="item.to"
             class="nav-item"
@@ -78,7 +95,14 @@ const subtitle = computed(() => String(route.meta.subtitle ?? '统一菜单入�
         <div>
           <h2>{{ title }}</h2>
         </div>
-        <span>{{ subtitle }}</span>
+        <div class="topbar-actions">
+          <span class="module-label">{{ subtitle }}</span>
+          <span class="user-summary">
+            <strong>{{ auth.user?.displayName }}</strong>
+            <small>{{ roleLabel }}</small>
+          </span>
+          <button type="button" class="logout-button" title="退出登录" @click="logout">退出</button>
+        </div>
       </header>
 
       <section class="route-panel">
@@ -226,7 +250,13 @@ const subtitle = computed(() => String(route.meta.subtitle ?? '统一菜单入�
   line-height: 1.05;
 }
 
-.app-topbar > span {
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.module-label {
   display: inline-flex;
   align-items: center;
   min-height: 34px;
@@ -236,6 +266,42 @@ const subtitle = computed(() => String(route.meta.subtitle ?? '统一菜单入�
   color: #127653;
   font-size: 13px;
   font-weight: 800;
+}
+
+.user-summary {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  padding: 0 4px;
+  text-align: right;
+}
+
+.user-summary strong {
+  color: #17355e;
+  font-size: 13px;
+}
+
+.user-summary small {
+  color: #71839d;
+  font-size: 11px;
+}
+
+.logout-button {
+  min-width: 58px;
+  height: 34px;
+  border: 1px solid #cbd8e8;
+  border-radius: 6px;
+  color: #29496f;
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.logout-button:hover {
+  border-color: #91acd0;
+  background: #f3f7fc;
 }
 
 .route-panel {
@@ -256,6 +322,11 @@ const subtitle = computed(() => String(route.meta.subtitle ?? '统一菜单入�
 
   .app-main {
     min-height: 0;
+  }
+
+  .topbar-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 }
 </style>
