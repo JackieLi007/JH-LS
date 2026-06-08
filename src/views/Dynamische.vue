@@ -492,14 +492,28 @@ const similarMembersByRepresentative = computed(() => {
   return members
 })
 
-function normalizeGraphNodeId(nodeId: string) {
+function canonicalSimilarNodeId(nodeId: string) {
   return similarRepresentativeByNodeId.value.get(nodeId) ?? nodeId
+}
+
+function normalizeGraphNodeId(nodeId: string) {
+  const representative = canonicalSimilarNodeId(nodeId)
+  const selectedNodeId = isOntologyView.value
+    ? selectedOntologyNodeId.value
+    : selectedFaultNodeId.value
+  if (
+    selectedNodeId
+    && canonicalSimilarNodeId(selectedNodeId) === representative
+  ) {
+    return selectedNodeId
+  }
+  return representative
 }
 
 function expandGraphIdsWithSimilarGroups(ids: Set<string>) {
   const expanded = new Set(ids)
   for (const id of ids) {
-    const representative = normalizeGraphNodeId(id)
+    const representative = canonicalSimilarNodeId(id)
     for (const member of similarMembersByRepresentative.value.get(representative) ?? [id]) {
       expanded.add(member)
     }
@@ -1742,15 +1756,13 @@ function selectNode(nodeId: string) {
     }
 
     isInitialOntologySampleMode.value = false
-    const normalizedNodeId = normalizeGraphNodeId(nodeId)
-    selectedOntologyNodeId.value = normalizedNodeId
-    selectedOntologyTreeId.value = ontologyTreeIdByNodeId.value.get(normalizedNodeId) ?? selectedOntologyTreeId.value
-    syncOntologyExpandedState(normalizedNodeId)
+    selectedOntologyNodeId.value = nodeId
+    selectedOntologyTreeId.value = ontologyTreeIdByNodeId.value.get(nodeId) ?? selectedOntologyTreeId.value
+    syncOntologyExpandedState(nodeId)
   } else {
-    const normalizedNodeId = normalizeGraphNodeId(nodeId)
-    selectedFaultNodeId.value = normalizedNodeId
-    selectedFaultTreeId.value = faultTreeIdByNodeId.value.get(normalizedNodeId) ?? selectedFaultTreeId.value
-    syncFaultExpandedState(normalizedNodeId)
+    selectedFaultNodeId.value = nodeId
+    selectedFaultTreeId.value = faultTreeIdByNodeId.value.get(nodeId) ?? selectedFaultTreeId.value
+    syncFaultExpandedState(nodeId)
   }
 }
 
@@ -1816,14 +1828,13 @@ function selectOntologyTreeNode(treeNode: TreeNode) {
   }
 
   if (treeNode.nodeId) {
-    const normalizedNodeId = normalizeGraphNodeId(treeNode.nodeId)
-    selectedOntologyNodeId.value = normalizedNodeId
-    syncOntologyExpandedState(normalizedNodeId)
+    selectedOntologyNodeId.value = treeNode.nodeId
+    syncOntologyExpandedState(treeNode.nodeId)
     return
   }
 
   if (treeNode.graphNodeIds.length === 1) {
-    selectedOntologyNodeId.value = normalizeGraphNodeId(treeNode.graphNodeIds[0] ?? '')
+    selectedOntologyNodeId.value = treeNode.graphNodeIds[0] ?? ''
     syncOntologyExpandedState(selectedOntologyNodeId.value)
     return
   }
