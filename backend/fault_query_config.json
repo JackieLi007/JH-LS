@@ -1,0 +1,97 @@
+{
+  "semanticRoles": {
+    "entity": ["总体", "系统", "单机", "组件", "零部组件", "Machine", "System", "Component"],
+    "fault_mode": [
+      "故障模式",
+      "组件级故障模式",
+      "单机级故障模式",
+      "系统级故障模式",
+      "总体级故障模式",
+      "ComponentFailureMode",
+      "UnitFailureMode",
+      "SystemFailureMode",
+      "OverallFailureMode"
+    ],
+    "attribute": [
+      "属性",
+      "发生阶段",
+      "发生概率",
+      "严酷度等级",
+      "是否单点",
+      "Attribute",
+      "OccurrenceStage",
+      "ProbabilityLevel",
+      "SeverityLevel",
+      "SinglePoint"
+    ],
+    "attribute_value": ["属性值"],
+    "phenomenon": [
+      "故障现象",
+      "组件级故障现象",
+      "单机级故障现象",
+      "系统级故障现象",
+      "总体级故障现象"
+    ],
+    "measure": ["设计措施", "DesignMeasure"],
+    "function": ["功能", "单机功能", "系统功能", "总体功能", "零部组件功能", "Function"]
+  },
+  "relationGroups": {
+    "hierarchy": ["包含", "INCLUDE", "功能", "HAS_FUNCTION"],
+    "fault_link": ["故障模式", "HAS_FAILURE_MODE"],
+    "attribute_link": [
+      "有",
+      "HAS",
+      "发生阶段",
+      "发生概率",
+      "严酷度等级",
+      "是否单点",
+      "OCCURRENCE_STAGE",
+      "PROBABILITY",
+      "LEVEL_CLASSIFICATION",
+      "YES_OR_NO"
+    ],
+    "causal_link": ["导致", "LEADS_TO"],
+    "measure_link": ["设计措施", "SOLUTION"],
+    "similarity": ["相似", "SIMILAR"]
+  },
+  "allowedRelationGroups": [
+    "hierarchy",
+    "fault_link",
+    "attribute_link",
+    "causal_link",
+    "measure_link"
+  ],
+  "expectedSemanticRoles": [
+    "entity",
+    "fault_mode",
+    "attribute",
+    "attribute_value",
+    "phenomenon",
+    "measure"
+  ],
+  "semanticRoleWeights": {
+    "fault_mode": 1.0,
+    "phenomenon": 0.95,
+    "entity": 0.9,
+    "attribute_value": 0.78,
+    "attribute": 0.74,
+    "measure": 0.7,
+    "function": 0.62,
+    "other": 0.5
+  },
+  "relationGroupWeights": {
+    "fault_link": 1.0,
+    "causal_link": 0.95,
+    "attribute_link": 0.85,
+    "measure_link": 0.8,
+    "hierarchy": 0.65
+  },
+  "limits": {
+    "candidateTopK": 80,
+    "expansionEntryLimit": 12,
+    "maxDepth": 3,
+    "maxEdgesPerNode": 20,
+    "maxResultNodes": 120,
+    "maxResultEdges": 180
+  }
+}

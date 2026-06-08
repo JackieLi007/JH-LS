@@ -32,6 +32,11 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from backend.offline_config import configure_offline_environment, offline_enabled, url_allowed_in_offline
 from backend.fknow_routes import register_fknow_routes
+from backend.fault_query_config import (
+    fault_query_config,
+    relation_group_for_edge,
+    semantic_role_for_node,
+)
 
 configure_offline_environment()
 
@@ -859,7 +864,7 @@ def list_current_fault_modes() -> list[dict[str, Any]]:
     graph = fetch_graph_from_neo4j()
     fault_nodes = [
         node for node in graph['nodes']
-        if node.get('type') in {'root-cause', 'fault', 'impact'} or '故障模式' in str(node.get('level', ''))
+        if semantic_role_for_node(node) == 'fault_mode'
     ]
     return [build_plm_fault_mode_view(node) for node in sorted(fault_nodes, key=lambda item: (item.get('level', ''), item.get('name', '')))]
 
@@ -1201,25 +1206,29 @@ def build_node_view(record: dict[str, Any]) -> dict[str, Any]:
     description = props.get('raw_text') or props.get('key') or f'{meta["level"]}节点：{name}'
     tags = [meta['level'], *([props['owner']] if props.get('owner') else [])]
     x, y = layout_position(label, name)
-    return {
+    node = {
         'id': record['id'], 'name': name, 'shortName': shorten(name), 'x': x, 'y': y,
         'type': meta['node_type'], 'level': meta['level'], 'status': meta['status'],
         'description': description, 'tags': tags, 'hierarchyPath': hierarchy_path, 'priority': meta['priority'],
         'label': label, 'owner': props.get('owner', ''), 'rawText': props.get('raw_text', ''), 'key': props.get('key', ''),
         'alias': props.get('alias', props.get('aliases', '')),
     }
+    node['semanticRole'] = semantic_role_for_node(node)
+    return node
 
 
 def build_edge_view(record: dict[str, Any]) -> dict[str, Any]:
     raw_relation = record['relation']
     relation = normalize_relation_type(raw_relation)
-    return {
+    edge = {
         'from': record['source'], 'to': record['target'],
         'label': RELATION_LABELS.get(relation, relation),
         'strength': 'critical' if relation in {'LEADS_TO', 'HAS_FAILURE_MODE'} else 'normal',
         'relationType': relation,
         'rawRelationType': raw_relation,
     }
+    edge['relationGroup'] = relation_group_for_edge(edge)
+    return edge
 
 
 def create_business_node(payload: dict[str, Any]) -> dict[str, Any]:
@@ -1578,23 +1587,31 @@ def rank_nodes(query_text: str, nodes: list[dict[str, Any]]) -> list[dict[str, A
 def rank_fault_chain_query_nodes(query_text: str, graph: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
     all_candidates = semantic_candidate_pool(graph['nodes'])
     query_texts = bert_query_texts(query_text, ontology_rewrite_candidates(graph['nodes'], [query_text]))
-    selected_levels = classify_query_ontology_levels(query_texts, graph)
     evidence_node_ids = query_evidence_node_ids(query_texts, graph['nodes'])
     routed_node_ids = evidence_node_ids | directly_related_node_ids(evidence_node_ids, graph)
     candidates = [
         node for node in all_candidates
-        if (
-            str(node.get('level', '')).strip() in selected_levels
-            or str(node.get('id', '')) in routed_node_ids
-        )
+        if str(node.get('id', '')) in routed_node_ids
     ]
     if not candidates:
         candidates = all_candidates
+    candidate_top_k = int(fault_query_config()['limits']['candidateTopK'])
+    candidates = sorted(
+        candidates,
+        key=lambda node: (
+            -max(
+                keyword_query_node_score(query_texts, node),
+                fuzzy_query_node_score(query_texts, node) * 0.8,
+            ),
+            query_candidate_sort_key(node),
+        ),
+    )[:candidate_top_k]
     related_texts = build_related_semantic_texts(graph)
     update_llm_trace({
-        'ontologyLevels': sorted(selected_levels, key=lambda level: (LEVEL_ORDER.get(level, 999), level)),
+        'semanticRoles': sorted({fault_chain_node_category(node) for node in candidates}),
         'ontologyCandidateCount': len(candidates),
         'graphNodeCount': len(all_candidates),
+        'candidateTopK': candidate_top_k,
         'evidenceNodeCount': len(evidence_node_ids),
         'relatedEvidenceNodeCount': len(routed_node_ids - evidence_node_ids),
     })
@@ -1605,8 +1622,9 @@ def rank_fault_chain_query_nodes(query_text: str, graph: dict[str, list[dict[str
 def query_evidence_node_ids(
     query_texts: list[str],
     nodes: list[dict[str, Any]],
-    limit: int = 20,
+    limit: int | None = None,
 ) -> set[str]:
+    effective_limit = limit or int(fault_query_config()['limits']['candidateTopK'])
     ranked = sorted(
         (
             (
@@ -1621,7 +1639,7 @@ def query_evidence_node_ids(
     )
     return {
         node_id
-        for keyword_score, fuzzy_score, node_id in ranked[:max(1, limit)]
+        for keyword_score, fuzzy_score, node_id in ranked[:max(1, effective_limit)]
         if keyword_score >= 0.25 or fuzzy_score >= 0.5
     }
 
@@ -1647,14 +1665,12 @@ def ontology_rewrite_candidates(
 ) -> list[dict[str, Any]]:
     groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for node in nodes:
-        level = str(node.get('level', '')).strip()
-        if level:
-            groups[level].append(node)
+        groups[fault_chain_node_category(node)].append(node)
 
     candidates: list[dict[str, Any]] = []
-    for level, level_nodes in sorted(groups.items(), key=lambda item: (LEVEL_ORDER.get(item[0], 999), item[0])):
+    for semantic_role, role_nodes in sorted(groups.items()):
         ranked_nodes = sorted(
-            level_nodes,
+            role_nodes,
             key=lambda node: (
                 -query_text_overlap_score(query_texts or [], node),
                 str(node.get('name', '')),
@@ -1662,220 +1678,14 @@ def ontology_rewrite_candidates(
         )
         examples = unique_non_empty_texts([str(node.get('name', '')) for node in ranked_nodes], limit=6)
         candidates.append({
-            'id': f'ontology::{level}',
-            'name': level,
-            'level': level,
+            'id': f'semantic-role::{semantic_role}',
+            'name': semantic_role,
+            'level': semantic_role,
             'owner': '',
             'rawText': '；'.join(examples),
-            'key': ontology_level_semantic_text(level),
+            'key': semantic_role,
         })
     return candidates
-
-
-def classify_query_ontology_levels(
-    query_texts: list[str],
-    graph: dict[str, list[dict[str, Any]]],
-) -> set[str]:
-    levels = sorted(
-        {str(node.get('level', '')).strip() for node in graph['nodes'] if str(node.get('level', '')).strip()},
-        key=lambda level: (LEVEL_ORDER.get(level, 999), level),
-    )
-    if len(levels) <= 1:
-        return set(levels)
-
-    split_options = semantic_split_options(query_texts)
-    segments = unique_non_empty_texts(
-        [segment for option in split_options for segment in option],
-        limit=sum(len(option) for option in split_options),
-    )
-    if not segments:
-        return set(levels)
-
-    encoder = get_project_bert_encoder()
-    if not encoder:
-        raise FaultQueryBertError('BERT 模型未加载，无法完成本体类型语义拆分。')
-    tokenizer, model, device, source = encoder
-    nodes_by_level: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for node in graph['nodes']:
-        level = str(node.get('level', '')).strip()
-        if level:
-            nodes_by_level[level].append(node)
-    profile_texts: list[str] = []
-    profile_levels: list[str] = []
-    for level in levels:
-        texts = ontology_level_profile_texts(level, nodes_by_level[level], query_texts)
-        profile_texts.extend(texts)
-        profile_levels.extend([level] * len(texts))
-
-    try:
-        import torch
-
-        embeddings = encode_with_project_bert(tokenizer, model, device, [*segments, *profile_texts])
-        if embeddings.size(0) != len(segments) + len(profile_texts):
-            raise FaultQueryBertError('BERT 本体类型语义拆分输出数量异常。')
-        segment_embeddings = embeddings[:len(segments)]
-        profile_embeddings = embeddings[len(segments):]
-        profile_score_matrix = torch.matmul(segment_embeddings, profile_embeddings.T)
-        level_score_columns = []
-        for level in levels:
-            profile_indexes = [index for index, profile_level in enumerate(profile_levels) if profile_level == level]
-            level_score_columns.append(torch.max(profile_score_matrix[:, profile_indexes], dim=1).values)
-        score_matrix = torch.stack(level_score_columns, dim=1)
-    except FaultQueryBertError:
-        raise
-    except Exception as exc:
-        message = f'BERT 本体类型语义拆分失败，故障链查询已停止：{exc}'
-        update_llm_trace({'semanticFallback': 'bert-error', 'semanticModel': source, 'error': message})
-        raise FaultQueryBertError(message) from exc
-
-    segment_indexes = {segment: index for index, segment in enumerate(segments)}
-    connected_level_pairs = ontology_connected_level_pairs(graph)
-    best_score = float('-inf')
-    best_levels: tuple[str, ...] = ()
-    best_segments: tuple[str, ...] = ()
-    best_segment_scores: tuple[float, ...] = ()
-
-    for option in split_options:
-        top_level_indexes: list[list[int]] = []
-        for segment in option:
-            segment_scores = score_matrix[segment_indexes[segment]]
-            top_count = min(3, len(levels))
-            top_level_indexes.append(torch.topk(segment_scores, k=top_count).indices.tolist())
-
-        assignments = [(index,) for index in top_level_indexes[0]]
-        if len(option) == 2:
-            assignments = [
-                (left_index, right_index)
-                for left_index in top_level_indexes[0]
-                for right_index in top_level_indexes[1]
-            ]
-
-        for assignment in assignments:
-            assigned_levels = tuple(levels[index] for index in assignment)
-            assigned_scores = tuple(
-                float(score_matrix[segment_indexes[segment], level_index])
-                for segment, level_index in zip(option, assignment)
-            )
-            overlap_scores = tuple(
-                max(
-                    (query_text_overlap_score([segment], node) for node in nodes_by_level[level]),
-                    default=0.0,
-                )
-                for segment, level in zip(option, assigned_levels)
-            )
-            score = sum(assigned_scores) / len(assigned_scores)
-            score += sum(min(0.06, overlap * 0.03) for overlap in overlap_scores) / len(overlap_scores)
-            if len(assigned_levels) == 2:
-                pair = frozenset(assigned_levels)
-                if assigned_levels[0] != assigned_levels[1]:
-                    score += 0.01
-                if pair in connected_level_pairs:
-                    score += 0.04
-                if all(overlap >= 2.0 for overlap in overlap_scores):
-                    score += 0.15
-                elif max(overlap_scores) >= 2.0 and min(overlap_scores) > 0:
-                    score += 0.14
-                elif all(overlap > 0 for overlap in overlap_scores):
-                    score += 0.06
-            if score > best_score:
-                best_score = score
-                best_levels = assigned_levels
-                best_segments = option
-                best_segment_scores = assigned_scores
-
-    selected_levels = set(best_levels)
-    update_llm_trace({
-        'semanticModel': source,
-        'ontologySplit': [
-            {'text': segment, 'level': level, 'score': round(score, 6)}
-            for segment, level, score in zip(best_segments, best_levels, best_segment_scores)
-        ],
-        'ontologySplitScore': round(best_score, 6),
-    })
-    return selected_levels or set(levels)
-
-
-def semantic_split_options(query_texts: list[str]) -> list[tuple[str, ...]]:
-    options: list[tuple[str, ...]] = []
-    seen: set[tuple[str, ...]] = set()
-    for query_text in query_texts:
-        compact = re.sub(r'[\s，。！？；、,.!?;:：]+', '', str(query_text or '').strip())
-        if not compact:
-            continue
-        candidates: list[tuple[str, ...]] = [(compact,)]
-        for index in range(2, len(compact) - 1):
-            left = compact[:index]
-            right = compact[index:]
-            if len(left) >= 2 and len(right) >= 2:
-                candidates.append((left, right))
-        for option in candidates:
-            if option not in seen:
-                seen.add(option)
-                options.append(option)
-    return options
-
-
-def ontology_connected_level_pairs(graph: dict[str, list[dict[str, Any]]]) -> set[frozenset[str]]:
-    node_levels = {
-        str(node.get('id', '')): str(node.get('level', '')).strip()
-        for node in graph['nodes']
-        if node.get('id') and str(node.get('level', '')).strip()
-    }
-    pairs: set[frozenset[str]] = set()
-    for edge in graph['edges']:
-        source_level = node_levels.get(str(edge.get('from', '')), '')
-        target_level = node_levels.get(str(edge.get('to', '')), '')
-        if source_level and target_level:
-            pairs.add(frozenset((source_level, target_level)))
-    return pairs
-
-
-def ontology_level_semantic_text(level: str) -> str:
-    value = str(level or '').strip()
-    aliases = [value, f'本体类型：{value}']
-    if any(term in value for term in ('总体', '系统', '单机', '组件', '零部组件')) and '故障' not in value and '功能' not in value:
-        aliases.extend(('实体对象', '设备名称', '机械对象', '部件名称', '对象主体'))
-    if '故障模式' in value:
-        aliases.extend(('故障模式', '失效模式', '故障状态', '异常状态', '故障原因'))
-    if '故障现象' in value:
-        aliases.extend(('故障现象', '异常表现', '故障症状', '可观察现象'))
-    if '功能' in value:
-        aliases.extend(('功能', '用途', '能力', '执行动作'))
-    if value in {'属性', '属性值'}:
-        aliases.extend(('属性', '特征', '参数', '属性值'))
-    if value == '发生阶段':
-        aliases.extend(('发生阶段', '时间阶段', '运行阶段', '工况阶段'))
-    if value == '发生概率':
-        aliases.extend(('发生概率', '发生频率', '可能性'))
-    if value == '严酷度等级':
-        aliases.extend(('严酷度等级', '严重程度', '影响等级'))
-    if value == '是否单点':
-        aliases.extend(('是否单点', '单点故障', '冗余判断'))
-    if value == '设计措施':
-        aliases.extend(('设计措施', '解决措施', '改进措施', '处理建议'))
-    return '；'.join(unique_non_empty_texts(aliases, limit=len(aliases)))
-
-
-def ontology_level_profile_texts(
-    level: str,
-    nodes: list[dict[str, Any]],
-    query_texts: list[str],
-) -> list[str]:
-    profiles = [ontology_level_semantic_text(level)]
-    ranked_examples = sorted(
-        (
-            (query_text_overlap_score(query_texts, node), node_primary_semantic_text(node))
-            for node in nodes
-        ),
-        key=lambda item: (-item[0], item[1]),
-    )
-    for overlap_score, node_text in ranked_examples:
-        if overlap_score <= 0:
-            break
-        profiles.append(f'{level}；{node_text}')
-        if len(profiles) >= 7:
-            break
-    return unique_non_empty_texts(profiles, limit=len(profiles))
 
 
 def query_text_overlap_score(query_texts: list[str], node: dict[str, Any]) -> float:
@@ -2909,94 +2719,36 @@ def query_candidate_sort_key(node: dict[str, Any]) -> tuple[Any, ...]:
 
 
 def is_failure_mode_node(node: dict[str, Any]) -> bool:
-    return node.get('type') in {'root-cause', 'fault', 'impact'} or '故障模式' in str(node.get('level', ''))
-
-
-FAULT_CHAIN_CATEGORY_ORDER = {
-    'entity': 0,
-    'fault_mode': 1,
-    'attribute': 2,
-    'attribute_value': 3,
-    'phenomenon': 4,
-    'cause': 5,
-    'impact': 6,
-    'measure': 7,
-    'function': 8,
-    'other': 9,
-}
-
-FAULT_CHAIN_EXPECTED_CATEGORIES = {
-    'entity',
-    'fault_mode',
-    'attribute',
-    'attribute_value',
-    'phenomenon',
-    'cause',
-    'impact',
-    'measure',
-}
+    return semantic_role_for_node(node) == 'fault_mode'
 
 
 def fault_chain_node_category(node: dict[str, Any]) -> str:
-    level = str(node.get('level', ''))
-    status = str(node.get('status', ''))
-    label = str(node.get('label', ''))
-    combined = f'{level} {status} {label}'
-    if '故障模式' in combined:
-        return 'fault_mode'
-    if '故障现象' in combined:
-        return 'phenomenon'
-    if '原因' in combined or '诱因' in combined:
-        return 'cause'
-    if '影响' in combined or '后果' in combined:
-        return 'impact'
-    if '措施' in combined or '建议' in combined:
-        return 'measure'
-    if level == '属性值':
-        return 'attribute_value'
-    if level == '属性' or level in {'发生阶段', '发生概率', '严酷度等级', '是否单点'}:
-        return 'attribute'
-    if '功能' in level:
-        return 'function'
-    if node.get('type') == 'component' or level in {'总体', '系统', '单机', '组件', '零部组件'}:
-        return 'entity'
-    return 'other'
+    return semantic_role_for_node(node)
 
 
 def is_query_chain_edge(edge: dict[str, Any]) -> bool:
-    if is_fault_chain_edge(edge):
-        return True
-    relation = f"{edge.get('relationType', '')} {edge.get('label', '')}".lower()
-    return any(term in relation for term in (
-        'fault', 'failure', 'cause', 'impact', 'effect', 'measure', 'solution',
-        '故障', '导致', '原因', '影响', '后果', '措施', '属性', '现象', '包含', '有',
-    ))
+    return relation_group_for_edge(edge) in set(fault_query_config()['allowedRelationGroups'])
 
 
 def fault_chain_transition_allowed(source: dict[str, Any], target: dict[str, Any], edge: dict[str, Any]) -> bool:
-    if not is_query_chain_edge(edge):
-        return False
-    source_category = fault_chain_node_category(source)
-    target_category = fault_chain_node_category(target)
-    pair = frozenset((source_category, target_category))
-    if 'fault_mode' in pair:
-        return True
-    if pair in {
-        frozenset(('entity', 'function')),
-        frozenset(('attribute', 'attribute_value')),
-        frozenset(('cause', 'phenomenon')),
-        frozenset(('impact', 'phenomenon')),
-    }:
-        return True
-    return source_category == target_category == 'fault_mode'
+    return is_query_chain_edge(edge)
 
 
 def expand_fault_chain_subgraph(
     start_node: dict[str, Any],
     graph: dict[str, list[dict[str, Any]]],
-    max_depth: int = 3,
-    max_nodes: int = 120,
 ) -> dict[str, Any]:
+    config = fault_query_config()
+    limits = config['limits']
+    max_depth = int(limits['maxDepth'])
+    max_edges_per_node = int(limits['maxEdgesPerNode'])
+    max_nodes = int(limits['maxResultNodes'])
+    max_edges = int(limits['maxResultEdges'])
+    expected_roles = set(config['expectedSemanticRoles'])
+    role_order = {
+        role: index
+        for index, role in enumerate([*config['expectedSemanticRoles'], 'function', 'other'])
+    }
     node_map = {str(node.get('id', '')): node for node in graph['nodes']}
     adjacency: dict[str, list[tuple[str, dict[str, Any]]]] = defaultdict(list)
     for edge in graph['edges']:
@@ -3006,12 +2758,20 @@ def expand_fault_chain_subgraph(
             continue
         adjacency[source['id']].append((target['id'], edge))
         adjacency[target['id']].append((source['id'], edge))
+    relation_weights = config['relationGroupWeights']
+    for node_id in adjacency:
+        adjacency[node_id].sort(key=lambda item: (
+            -float(relation_weights.get(relation_group_for_edge(item[1]), 0.0)),
+            str(item[1].get('label', '')),
+            item[0],
+        ))
+        adjacency[node_id] = adjacency[node_id][:max_edges_per_node]
 
     start_id = str(start_node.get('id', ''))
     depths = {start_id: 0}
     selected_edges: dict[tuple[str, str, str, str], dict[str, Any]] = {}
     queue: deque[str] = deque([start_id])
-    while queue and len(depths) < max_nodes:
+    while queue and len(depths) < max_nodes and len(selected_edges) < max_edges:
         current_id = queue.popleft()
         current_depth = depths[current_id]
         if current_depth >= max_depth:
@@ -3029,11 +2789,13 @@ def expand_fault_chain_subgraph(
                     str(edge.get('label', '')),
                 )
                 selected_edges[edge_key] = edge
+                if len(selected_edges) >= max_edges:
+                    break
 
     nodes = [node_map[node_id] for node_id in depths if node_id in node_map]
     nodes.sort(key=lambda node: (
         depths.get(node['id'], max_depth + 1),
-        FAULT_CHAIN_CATEGORY_ORDER.get(fault_chain_node_category(node), 99),
+        role_order.get(fault_chain_node_category(node), 99),
         node.get('name', ''),
     ))
     node_ids = {node['id'] for node in nodes}
@@ -3048,31 +2810,29 @@ def expand_fault_chain_subgraph(
         str(edge.get('to', '')),
     ))
     categories = {fault_chain_node_category(node) for node in nodes}
-    completeness = len(categories & FAULT_CHAIN_EXPECTED_CATEGORIES) / len(FAULT_CHAIN_EXPECTED_CATEGORIES)
+    completeness = len(categories & expected_roles) / max(1, len(expected_roles))
     average_depth = sum(depths.values()) / max(1, len(depths))
+    relation_group_scores = [
+        float(relation_weights.get(relation_group_for_edge(edge), 0.0))
+        for edge in edges
+    ]
     return {
         'nodes': nodes,
         'edges': edges,
         'nodeIds': [node['id'] for node in nodes],
-        'categories': sorted(categories, key=lambda category: FAULT_CHAIN_CATEGORY_ORDER.get(category, 99)),
+        'categories': sorted(categories, key=lambda category: role_order.get(category, 99)),
         'completeness': round(completeness, 6),
         'averageDepth': round(average_depth, 6),
+        'relationGroupScore': round(
+            sum(relation_group_scores) / max(1, len(relation_group_scores)),
+            6,
+        ),
     }
 
 
 def fault_chain_type_priority(node: dict[str, Any]) -> float:
-    return {
-        'fault_mode': 1.0,
-        'phenomenon': 0.95,
-        'entity': 0.9,
-        'cause': 0.82,
-        'impact': 0.8,
-        'attribute_value': 0.76,
-        'attribute': 0.72,
-        'measure': 0.68,
-        'function': 0.62,
-        'other': 0.5,
-    }.get(fault_chain_node_category(node), 0.5)
+    weights = fault_query_config()['semanticRoleWeights']
+    return float(weights.get(fault_chain_node_category(node), weights.get('other', 0.5)))
 
 
 def rerank_fault_chain_candidates(
@@ -3080,17 +2840,21 @@ def rerank_fault_chain_candidates(
     ranked: list[dict[str, Any]],
     graph: dict[str, list[dict[str, Any]]],
 ) -> list[dict[str, Any]]:
+    config = fault_query_config()
+    entry_limit = int(config['limits']['expansionEntryLimit'])
     reranked: list[dict[str, Any]] = []
-    for item in ranked[:30]:
+    for item in ranked[:entry_limit]:
         subgraph = expand_fault_chain_subgraph(item, graph)
         recall_score = float(item.get('hybridRecallScore', item.get('combinedSemanticScore', 0.0)))
         completeness = float(subgraph['completeness'])
+        relation_group_score = float(subgraph.get('relationGroupScore', 0.0))
         depth_penalty = min(0.08, float(subgraph['averageDepth']) * 0.025)
         keyword_coverage = float(item.get('keywordMatchScore', 0.0))
         final_score = (
-            recall_score * 0.68
+            recall_score * 0.62
             + fault_chain_type_priority(item) * 0.10
             + completeness * 0.14
+            + relation_group_score * 0.06
             + keyword_coverage * 0.08
             - depth_penalty
         )
@@ -3102,6 +2866,7 @@ def rerank_fault_chain_candidates(
             ),
             'faultChainScore': round(bounded_final_score, 6),
             'pathCompleteness': round(completeness, 6),
+            'relationGroupScore': round(relation_group_score, 6),
             'pathLengthPenalty': round(depth_penalty, 6),
             'faultChainSubgraph': subgraph,
         })
@@ -3111,7 +2876,7 @@ def rerank_fault_chain_candidates(
         -item.get('hybridRecallScore', 0.0),
         item.get('name', ''),
     ))
-    return reranked + ranked[30:]
+    return reranked + ranked[entry_limit:]
 
 
 def collect_related(node_id: str, graph: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
@@ -3170,8 +2935,6 @@ def build_full_chain_reasoning(
         'attribute': '属性要素',
         'attribute_value': '属性值',
         'phenomenon': '故障现象',
-        'cause': '故障原因',
-        'impact': '故障影响',
         'measure': '故障措施',
         'function': '功能',
         'other': '其他关联',
@@ -3180,8 +2943,10 @@ def build_full_chain_reasoning(
     for chain_node in chain['nodes']:
         grouped[fault_chain_node_category(chain_node)].append(chain_node)
 
+    configured_roles = list(fault_query_config()['expectedSemanticRoles'])
+    role_order = {role: index for index, role in enumerate([*configured_roles, 'function', 'other'])}
     steps: list[dict[str, Any]] = []
-    for category in sorted(grouped, key=lambda item: FAULT_CHAIN_CATEGORY_ORDER.get(item, 99)):
+    for category in sorted(grouped, key=lambda item: role_order.get(item, 99)):
         category_nodes = grouped[category]
         representative = node if any(item['id'] == node['id'] for item in category_nodes) else category_nodes[0]
         names = '、'.join(item['name'] for item in category_nodes[:4])
@@ -3213,7 +2978,7 @@ def build_full_chain_reasoning(
         summary += ' 可参考措施：' + '、'.join(measures[:3]) + '。'
 
     checks = build_checks(related)
-    for category in ('phenomenon', 'cause', 'impact', 'measure', 'attribute', 'attribute_value'):
+    for category in ('phenomenon', 'measure', 'attribute', 'attribute_value'):
         for item in grouped.get(category, [])[:2]:
             checks.append(f"复核{category_titles[category]}：{item['name']}")
 

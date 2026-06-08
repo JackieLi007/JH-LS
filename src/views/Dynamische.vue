@@ -22,6 +22,7 @@ type GraphNode = {
   owner: string
   rawText: string
   key: string
+  semanticRole?: string
 }
 
 type GraphEdge = {
@@ -31,6 +32,7 @@ type GraphEdge = {
   strength: 'normal' | 'critical'
   relationType: string
   rawRelationType?: string
+  relationGroup?: string
 }
 
 type HierarchyNode = {
