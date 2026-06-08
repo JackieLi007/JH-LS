@@ -537,7 +537,7 @@ def create_app() -> Flask:
             return jsonify(build_api_envelope(False, 500, message, {**empty_query_result(), 'summary': message, 'bertDiagnostics': diagnostics})), 500
         if not ranked:
             log_query_backend_strategy(text)
-            return jsonify(build_api_envelope(False, 404, 'BERT 未匹配到故障节点', {**empty_query_result(), 'summary': 'BERT 已完成向量匹配，但未在 Neo4j 图数据库中匹配到相关故障节点。'})), 404
+            return jsonify(build_api_envelope(False, 404, 'BERT 未匹配到图谱节点', {**empty_query_result(), 'summary': 'BERT 已完成全量向量匹配，但未在 Neo4j 图数据库中匹配到相关节点。'})), 404
 
         best = ranked[0]
         log_query_backend_strategy(text, best)
@@ -903,7 +903,7 @@ def run_local_reasoning(item: dict[str, Any]) -> dict[str, Any]:
     except FaultQueryBertError as exc:
         return {**empty_query_result(), 'summary': str(exc)}
     if not ranked:
-        return {**empty_query_result(), 'summary': '未在知识图谱中匹配到可推理的故障模式。'}
+        return {**empty_query_result(), 'summary': '未在知识图谱中匹配到相关节点。'}
 
     best = ranked[0]
     related = collect_related(best['id'], graph)
@@ -1564,7 +1564,7 @@ def rank_nodes(query_text: str, nodes: list[dict[str, Any]]) -> list[dict[str, A
 
 def rank_fault_chain_query_nodes(query_text: str, graph: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
     candidates = semantic_candidate_pool(graph['nodes'])
-    return prioritize_fault_chain_query_nodes(rank_nodes_with_project_bert(query_text, candidates), graph)
+    return rank_nodes_with_project_bert(query_text, candidates)
 
 
 OPEN_FAILURE_EXPANSIONS = (
@@ -1758,7 +1758,10 @@ def rank_nodes_with_semantic_fallback(
 
 
 def semantic_candidate_pool(nodes: list[dict[str, Any]], allowed_ids: set[str] | None = None) -> list[dict[str, Any]]:
-    allowed = [node for node in nodes if allowed_ids is None or node.get('id') in allowed_ids]
+    allowed = [
+        node for node in nodes
+        if (allowed_ids is None or node.get('id') in allowed_ids)
+    ]
     return sorted(allowed, key=query_candidate_sort_key)
 
 
@@ -1897,8 +1900,7 @@ def rank_nodes_with_project_bert(query_text: str, candidates: list[dict[str, Any
         raise FaultQueryBertError(message)
 
     tokenizer, model, device, source = encoder
-    limit = max(1, int(os.environ.get('FAULT_QUERY_BERT_CANDIDATE_LIMIT', '256')))
-    selected_candidates = candidates[:limit]
+    selected_candidates = candidates
     if not selected_candidates:
         return []
     query_texts = bert_query_texts(query_text, selected_candidates)
@@ -1954,7 +1956,7 @@ def rank_nodes_with_project_bert(query_text: str, candidates: list[dict[str, Any
             'rankSource': 'bert',
         })
 
-    ranked.sort(key=lambda item: (-item['nodeSemanticScore'], -item['objectSemanticScore'], item['name']))
+    ranked.sort(key=lambda item: (-item['nodeSemanticScore'], item['name']))
     if ranked:
         update_llm_trace({'semanticFallback': 'bert', 'semanticModel': source})
     return ranked
@@ -2059,7 +2061,6 @@ def bert_diagnostics(load_model: bool = False) -> dict[str, Any]:
         'env': {
             'FAULT_QUERY_BERT_MODEL': configured,
             'FAULT_QUERY_BERT_DEVICE': os.environ.get('FAULT_QUERY_BERT_DEVICE', '').strip(),
-            'FAULT_QUERY_BERT_CANDIDATE_LIMIT': os.environ.get('FAULT_QUERY_BERT_CANDIDATE_LIMIT', '').strip(),
             'FAULT_QUERY_BERT_MAX_LENGTH': os.environ.get('FAULT_QUERY_BERT_MAX_LENGTH', '').strip(),
             'FAULT_QUERY_BERT_BATCH_SIZE': os.environ.get('FAULT_QUERY_BERT_BATCH_SIZE', '').strip(),
         },
@@ -2296,8 +2297,7 @@ def get_llm_model() -> str:
 
 
 def llm_candidate_pool(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    limit = max(1, int(os.environ.get('FAULT_QUERY_LLM_CANDIDATE_LIMIT', '256')))
-    return sorted(nodes, key=query_candidate_sort_key)[:limit]
+    return sorted(nodes, key=query_candidate_sort_key)
 
 
 def call_query_rewrite_llm(query_text: str, candidates: list[dict[str, Any]]) -> dict[str, Any]:
@@ -2321,7 +2321,7 @@ def call_query_rewrite_llm(query_text: str, candidates: list[dict[str, Any]]) ->
         '你是故障知识图谱查询语义转写器，不负责选择节点、排序或打分。'
         '请根据候选图谱文本的 name、rawText、key、level、owner 的命名结构，'
         '把用户口语化问题改写成 1 到 6 个更可能出现在图谱节点中的表达方式。'
-        '改写应尽量短，优先接近故障模式、故障现象或实体对象名称；不要输出候选节点 ID；不要做最终匹配。'
+        '改写应尽量短并接近图谱中的节点名称；不要偏向任何节点类型；不要输出候选节点 ID；不要做最终匹配。'
         '例如“发动机多次才能打开”可改写为“发动机一次起动失败”“发动机一次打不开”“一次起动失败”。'
         '只输出 JSON：{"rewrites":["..."],"reason":"..."}。'
     )
@@ -2433,47 +2433,10 @@ def top_match_confidence(query_text: str, item: dict[str, Any]) -> float:
 
 def query_candidate_sort_key(node: dict[str, Any]) -> tuple[Any, ...]:
     return (
-        0 if is_failure_mode_node(node) else 1,
         LEVEL_ORDER.get(node.get('level', ''), 999),
         node.get('owner', ''),
         node.get('name', ''),
     )
-
-
-def prioritize_fault_chain_query_nodes(ranked: list[dict[str, Any]], graph: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
-    if not ranked:
-        return []
-    connected_ids = fault_chain_connected_node_ids(graph)
-    connected_failures = [
-        node for node in ranked
-        if node.get('id') in connected_ids and is_failure_mode_node(node)
-    ]
-    if connected_failures:
-        return connected_failures
-
-    failures = [node for node in ranked if is_failure_mode_node(node)]
-    if failures:
-        return failures
-
-    return ranked
-
-
-def filter_fault_chain_query_nodes(ranked: list[dict[str, Any]], graph: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
-    connected_ids = fault_chain_connected_node_ids(graph)
-    return [
-        node for node in ranked
-        if node.get('id') in connected_ids and is_failure_mode_node(node)
-    ]
-
-
-def fault_chain_connected_node_ids(graph: dict[str, list[dict[str, Any]]]) -> set[str]:
-    ids: set[str] = set()
-    for edge in graph['edges']:
-        if not is_fault_chain_edge(edge):
-            continue
-        ids.add(edge['from'])
-        ids.add(edge['to'])
-    return ids
 
 
 def is_failure_mode_node(node: dict[str, Any]) -> bool:
