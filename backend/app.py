@@ -11,6 +11,7 @@ import time
 import traceback
 import zipfile
 from collections import defaultdict, deque
+from difflib import SequenceMatcher
 from functools import lru_cache
 from pathlib import Path
 from threading import Lock
@@ -594,6 +595,7 @@ def empty_query_result() -> dict[str, Any]:
         'summary': '输入故障现象后，系统会从 Neo4j 图数据库中查询关联节点与关系。',
         'checks': [], 'matchedKeywords': [], 'matchedNode': None, 'matchedLabel': None, 'pathNodeIds': [],
         'reasoningSteps': [], 'reasoningEvidence': [], 'topMatches': [],
+        'subgraph': {'nodes': [], 'edges': []},
     }
 
 
@@ -603,8 +605,9 @@ def build_query_result_payload(
     graph: dict[str, list[dict[str, Any]]],
     top_matches: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    related = collect_related(node['id'], graph)
-    reasoning = build_full_chain_reasoning(query_text, node, graph, related)
+    subgraph = node.get('faultChainSubgraph') or expand_fault_chain_subgraph(node, graph)
+    related = collect_related_from_subgraph(node['id'], subgraph)
+    reasoning = build_full_chain_reasoning(query_text, node, graph, related, subgraph)
     active_tab = 'layer' if node['type'] in {'impact', 'condition'} else 'path'
     return {
         'nodeId': node['id'],
@@ -619,6 +622,10 @@ def build_query_result_payload(
         'pathNodeIds': reasoning['pathNodeIds'],
         'reasoningSteps': reasoning['steps'],
         'reasoningEvidence': reasoning['evidence'],
+        'subgraph': {
+            'nodes': subgraph['nodes'],
+            'edges': subgraph['edges'],
+        },
     }
 
 
@@ -1199,6 +1206,7 @@ def build_node_view(record: dict[str, Any]) -> dict[str, Any]:
         'type': meta['node_type'], 'level': meta['level'], 'status': meta['status'],
         'description': description, 'tags': tags, 'hierarchyPath': hierarchy_path, 'priority': meta['priority'],
         'label': label, 'owner': props.get('owner', ''), 'rawText': props.get('raw_text', ''), 'key': props.get('key', ''),
+        'alias': props.get('alias', props.get('aliases', '')),
     }
 
 
@@ -1590,26 +1598,31 @@ def rank_fault_chain_query_nodes(query_text: str, graph: dict[str, list[dict[str
         'evidenceNodeCount': len(evidence_node_ids),
         'relatedEvidenceNodeCount': len(routed_node_ids - evidence_node_ids),
     })
-    return rank_nodes_with_project_bert(query_text, candidates, related_texts, query_texts)
+    ranked = rank_nodes_with_project_bert(query_text, candidates, related_texts, query_texts)
+    return rerank_fault_chain_candidates(query_text, ranked, graph)
 
 
 def query_evidence_node_ids(
     query_texts: list[str],
     nodes: list[dict[str, Any]],
-    limit: int = 12,
+    limit: int = 20,
 ) -> set[str]:
     ranked = sorted(
         (
-            (query_text_overlap_score(query_texts, node), str(node.get('id', '')))
+            (
+                keyword_query_node_score(query_texts, node),
+                fuzzy_query_node_score(query_texts, node),
+                str(node.get('id', '')),
+            )
             for node in nodes
             if node.get('id')
         ),
-        key=lambda item: (-item[0], item[1]),
+        key=lambda item: (-max(item[0], item[1] * 0.8), -item[0], -item[1], item[2]),
     )
     return {
         node_id
-        for score, node_id in ranked[:max(1, limit)]
-        if score >= 0.25
+        for keyword_score, fuzzy_score, node_id in ranked[:max(1, limit)]
+        if keyword_score >= 0.25 or fuzzy_score >= 0.5
     }
 
 
@@ -1868,10 +1881,12 @@ def ontology_level_profile_texts(
 def query_text_overlap_score(query_texts: list[str], node: dict[str, Any]) -> float:
     node_values = unique_non_empty_texts([
         str(node.get('name', '')),
+        str(node.get('alias', '')),
         str(node.get('owner', '')),
         str(node.get('rawText', '')),
+        str(node.get('description', '')),
         str(node.get('key', '')),
-    ], limit=4)
+    ], limit=6)
     best_score = 0.0
     for query_text in query_texts:
         query_value = compact_exact_text(query_text)
@@ -1889,6 +1904,34 @@ def query_text_overlap_score(query_texts: list[str], node: dict[str, Any]) -> fl
             if query_grams and node_grams:
                 best_score = max(best_score, len(query_grams & node_grams) / len(node_grams))
     return best_score
+
+
+def fuzzy_query_node_score(query_texts: list[str], node: dict[str, Any]) -> float:
+    node_values = unique_non_empty_texts([
+        str(node.get('name', '')),
+        str(node.get('alias', '')),
+        str(node.get('owner', '')),
+        str(node.get('rawText', '')),
+        str(node.get('description', '')),
+        str(node.get('key', '')),
+    ], limit=6)
+    best_score = 0.0
+    for query_text in query_texts:
+        query_value = compact_exact_text(query_text)
+        if not query_value:
+            continue
+        for node_value in node_values:
+            compact_node_value = compact_exact_text(node_value)
+            if compact_node_value:
+                best_score = max(best_score, SequenceMatcher(None, query_value, compact_node_value).ratio())
+    return best_score
+
+
+def keyword_query_node_score(query_texts: list[str], node: dict[str, Any]) -> float:
+    overlap = query_text_overlap_score(query_texts, node)
+    if overlap >= 2.0:
+        return 1.0
+    return max(0.0, min(1.0, overlap))
 
 
 def text_bigrams(text: str) -> set[str]:
@@ -2339,7 +2382,15 @@ def rank_nodes_with_project_bert(
         raw_node_score = 1.0 if exact_match else node_score
         raw_semantic_score = 1.0 if exact_match else max(node_score, related_combination_score)
         final_semantic_score = semantic_confidence_ratio(raw_semantic_score, exact_match)
-        semantic_score = confidence_ratio_to_percent(final_semantic_score)
+        keyword_score = keyword_query_node_score(query_texts, node)
+        fuzzy_score = fuzzy_query_node_score(query_texts, node)
+        hybrid_score = 1.0 if exact_match else (
+            final_semantic_score * 0.72
+            + keyword_score * 0.18
+            + fuzzy_score * 0.10
+        )
+        final_hybrid_score = semantic_confidence_ratio(hybrid_score, exact_match)
+        semantic_score = confidence_ratio_to_percent(final_hybrid_score)
         ranked.append({
             **node,
             'score': semantic_score,
@@ -2351,6 +2402,9 @@ def rank_nodes_with_project_bert(
             'relatedCombinationScore': round(semantic_confidence_ratio(related_combination_score), 6),
             'queryOverlapScore': round(query_overlap_score, 6),
             'combinedSemanticScore': round(final_semantic_score, 6),
+            'keywordMatchScore': round(keyword_score, 6),
+            'fuzzyMatchScore': round(fuzzy_score, 6),
+            'hybridRecallScore': round(final_hybrid_score, 6),
             'matchedRelatedText': matched_related_text if use_related_score else '',
             'matchedQueryText': matched_query_text,
             'queryRewrites': query_texts,
@@ -2359,7 +2413,7 @@ def rank_nodes_with_project_bert(
             'semanticMatchSource': 'related-combination' if use_related_score else 'node',
         })
 
-    ranked.sort(key=lambda item: (-item['combinedSemanticScore'], -item['nodeSemanticScore'], item['name']))
+    ranked.sort(key=lambda item: (-item['hybridRecallScore'], -item['combinedSemanticScore'], item['name']))
     if ranked:
         update_llm_trace({'semanticFallback': 'bert', 'semanticModel': source})
     return ranked
@@ -2827,7 +2881,12 @@ def top_match_confidence(query_text: str, item: dict[str, Any]) -> float:
     exact_match = bool(item.get('exactTextMatch')) or query_exactly_matches_node([query_text], item)
     if item.get('rankSource') == 'bert':
         try:
-            node_score = max(0.0, float(item.get('combinedSemanticScore', item.get('nodeSemanticScore', 0.0))))
+            node_score = max(0.0, float(
+                item.get(
+                    'faultChainScore',
+                    item.get('hybridRecallScore', item.get('combinedSemanticScore', item.get('nodeSemanticScore', 0.0))),
+                )
+            ))
         except (TypeError, ValueError):
             node_score = 0.0
         confidence = round(semantic_confidence_ratio(node_score, exact_match) * 100, 1)
@@ -2853,6 +2912,208 @@ def is_failure_mode_node(node: dict[str, Any]) -> bool:
     return node.get('type') in {'root-cause', 'fault', 'impact'} or '故障模式' in str(node.get('level', ''))
 
 
+FAULT_CHAIN_CATEGORY_ORDER = {
+    'entity': 0,
+    'fault_mode': 1,
+    'attribute': 2,
+    'attribute_value': 3,
+    'phenomenon': 4,
+    'cause': 5,
+    'impact': 6,
+    'measure': 7,
+    'function': 8,
+    'other': 9,
+}
+
+FAULT_CHAIN_EXPECTED_CATEGORIES = {
+    'entity',
+    'fault_mode',
+    'attribute',
+    'attribute_value',
+    'phenomenon',
+    'cause',
+    'impact',
+    'measure',
+}
+
+
+def fault_chain_node_category(node: dict[str, Any]) -> str:
+    level = str(node.get('level', ''))
+    status = str(node.get('status', ''))
+    label = str(node.get('label', ''))
+    combined = f'{level} {status} {label}'
+    if '故障模式' in combined:
+        return 'fault_mode'
+    if '故障现象' in combined:
+        return 'phenomenon'
+    if '原因' in combined or '诱因' in combined:
+        return 'cause'
+    if '影响' in combined or '后果' in combined:
+        return 'impact'
+    if '措施' in combined or '建议' in combined:
+        return 'measure'
+    if level == '属性值':
+        return 'attribute_value'
+    if level == '属性' or level in {'发生阶段', '发生概率', '严酷度等级', '是否单点'}:
+        return 'attribute'
+    if '功能' in level:
+        return 'function'
+    if node.get('type') == 'component' or level in {'总体', '系统', '单机', '组件', '零部组件'}:
+        return 'entity'
+    return 'other'
+
+
+def is_query_chain_edge(edge: dict[str, Any]) -> bool:
+    if is_fault_chain_edge(edge):
+        return True
+    relation = f"{edge.get('relationType', '')} {edge.get('label', '')}".lower()
+    return any(term in relation for term in (
+        'fault', 'failure', 'cause', 'impact', 'effect', 'measure', 'solution',
+        '故障', '导致', '原因', '影响', '后果', '措施', '属性', '现象', '包含', '有',
+    ))
+
+
+def fault_chain_transition_allowed(source: dict[str, Any], target: dict[str, Any], edge: dict[str, Any]) -> bool:
+    if not is_query_chain_edge(edge):
+        return False
+    source_category = fault_chain_node_category(source)
+    target_category = fault_chain_node_category(target)
+    pair = frozenset((source_category, target_category))
+    if 'fault_mode' in pair:
+        return True
+    if pair in {
+        frozenset(('entity', 'function')),
+        frozenset(('attribute', 'attribute_value')),
+        frozenset(('cause', 'phenomenon')),
+        frozenset(('impact', 'phenomenon')),
+    }:
+        return True
+    return source_category == target_category == 'fault_mode'
+
+
+def expand_fault_chain_subgraph(
+    start_node: dict[str, Any],
+    graph: dict[str, list[dict[str, Any]]],
+    max_depth: int = 3,
+    max_nodes: int = 120,
+) -> dict[str, Any]:
+    node_map = {str(node.get('id', '')): node for node in graph['nodes']}
+    adjacency: dict[str, list[tuple[str, dict[str, Any]]]] = defaultdict(list)
+    for edge in graph['edges']:
+        source = node_map.get(str(edge.get('from', '')))
+        target = node_map.get(str(edge.get('to', '')))
+        if not source or not target or not fault_chain_transition_allowed(source, target, edge):
+            continue
+        adjacency[source['id']].append((target['id'], edge))
+        adjacency[target['id']].append((source['id'], edge))
+
+    start_id = str(start_node.get('id', ''))
+    depths = {start_id: 0}
+    selected_edges: dict[tuple[str, str, str, str], dict[str, Any]] = {}
+    queue: deque[str] = deque([start_id])
+    while queue and len(depths) < max_nodes:
+        current_id = queue.popleft()
+        current_depth = depths[current_id]
+        if current_depth >= max_depth:
+            continue
+        for neighbor_id, edge in adjacency.get(current_id, []):
+            next_depth = current_depth + 1
+            if neighbor_id not in depths:
+                depths[neighbor_id] = next_depth
+                queue.append(neighbor_id)
+            if depths.get(neighbor_id, next_depth) <= max_depth:
+                edge_key = (
+                    str(edge.get('from', '')),
+                    str(edge.get('to', '')),
+                    str(edge.get('relationType', '')),
+                    str(edge.get('label', '')),
+                )
+                selected_edges[edge_key] = edge
+
+    nodes = [node_map[node_id] for node_id in depths if node_id in node_map]
+    nodes.sort(key=lambda node: (
+        depths.get(node['id'], max_depth + 1),
+        FAULT_CHAIN_CATEGORY_ORDER.get(fault_chain_node_category(node), 99),
+        node.get('name', ''),
+    ))
+    node_ids = {node['id'] for node in nodes}
+    edges = [
+        edge for edge in selected_edges.values()
+        if edge.get('from') in node_ids and edge.get('to') in node_ids
+    ]
+    edges.sort(key=lambda edge: (
+        min(depths.get(str(edge.get('from', '')), 99), depths.get(str(edge.get('to', '')), 99)),
+        str(edge.get('label', '')),
+        str(edge.get('from', '')),
+        str(edge.get('to', '')),
+    ))
+    categories = {fault_chain_node_category(node) for node in nodes}
+    completeness = len(categories & FAULT_CHAIN_EXPECTED_CATEGORIES) / len(FAULT_CHAIN_EXPECTED_CATEGORIES)
+    average_depth = sum(depths.values()) / max(1, len(depths))
+    return {
+        'nodes': nodes,
+        'edges': edges,
+        'nodeIds': [node['id'] for node in nodes],
+        'categories': sorted(categories, key=lambda category: FAULT_CHAIN_CATEGORY_ORDER.get(category, 99)),
+        'completeness': round(completeness, 6),
+        'averageDepth': round(average_depth, 6),
+    }
+
+
+def fault_chain_type_priority(node: dict[str, Any]) -> float:
+    return {
+        'fault_mode': 1.0,
+        'phenomenon': 0.95,
+        'entity': 0.9,
+        'cause': 0.82,
+        'impact': 0.8,
+        'attribute_value': 0.76,
+        'attribute': 0.72,
+        'measure': 0.68,
+        'function': 0.62,
+        'other': 0.5,
+    }.get(fault_chain_node_category(node), 0.5)
+
+
+def rerank_fault_chain_candidates(
+    query_text: str,
+    ranked: list[dict[str, Any]],
+    graph: dict[str, list[dict[str, Any]]],
+) -> list[dict[str, Any]]:
+    reranked: list[dict[str, Any]] = []
+    for item in ranked[:30]:
+        subgraph = expand_fault_chain_subgraph(item, graph)
+        recall_score = float(item.get('hybridRecallScore', item.get('combinedSemanticScore', 0.0)))
+        completeness = float(subgraph['completeness'])
+        depth_penalty = min(0.08, float(subgraph['averageDepth']) * 0.025)
+        keyword_coverage = float(item.get('keywordMatchScore', 0.0))
+        final_score = (
+            recall_score * 0.68
+            + fault_chain_type_priority(item) * 0.10
+            + completeness * 0.14
+            + keyword_coverage * 0.08
+            - depth_penalty
+        )
+        bounded_final_score = max(0.0, min(1.0, final_score))
+        reranked.append({
+            **item,
+            'score': confidence_ratio_to_percent(
+                semantic_confidence_ratio(bounded_final_score, bool(item.get('exactTextMatch')))
+            ),
+            'faultChainScore': round(bounded_final_score, 6),
+            'pathCompleteness': round(completeness, 6),
+            'pathLengthPenalty': round(depth_penalty, 6),
+            'faultChainSubgraph': subgraph,
+        })
+
+    reranked.sort(key=lambda item: (
+        -item['faultChainScore'],
+        -item.get('hybridRecallScore', 0.0),
+        item.get('name', ''),
+    ))
+    return reranked + ranked[30:]
+
+
 def collect_related(node_id: str, graph: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
     node_map = {node['id']: node for node in graph['nodes']}
     related: list[dict[str, Any]] = []
@@ -2863,6 +3124,17 @@ def collect_related(node_id: str, graph: dict[str, list[dict[str, Any]]]) -> lis
             related.append({'direction': '输出', 'relation': edge['label'], 'target': node_map[edge['to']]})
         elif edge['to'] == node_id and edge['from'] in node_map:
             related.append({'direction': '输入', 'relation': edge['label'], 'target': node_map[edge['from']]})
+    return related[:8]
+
+
+def collect_related_from_subgraph(node_id: str, subgraph: dict[str, Any]) -> list[dict[str, Any]]:
+    node_map = {node['id']: node for node in subgraph.get('nodes', [])}
+    related: list[dict[str, Any]] = []
+    for edge in subgraph.get('edges', []):
+        if edge.get('from') == node_id and edge.get('to') in node_map:
+            related.append({'direction': '输出', 'relation': edge.get('label', ''), 'target': node_map[edge['to']]})
+        elif edge.get('to') == node_id and edge.get('from') in node_map:
+            related.append({'direction': '输入', 'relation': edge.get('label', ''), 'target': node_map[edge['from']]})
     return related[:8]
 
 
@@ -2877,23 +3149,6 @@ def build_checks(related: list[dict[str, Any]]) -> list[str]:
     return [f"检查{item['direction']}{item['relation']}节点：{item['target']['name']}" for item in related[:6]]
 
 
-def stage_for_level(level: str) -> dict[str, Any] | None:
-    for stage in STAGE_DEFINITIONS:
-        if level in stage['levels']:
-            return stage
-    return None
-
-
-def build_adjacency(graph: dict[str, list[dict[str, Any]]]) -> dict[str, list[dict[str, Any]]]:
-    adjacency: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for edge in graph['edges']:
-        if not is_fault_chain_edge(edge):
-            continue
-        adjacency[edge['from']].append({'neighbor': edge['to'], 'edge': edge, 'direction': '输出'})
-        adjacency[edge['to']].append({'neighbor': edge['from'], 'edge': edge, 'direction': '输入'})
-    return adjacency
-
-
 def is_fault_chain_edge(edge: dict[str, Any]) -> bool:
     return (
         edge.get('relationType') in FAULT_CHAIN_RELATION_TYPES
@@ -2901,155 +3156,74 @@ def is_fault_chain_edge(edge: dict[str, Any]) -> bool:
     )
 
 
-def shortest_paths_from(start_id: str, graph: dict[str, list[dict[str, Any]]]) -> tuple[dict[str, int], dict[str, tuple[str, dict[str, Any]]]]:
-    adjacency = build_adjacency(graph)
-    distances = {start_id: 0}
-    previous: dict[str, tuple[str, dict[str, Any]]] = {}
-    queue: deque[str] = deque([start_id])
+def build_full_chain_reasoning(
+    query_text: str,
+    node: dict[str, Any],
+    graph: dict[str, list[dict[str, Any]]],
+    related: list[dict[str, Any]],
+    subgraph: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    chain = subgraph or expand_fault_chain_subgraph(node, graph)
+    category_titles = {
+        'entity': '实体对象',
+        'fault_mode': '故障模式',
+        'attribute': '属性要素',
+        'attribute_value': '属性值',
+        'phenomenon': '故障现象',
+        'cause': '故障原因',
+        'impact': '故障影响',
+        'measure': '故障措施',
+        'function': '功能',
+        'other': '其他关联',
+    }
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for chain_node in chain['nodes']:
+        grouped[fault_chain_node_category(chain_node)].append(chain_node)
 
-    while queue:
-        current = queue.popleft()
-        for item in adjacency.get(current, []):
-            neighbor = item['neighbor']
-            if neighbor in distances:
-                continue
-            distances[neighbor] = distances[current] + 1
-            previous[neighbor] = (current, item['edge'])
-            queue.append(neighbor)
-
-    return distances, previous
-
-
-def reconstruct_path(target_id: str, previous: dict[str, tuple[str, dict[str, Any]]]) -> list[dict[str, Any]]:
-    path: list[dict[str, Any]] = []
-    cursor = target_id
-    while cursor in previous:
-        source, edge = previous[cursor]
-        path.append({'from': source, 'to': cursor, 'edge': edge})
-        cursor = source
-    path.reverse()
-    return path
-
-
-def find_best_stage_node(stage: dict[str, Any], start_node: dict[str, Any], graph: dict[str, list[dict[str, Any]]], distances: dict[str, int]) -> dict[str, Any] | None:
-    candidates = [node for node in graph['nodes'] if node['level'] in stage['levels'] and node['id'] in distances]
-    if not candidates:
-        if start_node['level'] in stage['levels']:
-            return start_node
-        return None
-    candidates.sort(key=lambda item: (
-        distances.get(item['id'], 10**6),
-        stage['preference'].get(item['level'], 99),
-        0 if item['type'] in {'root-cause', 'fault', 'impact'} else 1,
-        item['name'],
-    ))
-    return candidates[0]
-
-
-def collect_supporting_nodes(path_node_ids: set[str], graph: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
-    node_map = {node['id']: node for node in graph['nodes']}
-    supports: dict[str, dict[str, Any]] = {}
-    for edge in graph['edges']:
-        if not is_fault_chain_edge(edge):
-            continue
-        if edge['from'] in path_node_ids and edge['to'] in node_map:
-            target = node_map[edge['to']]
-            if target['level'] in FAULT_CHAIN_SUPPORT_LEVELS:
-                supports[target['id']] = target
-        if edge['to'] in path_node_ids and edge['from'] in node_map:
-            source = node_map[edge['from']]
-            if source['level'] in FAULT_CHAIN_SUPPORT_LEVELS:
-                supports[source['id']] = source
-    return sorted(supports.values(), key=lambda item: (item['level'], item['name']))
-
-
-def summarize_stage_step(stage_title: str, node: dict[str, Any], path: list[dict[str, Any]]) -> str:
-    if not path:
-        return f"{stage_title}命中“{node['name']}”，当前作为推理起点。"
-    relations = ' -> '.join(step['edge']['label'] for step in path[:3])
-    return f"{stage_title}定位到“{node['name']}”（{node['level']}），可通过链路 {relations} 与搜索命中内容建立关联。"
-
-
-def build_full_chain_reasoning(query_text: str, node: dict[str, Any], graph: dict[str, list[dict[str, Any]]], related: list[dict[str, Any]]) -> dict[str, Any]:
-    distances, previous = shortest_paths_from(node['id'], graph)
-    stage_nodes: list[dict[str, Any]] = []
-    path_node_ids: set[str] = {node['id']}
-
-    for stage in STAGE_DEFINITIONS:
-        stage_node = find_best_stage_node(stage, node, graph, distances)
-        if not stage_node:
-            continue
-        path = reconstruct_path(stage_node['id'], previous) if stage_node['id'] != node['id'] else []
-        stage_nodes.append({
-            'stage': stage['title'],
-            'node': stage_node,
-            'path': path,
+    steps: list[dict[str, Any]] = []
+    for category in sorted(grouped, key=lambda item: FAULT_CHAIN_CATEGORY_ORDER.get(item, 99)):
+        category_nodes = grouped[category]
+        representative = node if any(item['id'] == node['id'] for item in category_nodes) else category_nodes[0]
+        names = '、'.join(item['name'] for item in category_nodes[:4])
+        steps.append({
+            'stage': category_titles.get(category, category),
+            'nodeId': representative['id'],
+            'nodeName': representative['name'],
+            'nodeLevel': representative['level'],
+            'summary': f"{category_titles.get(category, category)}：{names}",
         })
-        path_node_ids.add(stage_node['id'])
-        for item in path:
-            path_node_ids.add(item['from'])
-            path_node_ids.add(item['to'])
-
-    supports = collect_supporting_nodes(path_node_ids, graph)
-    for support in supports:
-        path_node_ids.add(support['id'])
-
-    steps = [{
-        'stage': item['stage'],
-        'nodeId': item['node']['id'],
-        'nodeName': item['node']['name'],
-        'nodeLevel': item['node']['level'],
-        'summary': summarize_stage_step(item['stage'], item['node'], item['path']),
-    } for item in stage_nodes]
 
     evidence: list[str] = []
     keywords = matched_terms(query_text, node)
     if keywords:
         evidence.append('搜索命中关键词：' + '、'.join(keywords))
+    evidence.append(
+        f"受限模板扩展：{len(chain['nodes'])} 个节点、{len(chain['edges'])} 条关系，"
+        f"链路完整度 {round(float(chain['completeness']) * 100)}%。"
+    )
     if related:
         evidence.append('直接关联节点：' + '；'.join(f"{item['target']['name']}（{item['relation']}）" for item in related[:4]))
-    if supports:
-        evidence.append('支撑条件：' + '；'.join(f"{item['level']}：{item['name']}" for item in supports[:4]))
 
-    summary_parts = [f"搜索内容首先命中“{node['name']}”（{node['level']}）。"]
-    if steps:
-        summary_parts.append('系统已按组件级、单体级、系统级、总体级完成链路收敛：' + ' -> '.join(
-            f"{item['stage']}“{item['nodeName']}”" for item in steps
-        ) + '。')
-    measures = [item['name'] for item in supports if item['level'] == '设计措施']
+    measures = [item['name'] for item in grouped.get('measure', [])]
+    summary = (
+        f"混合召回首先命中“{node['name']}”（{node['level']}），"
+        f"随后按故障链模板扩展到 {len(chain['nodes'])} 个节点和 {len(chain['edges'])} 条关系。"
+    )
     if measures:
-        summary_parts.append('可优先结合设计措施执行处置：' + '、'.join(measures[:3]) + '。')
+        summary += ' 可参考措施：' + '、'.join(measures[:3]) + '。'
 
     checks = build_checks(related)
-    for support in supports:
-        checks.append(f"复核{support['level']}：{support['name']}")
+    for category in ('phenomenon', 'cause', 'impact', 'measure', 'attribute', 'attribute_value'):
+        for item in grouped.get(category, [])[:2]:
+            checks.append(f"复核{category_titles[category]}：{item['name']}")
 
-    deduped_checks: list[str] = []
-    for check in checks:
-        if check not in deduped_checks:
-            deduped_checks.append(check)
-
-    ordered_path_ids: list[str] = []
-
-    def append_path_id(node_id: str) -> None:
-        if node_id not in ordered_path_ids:
-            ordered_path_ids.append(node_id)
-
-    append_path_id(node['id'])
-    for item in stage_nodes:
-        for path_item in item['path']:
-            append_path_id(path_item['from'])
-            append_path_id(path_item['to'])
-        append_path_id(item['node']['id'])
-    for support in supports:
-        append_path_id(support['id'])
-
+    deduped_checks = list(dict.fromkeys(checks))
     return {
-        'summary': ''.join(summary_parts) if summary_parts else build_summary(node, related),
-        'checks': deduped_checks[:8],
-        'pathNodeIds': ordered_path_ids,
+        'summary': summary,
+        'checks': deduped_checks[:10],
+        'pathNodeIds': chain['nodeIds'],
         'steps': steps,
-        'evidence': evidence[:4],
+        'evidence': evidence[:5],
     }
 
 

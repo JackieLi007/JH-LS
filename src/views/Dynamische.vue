@@ -84,6 +84,10 @@ type QueryResult = {
   pathNodeIds: string[]
   reasoningSteps: QueryStep[]
   topMatches: QueryTopMatch[]
+  subgraph?: {
+    nodes: GraphNode[]
+    edges: GraphEdge[]
+  }
 }
 
 type TreeNode = {
@@ -1337,6 +1341,10 @@ const graphSubsetIds = computed(() => {
   if (!graph.value?.nodes.length) return new Set<string>()
   if (!queryResult.value && !selectedFaultNodeId.value) return new Set<string>()
 
+  if (queryResult.value?.subgraph?.nodes.length) {
+    return expandGraphIdsWithSimilarGroups(new Set(queryResult.value.subgraph.nodes.map((node) => node.id)))
+  }
+
   const ids = new Set<string>()
   if (queryResult.value?.pathNodeIds?.length) {
     for (const id of queryResult.value.pathNodeIds) ids.add(id)
@@ -1368,6 +1376,9 @@ const graphSubsetNodes = computed(() => {
   const ids = graphSubsetIds.value
   if (isOntologyView.value) return mergeSimilarGraphNodes(graph.value.nodes.filter((node) => ids.has(node.id)))
   if (!queryResult.value && !selectedFaultNodeId.value) return []
+  if (queryResult.value?.subgraph?.nodes.length) {
+    return mergeSimilarGraphNodes(queryResult.value.subgraph.nodes)
+  }
 
   const connectedIds = new Set<string>()
   for (const edge of graph.value.edges) {
@@ -1394,6 +1405,10 @@ const graphSubsetEdges = computed(() => {
 
   if (!graph.value) return []
   if (!queryResult.value && !selectedFaultNodeId.value) return []
+
+  if (queryResult.value?.subgraph?.edges.length) {
+    return mergeSimilarGraphEdges(queryResult.value.subgraph.edges)
+  }
 
   const ids = graphSubsetIds.value
   return mergeSimilarGraphEdges(graph.value.edges.filter((edge) => ids.has(edge.from) && ids.has(edge.to) && isFaultChainEdge(edge)))
