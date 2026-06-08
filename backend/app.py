@@ -1564,7 +1564,38 @@ def rank_nodes(query_text: str, nodes: list[dict[str, Any]]) -> list[dict[str, A
 
 def rank_fault_chain_query_nodes(query_text: str, graph: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
     candidates = semantic_candidate_pool(graph['nodes'])
-    return rank_nodes_with_project_bert(query_text, candidates)
+    related_texts = build_related_semantic_texts(graph)
+    return rank_nodes_with_project_bert(query_text, candidates, related_texts)
+
+
+def build_related_semantic_texts(graph: dict[str, list[dict[str, Any]]]) -> dict[str, list[str]]:
+    node_map = {str(node.get('id', '')): node for node in graph['nodes'] if node.get('id')}
+    related_texts: dict[str, list[str]] = defaultdict(list)
+    for edge in graph['edges']:
+        source_id = str(edge.get('from', ''))
+        target_id = str(edge.get('to', ''))
+        source = node_map.get(source_id)
+        target = node_map.get(target_id)
+        if not source or not target:
+            continue
+
+        relation = str(edge.get('label') or edge.get('relationType') or '').strip()
+        source_name = str(source.get('name', '')).strip()
+        target_name = str(target.get('name', '')).strip()
+        compact_text = '；'.join(part for part in (source_name, relation, target_name) if part)
+        detailed_text = '；'.join(part for part in (
+            node_primary_semantic_text(source),
+            f'关系：{relation}' if relation else '',
+            node_primary_semantic_text(target),
+        ) if part)
+        edge_texts = unique_non_empty_texts([compact_text, detailed_text], limit=2)
+        related_texts[source_id].extend(edge_texts)
+        related_texts[target_id].extend(edge_texts)
+
+    return {
+        node_id: unique_non_empty_texts(texts, limit=len(texts))
+        for node_id, texts in related_texts.items()
+    }
 
 
 OPEN_FAILURE_EXPANSIONS = (
@@ -1892,7 +1923,11 @@ def bounded_percent_score(value: Any, exact_match: bool = False) -> int:
     return max(1, min(upper_bound, score))
 
 
-def rank_nodes_with_project_bert(query_text: str, candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def rank_nodes_with_project_bert(
+    query_text: str,
+    candidates: list[dict[str, Any]],
+    related_texts_by_node: dict[str, list[str]] | None = None,
+) -> list[dict[str, Any]]:
     encoder = get_project_bert_encoder()
     if not encoder:
         message = 'BERT 模型未加载，故障链查询已停止：请检查 FAULT_QUERY_BERT_MODEL 或本地 bert-base-chinese 模型文件。'
@@ -1906,27 +1941,49 @@ def rank_nodes_with_project_bert(query_text: str, candidates: list[dict[str, Any
     query_texts = bert_query_texts(query_text, selected_candidates)
     node_texts = [node_primary_semantic_text(node) for node in selected_candidates]
     object_texts = [node_object_semantic_text(node) for node in selected_candidates]
-    texts = [*query_texts, *node_texts, *object_texts]
+    related_texts: list[str] = []
+    related_ranges: list[tuple[int, int]] = []
+    for node in selected_candidates:
+        start = len(related_texts)
+        related_texts.extend((related_texts_by_node or {}).get(str(node.get('id', '')), []))
+        related_ranges.append((start, len(related_texts)))
+    texts = [*query_texts, *node_texts, *object_texts, *related_texts]
 
     try:
         import torch
 
         embeddings = encode_with_project_bert(tokenizer, model, device, texts)
         query_count = len(query_texts)
-        if embeddings.size(0) < query_count + len(selected_candidates):
+        if embeddings.size(0) != len(texts):
             message = 'BERT 向量输出数量异常，故障链查询已停止。'
             update_llm_trace({'semanticFallback': 'bert-error', 'semanticModel': source, 'error': message})
             raise FaultQueryBertError(message)
         query_embeddings = embeddings[:query_count]
         node_embeddings = embeddings[query_count:query_count + len(selected_candidates)]
-        object_embeddings = embeddings[query_count + len(selected_candidates):]
+        object_start = query_count + len(selected_candidates)
+        object_end = object_start + len(selected_candidates)
+        object_embeddings = embeddings[object_start:object_end]
+        related_embeddings = embeddings[object_end:]
         node_score_matrix = torch.matmul(node_embeddings, query_embeddings.T)
         object_score_matrix = torch.matmul(object_embeddings, query_embeddings.T) if object_embeddings.size(0) else None
+        related_score_matrix = torch.matmul(related_embeddings, query_embeddings.T) if related_embeddings.size(0) else None
         node_scores, node_query_indexes = torch.max(node_score_matrix, dim=1)
         if object_score_matrix is not None and object_score_matrix.size(0):
             object_scores, _ = torch.max(object_score_matrix, dim=1)
         else:
             object_scores = torch.zeros(len(selected_candidates))
+        related_scores = torch.zeros(len(selected_candidates))
+        related_query_indexes = torch.zeros(len(selected_candidates), dtype=torch.long)
+        related_text_indexes = [-1] * len(selected_candidates)
+        if related_score_matrix is not None and related_score_matrix.size(0):
+            for index, (start, end) in enumerate(related_ranges):
+                if start >= end:
+                    continue
+                flat_index = int(torch.argmax(related_score_matrix[start:end]).item())
+                text_offset, query_index = divmod(flat_index, query_count)
+                related_scores[index] = related_score_matrix[start + text_offset, query_index]
+                related_query_indexes[index] = query_index
+                related_text_indexes[index] = start + text_offset
     except FaultQueryBertError:
         raise
     except Exception as exc:
@@ -1935,28 +1992,38 @@ def rank_nodes_with_project_bert(query_text: str, candidates: list[dict[str, Any
         raise FaultQueryBertError(message) from exc
 
     ranked: list[dict[str, Any]] = []
-    for index, (node, similarity) in enumerate(zip(selected_candidates, node_scores.tolist())):
+    for index, node in enumerate(selected_candidates):
         node_score = float(node_scores[index])
         object_score = float(object_scores[index]) if index < len(object_scores) else 0.0
-        matched_query_text = query_texts[int(node_query_indexes[index])] if index < len(node_query_indexes) else query_text
+        related_score = float(related_scores[index]) if index < len(related_scores) else 0.0
+        use_related_score = related_score > node_score
+        matched_query_index = related_query_indexes[index] if use_related_score else node_query_indexes[index]
+        matched_query_text = query_texts[int(matched_query_index)] if int(matched_query_index) < len(query_texts) else query_text
+        matched_related_index = related_text_indexes[index]
+        matched_related_text = related_texts[matched_related_index] if matched_related_index >= 0 else ''
         exact_match = query_exactly_matches_node([query_text], node)
         raw_node_score = 1.0 if exact_match else node_score
-        final_node_score = semantic_confidence_ratio(raw_node_score, exact_match)
-        semantic_score = confidence_ratio_to_percent(final_node_score)
+        raw_semantic_score = 1.0 if exact_match else max(node_score, related_score)
+        final_semantic_score = semantic_confidence_ratio(raw_semantic_score, exact_match)
+        semantic_score = confidence_ratio_to_percent(final_semantic_score)
         ranked.append({
             **node,
             'score': semantic_score,
             'semanticScore': semantic_score,
-            'nodeSemanticScore': round(final_node_score, 6),
+            'nodeSemanticScore': round(semantic_confidence_ratio(raw_node_score, exact_match), 6),
             'bertNodeSemanticScore': round(node_score, 6),
             'objectSemanticScore': round(semantic_confidence_ratio(object_score, exact_match), 4),
+            'relatedSemanticScore': round(semantic_confidence_ratio(related_score), 6),
+            'combinedSemanticScore': round(final_semantic_score, 6),
+            'matchedRelatedText': matched_related_text if use_related_score else '',
             'matchedQueryText': matched_query_text,
             'queryRewrites': query_texts,
             'exactTextMatch': exact_match,
             'rankSource': 'bert',
+            'semanticMatchSource': 'related-combination' if use_related_score else 'node',
         })
 
-    ranked.sort(key=lambda item: (-item['nodeSemanticScore'], item['name']))
+    ranked.sort(key=lambda item: (-item['combinedSemanticScore'], -item['nodeSemanticScore'], item['name']))
     if ranked:
         update_llm_trace({'semanticFallback': 'bert', 'semanticModel': source})
     return ranked
@@ -2221,9 +2288,12 @@ def log_query_backend_strategy(query_text: str, best_node: dict[str, Any] | None
 
     best_name = best_node.get('name', '') if best_node else ''
     best_score = top_match_score(query_text, best_node) if best_node else ''
+    match_source = best_node.get('semanticMatchSource', '') if best_node else ''
+    matched_related_text = best_node.get('matchedRelatedText', '') if best_node else ''
     print(
         f"[FaultQuery] query={query_text!r} strategy={strategy} detail={detail} "
-        f"best={best_name!r} score={best_score}",
+        f"best={best_name!r} score={best_score} matchSource={match_source or 'node'} "
+        f"relatedText={matched_related_text!r}",
         flush=True,
     )
 
@@ -2417,7 +2487,7 @@ def top_match_confidence(query_text: str, item: dict[str, Any]) -> float:
     exact_match = bool(item.get('exactTextMatch')) or query_exactly_matches_node([query_text], item)
     if item.get('rankSource') == 'bert':
         try:
-            node_score = max(0.0, float(item.get('nodeSemanticScore', 0.0)))
+            node_score = max(0.0, float(item.get('combinedSemanticScore', item.get('nodeSemanticScore', 0.0))))
         except (TypeError, ValueError):
             node_score = 0.0
         confidence = round(semantic_confidence_ratio(node_score, exact_match) * 100, 1)
