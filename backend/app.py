@@ -537,7 +537,7 @@ def create_app() -> Flask:
             return jsonify(build_api_envelope(False, 500, message, {**empty_query_result(), 'summary': message, 'bertDiagnostics': diagnostics})), 500
         if not ranked:
             log_query_backend_strategy(text)
-            return jsonify(build_api_envelope(False, 404, 'BERT 未匹配到图谱节点', {**empty_query_result(), 'summary': 'BERT 已完成全量向量匹配，但未在 Neo4j 图数据库中匹配到相关节点。'})), 404
+            return jsonify(build_api_envelope(False, 404, 'BERT 未匹配到图谱节点', {**empty_query_result(), 'summary': 'BERT 已完成本体类型定向匹配，但未在 Neo4j 图数据库中匹配到相关节点。'})), 404
 
         best = ranked[0]
         log_query_backend_strategy(text, best)
@@ -1563,9 +1563,290 @@ def rank_nodes(query_text: str, nodes: list[dict[str, Any]]) -> list[dict[str, A
 
 
 def rank_fault_chain_query_nodes(query_text: str, graph: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
-    candidates = semantic_candidate_pool(graph['nodes'])
+    all_candidates = semantic_candidate_pool(graph['nodes'])
+    query_texts = bert_query_texts(query_text, ontology_rewrite_candidates(graph['nodes'], [query_text]))
+    selected_levels = classify_query_ontology_levels(query_texts, graph)
+    candidates = [
+        node for node in all_candidates
+        if str(node.get('level', '')).strip() in selected_levels
+    ]
+    if not candidates:
+        candidates = all_candidates
     related_texts = build_related_semantic_texts(graph)
-    return rank_nodes_with_project_bert(query_text, candidates, related_texts)
+    update_llm_trace({
+        'ontologyLevels': sorted(selected_levels, key=lambda level: (LEVEL_ORDER.get(level, 999), level)),
+        'ontologyCandidateCount': len(candidates),
+        'graphNodeCount': len(all_candidates),
+    })
+    return rank_nodes_with_project_bert(query_text, candidates, related_texts, query_texts)
+
+
+def ontology_rewrite_candidates(
+    nodes: list[dict[str, Any]],
+    query_texts: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for node in nodes:
+        level = str(node.get('level', '')).strip()
+        if level:
+            groups[level].append(node)
+
+    candidates: list[dict[str, Any]] = []
+    for level, level_nodes in sorted(groups.items(), key=lambda item: (LEVEL_ORDER.get(item[0], 999), item[0])):
+        ranked_nodes = sorted(
+            level_nodes,
+            key=lambda node: (
+                -query_text_overlap_score(query_texts or [], node),
+                str(node.get('name', '')),
+            ),
+        )
+        examples = unique_non_empty_texts([str(node.get('name', '')) for node in ranked_nodes], limit=6)
+        candidates.append({
+            'id': f'ontology::{level}',
+            'name': level,
+            'level': level,
+            'owner': '',
+            'rawText': '；'.join(examples),
+            'key': ontology_level_semantic_text(level),
+        })
+    return candidates
+
+
+def classify_query_ontology_levels(
+    query_texts: list[str],
+    graph: dict[str, list[dict[str, Any]]],
+) -> set[str]:
+    levels = sorted(
+        {str(node.get('level', '')).strip() for node in graph['nodes'] if str(node.get('level', '')).strip()},
+        key=lambda level: (LEVEL_ORDER.get(level, 999), level),
+    )
+    if len(levels) <= 1:
+        return set(levels)
+
+    split_options = semantic_split_options(query_texts)
+    segments = unique_non_empty_texts(
+        [segment for option in split_options for segment in option],
+        limit=sum(len(option) for option in split_options),
+    )
+    if not segments:
+        return set(levels)
+
+    encoder = get_project_bert_encoder()
+    if not encoder:
+        raise FaultQueryBertError('BERT 模型未加载，无法完成本体类型语义拆分。')
+    tokenizer, model, device, source = encoder
+    nodes_by_level: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for node in graph['nodes']:
+        level = str(node.get('level', '')).strip()
+        if level:
+            nodes_by_level[level].append(node)
+    profile_texts: list[str] = []
+    profile_levels: list[str] = []
+    for level in levels:
+        texts = ontology_level_profile_texts(level, nodes_by_level[level], query_texts)
+        profile_texts.extend(texts)
+        profile_levels.extend([level] * len(texts))
+
+    try:
+        import torch
+
+        embeddings = encode_with_project_bert(tokenizer, model, device, [*segments, *profile_texts])
+        if embeddings.size(0) != len(segments) + len(profile_texts):
+            raise FaultQueryBertError('BERT 本体类型语义拆分输出数量异常。')
+        segment_embeddings = embeddings[:len(segments)]
+        profile_embeddings = embeddings[len(segments):]
+        profile_score_matrix = torch.matmul(segment_embeddings, profile_embeddings.T)
+        level_score_columns = []
+        for level in levels:
+            profile_indexes = [index for index, profile_level in enumerate(profile_levels) if profile_level == level]
+            level_score_columns.append(torch.max(profile_score_matrix[:, profile_indexes], dim=1).values)
+        score_matrix = torch.stack(level_score_columns, dim=1)
+    except FaultQueryBertError:
+        raise
+    except Exception as exc:
+        message = f'BERT 本体类型语义拆分失败，故障链查询已停止：{exc}'
+        update_llm_trace({'semanticFallback': 'bert-error', 'semanticModel': source, 'error': message})
+        raise FaultQueryBertError(message) from exc
+
+    segment_indexes = {segment: index for index, segment in enumerate(segments)}
+    connected_level_pairs = ontology_connected_level_pairs(graph)
+    best_score = float('-inf')
+    best_levels: tuple[str, ...] = ()
+    best_segments: tuple[str, ...] = ()
+    best_segment_scores: tuple[float, ...] = ()
+
+    for option in split_options:
+        top_level_indexes: list[list[int]] = []
+        for segment in option:
+            segment_scores = score_matrix[segment_indexes[segment]]
+            top_count = min(3, len(levels))
+            top_level_indexes.append(torch.topk(segment_scores, k=top_count).indices.tolist())
+
+        assignments = [(index,) for index in top_level_indexes[0]]
+        if len(option) == 2:
+            assignments = [
+                (left_index, right_index)
+                for left_index in top_level_indexes[0]
+                for right_index in top_level_indexes[1]
+            ]
+
+        for assignment in assignments:
+            assigned_levels = tuple(levels[index] for index in assignment)
+            assigned_scores = tuple(
+                float(score_matrix[segment_indexes[segment], level_index])
+                for segment, level_index in zip(option, assignment)
+            )
+            overlap_scores = tuple(
+                max(
+                    (query_text_overlap_score([segment], node) for node in nodes_by_level[level]),
+                    default=0.0,
+                )
+                for segment, level in zip(option, assigned_levels)
+            )
+            score = sum(assigned_scores) / len(assigned_scores)
+            score += sum(min(0.06, overlap * 0.03) for overlap in overlap_scores) / len(overlap_scores)
+            if len(assigned_levels) == 2:
+                pair = frozenset(assigned_levels)
+                if assigned_levels[0] != assigned_levels[1]:
+                    score += 0.01
+                if pair in connected_level_pairs:
+                    score += 0.04
+                if all(overlap >= 2.0 for overlap in overlap_scores):
+                    score += 0.15
+                elif all(overlap > 0 for overlap in overlap_scores):
+                    score += 0.06
+            if score > best_score:
+                best_score = score
+                best_levels = assigned_levels
+                best_segments = option
+                best_segment_scores = assigned_scores
+
+    selected_levels = set(best_levels)
+    update_llm_trace({
+        'semanticModel': source,
+        'ontologySplit': [
+            {'text': segment, 'level': level, 'score': round(score, 6)}
+            for segment, level, score in zip(best_segments, best_levels, best_segment_scores)
+        ],
+        'ontologySplitScore': round(best_score, 6),
+    })
+    return selected_levels or set(levels)
+
+
+def semantic_split_options(query_texts: list[str]) -> list[tuple[str, ...]]:
+    options: list[tuple[str, ...]] = []
+    seen: set[tuple[str, ...]] = set()
+    for query_text in query_texts:
+        compact = re.sub(r'[\s，。！？；、,.!?;:：]+', '', str(query_text or '').strip())
+        if not compact:
+            continue
+        candidates: list[tuple[str, ...]] = [(compact,)]
+        for index in range(2, len(compact) - 1):
+            left = compact[:index]
+            right = compact[index:]
+            if len(left) >= 2 and len(right) >= 2:
+                candidates.append((left, right))
+        for option in candidates:
+            if option not in seen:
+                seen.add(option)
+                options.append(option)
+    return options
+
+
+def ontology_connected_level_pairs(graph: dict[str, list[dict[str, Any]]]) -> set[frozenset[str]]:
+    node_levels = {
+        str(node.get('id', '')): str(node.get('level', '')).strip()
+        for node in graph['nodes']
+        if node.get('id') and str(node.get('level', '')).strip()
+    }
+    pairs: set[frozenset[str]] = set()
+    for edge in graph['edges']:
+        source_level = node_levels.get(str(edge.get('from', '')), '')
+        target_level = node_levels.get(str(edge.get('to', '')), '')
+        if source_level and target_level:
+            pairs.add(frozenset((source_level, target_level)))
+    return pairs
+
+
+def ontology_level_semantic_text(level: str) -> str:
+    value = str(level or '').strip()
+    aliases = [value, f'本体类型：{value}']
+    if any(term in value for term in ('总体', '系统', '单机', '组件', '零部组件')) and '故障' not in value and '功能' not in value:
+        aliases.extend(('实体对象', '设备名称', '机械对象', '部件名称', '对象主体'))
+    if '故障模式' in value:
+        aliases.extend(('故障模式', '失效模式', '故障状态', '异常状态', '故障原因'))
+    if '故障现象' in value:
+        aliases.extend(('故障现象', '异常表现', '故障症状', '可观察现象'))
+    if '功能' in value:
+        aliases.extend(('功能', '用途', '能力', '执行动作'))
+    if value in {'属性', '属性值'}:
+        aliases.extend(('属性', '特征', '参数', '属性值'))
+    if value == '发生阶段':
+        aliases.extend(('发生阶段', '时间阶段', '运行阶段', '工况阶段'))
+    if value == '发生概率':
+        aliases.extend(('发生概率', '发生频率', '可能性'))
+    if value == '严酷度等级':
+        aliases.extend(('严酷度等级', '严重程度', '影响等级'))
+    if value == '是否单点':
+        aliases.extend(('是否单点', '单点故障', '冗余判断'))
+    if value == '设计措施':
+        aliases.extend(('设计措施', '解决措施', '改进措施', '处理建议'))
+    return '；'.join(unique_non_empty_texts(aliases, limit=len(aliases)))
+
+
+def ontology_level_profile_texts(
+    level: str,
+    nodes: list[dict[str, Any]],
+    query_texts: list[str],
+) -> list[str]:
+    profiles = [ontology_level_semantic_text(level)]
+    ranked_examples = sorted(
+        (
+            (query_text_overlap_score(query_texts, node), node_primary_semantic_text(node))
+            for node in nodes
+        ),
+        key=lambda item: (-item[0], item[1]),
+    )
+    for overlap_score, node_text in ranked_examples:
+        if overlap_score <= 0:
+            break
+        profiles.append(f'{level}；{node_text}')
+        if len(profiles) >= 7:
+            break
+    return unique_non_empty_texts(profiles, limit=len(profiles))
+
+
+def query_text_overlap_score(query_texts: list[str], node: dict[str, Any]) -> float:
+    node_values = unique_non_empty_texts([
+        str(node.get('name', '')),
+        str(node.get('owner', '')),
+        str(node.get('rawText', '')),
+        str(node.get('key', '')),
+    ], limit=4)
+    best_score = 0.0
+    for query_text in query_texts:
+        query_value = compact_exact_text(query_text)
+        if not query_value:
+            continue
+        query_grams = text_bigrams(query_value)
+        for node_value in node_values:
+            compact_node_value = compact_exact_text(node_value)
+            if not compact_node_value:
+                continue
+            if compact_node_value in query_value or query_value in compact_node_value:
+                best_score = max(best_score, 2.0 + min(len(compact_node_value), len(query_value)) / 100)
+                continue
+            node_grams = text_bigrams(compact_node_value)
+            if query_grams and node_grams:
+                best_score = max(best_score, len(query_grams & node_grams) / len(node_grams))
+    return best_score
+
+
+def text_bigrams(text: str) -> set[str]:
+    value = compact_exact_text(text)
+    if len(value) < 2:
+        return {value} if value else set()
+    return {value[index:index + 2] for index in range(len(value) - 1)}
 
 
 def build_related_semantic_texts(graph: dict[str, list[dict[str, Any]]]) -> dict[str, list[str]]:
@@ -1927,6 +2208,7 @@ def rank_nodes_with_project_bert(
     query_text: str,
     candidates: list[dict[str, Any]],
     related_texts_by_node: dict[str, list[str]] | None = None,
+    prepared_query_texts: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     encoder = get_project_bert_encoder()
     if not encoder:
@@ -1938,7 +2220,7 @@ def rank_nodes_with_project_bert(
     selected_candidates = candidates
     if not selected_candidates:
         return []
-    query_texts = bert_query_texts(query_text, selected_candidates)
+    query_texts = prepared_query_texts or bert_query_texts(query_text, selected_candidates)
     node_texts = [node_primary_semantic_text(node) for node in selected_candidates]
     object_texts = [node_object_semantic_text(node) for node in selected_candidates]
     related_texts: list[str] = []
@@ -2290,10 +2572,14 @@ def log_query_backend_strategy(query_text: str, best_node: dict[str, Any] | None
     best_score = top_match_score(query_text, best_node) if best_node else ''
     match_source = best_node.get('semanticMatchSource', '') if best_node else ''
     matched_related_text = best_node.get('matchedRelatedText', '') if best_node else ''
+    ontology_split = trace.get('ontologySplit') or []
+    candidate_count = trace.get('ontologyCandidateCount', '')
+    graph_node_count = trace.get('graphNodeCount', '')
     print(
         f"[FaultQuery] query={query_text!r} strategy={strategy} detail={detail} "
         f"best={best_name!r} score={best_score} matchSource={match_source or 'node'} "
-        f"relatedText={matched_related_text!r}",
+        f"relatedText={matched_related_text!r} ontologySplit={ontology_split!r} "
+        f"candidates={candidate_count}/{graph_node_count}",
         flush=True,
     )
 
