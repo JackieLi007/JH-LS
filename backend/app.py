@@ -1566,9 +1566,14 @@ def rank_fault_chain_query_nodes(query_text: str, graph: dict[str, list[dict[str
     all_candidates = semantic_candidate_pool(graph['nodes'])
     query_texts = bert_query_texts(query_text, ontology_rewrite_candidates(graph['nodes'], [query_text]))
     selected_levels = classify_query_ontology_levels(query_texts, graph)
+    evidence_node_ids = query_evidence_node_ids(query_texts, graph['nodes'])
+    routed_node_ids = evidence_node_ids | directly_related_node_ids(evidence_node_ids, graph)
     candidates = [
         node for node in all_candidates
-        if str(node.get('level', '')).strip() in selected_levels
+        if (
+            str(node.get('level', '')).strip() in selected_levels
+            or str(node.get('id', '')) in routed_node_ids
+        )
     ]
     if not candidates:
         candidates = all_candidates
@@ -1577,8 +1582,45 @@ def rank_fault_chain_query_nodes(query_text: str, graph: dict[str, list[dict[str
         'ontologyLevels': sorted(selected_levels, key=lambda level: (LEVEL_ORDER.get(level, 999), level)),
         'ontologyCandidateCount': len(candidates),
         'graphNodeCount': len(all_candidates),
+        'evidenceNodeCount': len(evidence_node_ids),
+        'relatedEvidenceNodeCount': len(routed_node_ids - evidence_node_ids),
     })
     return rank_nodes_with_project_bert(query_text, candidates, related_texts, query_texts)
+
+
+def query_evidence_node_ids(
+    query_texts: list[str],
+    nodes: list[dict[str, Any]],
+    limit: int = 12,
+) -> set[str]:
+    ranked = sorted(
+        (
+            (query_text_overlap_score(query_texts, node), str(node.get('id', '')))
+            for node in nodes
+            if node.get('id')
+        ),
+        key=lambda item: (-item[0], item[1]),
+    )
+    return {
+        node_id
+        for score, node_id in ranked[:max(1, limit)]
+        if score >= 0.25
+    }
+
+
+def directly_related_node_ids(
+    node_ids: set[str],
+    graph: dict[str, list[dict[str, Any]]],
+) -> set[str]:
+    related_ids: set[str] = set()
+    for edge in graph['edges']:
+        source_id = str(edge.get('from', ''))
+        target_id = str(edge.get('to', ''))
+        if source_id in node_ids:
+            related_ids.add(target_id)
+        if target_id in node_ids:
+            related_ids.add(source_id)
+    return related_ids
 
 
 def ontology_rewrite_candidates(
@@ -1713,6 +1755,8 @@ def classify_query_ontology_levels(
                     score += 0.04
                 if all(overlap >= 2.0 for overlap in overlap_scores):
                     score += 0.15
+                elif max(overlap_scores) >= 2.0 and min(overlap_scores) > 0:
+                    score += 0.14
                 elif all(overlap > 0 for overlap in overlap_scores):
                     score += 0.06
             if score > best_score:
@@ -2278,14 +2322,17 @@ def rank_nodes_with_project_bert(
         node_score = float(node_scores[index])
         object_score = float(object_scores[index]) if index < len(object_scores) else 0.0
         related_score = float(related_scores[index]) if index < len(related_scores) else 0.0
-        use_related_score = related_score > node_score
+        query_overlap_score = query_text_overlap_score(query_texts, node)
+        related_weight = 0.9 if query_overlap_score >= 0.25 else 0.65
+        related_combination_score = related_score * related_weight + node_score * (1.0 - related_weight)
+        use_related_score = related_combination_score > node_score
         matched_query_index = related_query_indexes[index] if use_related_score else node_query_indexes[index]
         matched_query_text = query_texts[int(matched_query_index)] if int(matched_query_index) < len(query_texts) else query_text
         matched_related_index = related_text_indexes[index]
         matched_related_text = related_texts[matched_related_index] if matched_related_index >= 0 else ''
         exact_match = query_exactly_matches_node([query_text], node)
         raw_node_score = 1.0 if exact_match else node_score
-        raw_semantic_score = 1.0 if exact_match else max(node_score, related_score)
+        raw_semantic_score = 1.0 if exact_match else max(node_score, related_combination_score)
         final_semantic_score = semantic_confidence_ratio(raw_semantic_score, exact_match)
         semantic_score = confidence_ratio_to_percent(final_semantic_score)
         ranked.append({
@@ -2296,6 +2343,8 @@ def rank_nodes_with_project_bert(
             'bertNodeSemanticScore': round(node_score, 6),
             'objectSemanticScore': round(semantic_confidence_ratio(object_score, exact_match), 4),
             'relatedSemanticScore': round(semantic_confidence_ratio(related_score), 6),
+            'relatedCombinationScore': round(semantic_confidence_ratio(related_combination_score), 6),
+            'queryOverlapScore': round(query_overlap_score, 6),
             'combinedSemanticScore': round(final_semantic_score, 6),
             'matchedRelatedText': matched_related_text if use_related_score else '',
             'matchedQueryText': matched_query_text,
