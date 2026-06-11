@@ -67,8 +67,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         'hierarchy': 0.65,
     },
     'limits': {
-        'candidateTopK': 80,
-        'expansionEntryLimit': 12,
+        'candidateTopK': 50,
+        'expansionEntryLimit': 8,
         'maxDepth': 3,
         'maxEdgesPerNode': 20,
         'maxResultNodes': 120,

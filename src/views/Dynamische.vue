@@ -130,6 +130,7 @@ type RenderEdge = GraphEdge & {
   labelText: string
   labelX: number
   labelY: number
+  causal: boolean
 }
 
 type OntologyMapNode = {
@@ -263,6 +264,12 @@ function isSimilarEdge(edge: GraphEdge) {
     const text = String(value ?? '').trim()
     return text.includes('相似') || text.toLowerCase().includes('similar')
   })
+}
+
+function isCausalEdge(edge: GraphEdge) {
+  return edge.relationType === 'LEADS_TO'
+    || edge.relationGroup === 'causal_link'
+    || edge.label === '导致'
 }
 
 function refreshInitialOntologySample() {
@@ -428,7 +435,10 @@ const ontologyMapPreset: Record<string, { x: number; y: number; r: number; fill:
   设计措施: { x: 1178, y: 652, r: 56, fill: '#8bd53f' },
 }
 
-const nodeMap = computed(() => new Map(graph.value?.nodes.map((node) => [node.id, node] as const) ?? []))
+const nodeMap = computed(() => {
+  const nodes = graph.value?.nodes ?? queryResult.value?.subgraph?.nodes ?? []
+  return new Map(nodes.map((node) => [node.id, node] as const))
+})
 
 function findSimilarParent(parent: Map<string, string>, nodeId: string) {
   let cursor = parent.get(nodeId) ?? nodeId
@@ -745,6 +755,165 @@ function buildFocusedGraphRenderNodes(positionOverrides: Record<string, NodePoin
   return renderNodes
 }
 
+function buildFaultChainRenderNodes(positionOverrides: Record<string, NodePoint>, activeNodeId: string) {
+  const nodes = graphSubsetNodes.value
+  const edges = graphSubsetEdges.value
+  const nodeById = new Map(nodes.map((node) => [node.id, node] as const))
+  const focusNode = nodeById.get(activeNodeId) ?? nodes[0]
+  if (!focusNode) return []
+
+  const causalEdges = edges.filter((edge) => isCausalEdge(edge) && nodeById.has(edge.from) && nodeById.has(edge.to))
+  const causalAdjacency = new Map<string, string[]>()
+  for (const edge of causalEdges) {
+    causalAdjacency.set(edge.from, [...(causalAdjacency.get(edge.from) ?? []), edge.to])
+    causalAdjacency.set(edge.to, [...(causalAdjacency.get(edge.to) ?? []), edge.from])
+  }
+
+  let anchorId = causalAdjacency.has(focusNode.id) ? focusNode.id : ''
+  if (!anchorId) {
+    const anchorEdge = edges.find((edge) => {
+      const neighborId = edge.from === focusNode.id ? edge.to : edge.to === focusNode.id ? edge.from : ''
+      return Boolean(neighborId && causalAdjacency.has(neighborId))
+    })
+    anchorId = anchorEdge
+      ? (anchorEdge.from === focusNode.id ? anchorEdge.to : anchorEdge.from)
+      : focusNode.id
+  }
+
+  const backboneIds = new Set<string>([anchorId])
+  const queue = [anchorId]
+  while (queue.length) {
+    const current = queue.shift()!
+    for (const neighbor of causalAdjacency.get(current) ?? []) {
+      if (backboneIds.has(neighbor)) continue
+      backboneIds.add(neighbor)
+      queue.push(neighbor)
+    }
+  }
+  if (!causalAdjacency.has(anchorId)) backboneIds.add(focusNode.id)
+
+  const indegree = new Map<string, number>(Array.from(backboneIds, (id) => [id, 0]))
+  const outgoing = new Map<string, string[]>()
+  for (const edge of causalEdges) {
+    if (!backboneIds.has(edge.from) || !backboneIds.has(edge.to)) continue
+    outgoing.set(edge.from, [...(outgoing.get(edge.from) ?? []), edge.to])
+    indegree.set(edge.to, (indegree.get(edge.to) ?? 0) + 1)
+  }
+
+  const ranks = new Map<string, number>()
+  const rankQueue = Array.from(backboneIds).filter((id) => (indegree.get(id) ?? 0) === 0)
+  if (!rankQueue.length) rankQueue.push(anchorId)
+  for (const id of rankQueue) ranks.set(id, 0)
+  while (rankQueue.length) {
+    const current = rankQueue.shift()!
+    for (const target of outgoing.get(current) ?? []) {
+      ranks.set(target, Math.max(ranks.get(target) ?? 0, (ranks.get(current) ?? 0) + 1))
+      indegree.set(target, (indegree.get(target) ?? 1) - 1)
+      if ((indegree.get(target) ?? 0) === 0) rankQueue.push(target)
+    }
+  }
+  for (const id of backboneIds) {
+    if (!ranks.has(id)) ranks.set(id, stageByLevel(nodeById.get(id)?.level ?? ''))
+  }
+
+  const rankGroups = new Map<number, GraphNode[]>()
+  for (const id of backboneIds) {
+    const node = nodeById.get(id)
+    if (!node) continue
+    const rank = ranks.get(id) ?? 0
+    rankGroups.set(rank, [...(rankGroups.get(rank) ?? []), node])
+  }
+
+  const defaultPositions = new Map<string, NodePoint>()
+  const sortedRanks = Array.from(rankGroups.keys()).sort((a, b) => a - b)
+  sortedRanks.forEach((rank, columnIndex) => {
+    const levelNodes = (rankGroups.get(rank) ?? []).sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
+    levelNodes.forEach((node, index) => {
+      defaultPositions.set(node.id, {
+        x: 260 + columnIndex * 430,
+        y: 500 + (index - (levelNodes.length - 1) / 2) * 260,
+      })
+    })
+  })
+
+  const supportByAnchor = new Map<string, Array<{ node: GraphNode; edge: GraphEdge }>>()
+  for (const edge of edges) {
+    if (isCausalEdge(edge)) continue
+    const anchor = backboneIds.has(edge.from) ? edge.from : backboneIds.has(edge.to) ? edge.to : ''
+    const supportId = anchor === edge.from ? edge.to : anchor === edge.to ? edge.from : ''
+    const supportNode = nodeById.get(supportId)
+    if (!anchor || !supportNode || backboneIds.has(supportId)) continue
+    const current = supportByAnchor.get(anchor) ?? []
+    if (!current.some((item) => item.node.id === supportId)) current.push({ node: supportNode, edge })
+    supportByAnchor.set(anchor, current)
+  }
+
+  for (const [anchor, supports] of supportByAnchor) {
+    const anchorPosition = defaultPositions.get(anchor)
+    if (!anchorPosition) continue
+    supports
+      .sort((left, right) => left.edge.label.localeCompare(right.edge.label, 'zh-CN'))
+      .forEach(({ node }, index) => {
+        const ringCapacity = 8
+        const ring = Math.floor(index / ringCapacity)
+        const ringIndex = index % ringCapacity
+        const itemsInRing = Math.min(ringCapacity, supports.length - ring * ringCapacity)
+        const angle = -Math.PI / 2 + (Math.PI * 2 * ringIndex) / Math.max(1, itemsInRing)
+        const horizontalRadius = 190 + ring * 150
+        const verticalRadius = 175 + ring * 125
+        defaultPositions.set(node.id, {
+          x: anchorPosition.x + Math.cos(angle) * horizontalRadius,
+          y: anchorPosition.y + Math.sin(angle) * verticalRadius,
+        })
+      })
+  }
+
+  if (!defaultPositions.has(focusNode.id)) {
+    const anchorPosition = defaultPositions.get(anchorId) ?? { x: GRAPH_WIDTH / 2, y: 500 }
+    defaultPositions.set(focusNode.id, { x: anchorPosition.x, y: anchorPosition.y - 180 })
+  }
+
+  const layoutPoints = Array.from(defaultPositions.values())
+  const minimumX = Math.min(...layoutPoints.map((point) => point.x))
+  const maximumX = Math.max(...layoutPoints.map((point) => point.x))
+  const centeredOffsetX = GRAPH_WIDTH / 2 - (minimumX + maximumX) / 2
+  for (const [nodeId, point] of defaultPositions) {
+    defaultPositions.set(nodeId, { x: point.x + centeredOffsetX, y: point.y })
+  }
+
+  const shiftedMinimumX = minimumX + centeredOffsetX
+  if (shiftedMinimumX < 140) {
+    const offsetX = 140 - shiftedMinimumX
+    for (const [nodeId, point] of defaultPositions) {
+      defaultPositions.set(nodeId, { x: point.x + offsetX, y: point.y })
+    }
+  }
+
+  const minimumY = Math.min(...Array.from(defaultPositions.values(), (point) => point.y))
+  if (minimumY < 140) {
+    const offsetY = 140 - minimumY
+    for (const [nodeId, point] of defaultPositions) {
+      defaultPositions.set(nodeId, { x: point.x, y: point.y + offsetY })
+    }
+  }
+
+  return nodes.flatMap((node) => {
+    const defaultPosition = defaultPositions.get(node.id)
+    if (!defaultPosition) return []
+    const override = positionOverrides[node.id]
+    return [{
+      id: node.id,
+      name: node.name,
+      shortName: node.shortName || node.name,
+      level: node.level,
+      x: override?.x ?? defaultPosition.x,
+      y: override?.y ?? defaultPosition.y,
+      r: activeNodeId === node.id ? 62 : backboneIds.has(node.id) ? 54 : 46,
+      fill: toneByNode(node),
+    }]
+  })
+}
+
 function buildRenderNodes(positionOverrides: Record<string, NodePoint>, activeNodeId: string) {
   if (isOntologyTemplateRenderModeActive()) {
     return graphSubsetNodes.value.map((node) => {
@@ -766,35 +935,7 @@ function buildRenderNodes(positionOverrides: Record<string, NodePoint>, activeNo
     return buildFocusedGraphRenderNodes(positionOverrides, activeNodeId)
   }
 
-  const columns = [160, 470, 800, 1130, 1420]
-  const grouped = new Map<number, GraphNode[]>()
-
-  for (const node of graphSubsetNodes.value) {
-    const stage = stageByLevel(node.level)
-    const bucket = grouped.get(stage) ?? []
-    bucket.push(node)
-    grouped.set(stage, bucket)
-  }
-
-  return Array.from(grouped.entries()).flatMap(([stage, nodes]) => {
-    const sorted = nodes.slice().sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
-    return sorted.map((node, index) => {
-      const defaultX = columns[stage] ?? 1420
-      const defaultY = 180 + index * 168
-      const override = positionOverrides[node.id]
-
-      return {
-        id: node.id,
-        name: node.name,
-        shortName: node.shortName || node.name,
-        level: node.level,
-        x: override?.x ?? defaultX,
-        y: override?.y ?? defaultY,
-        r: activeNodeId === node.id ? 56 : 50,
-        fill: toneByNode(node),
-      }
-    })
-  })
+  return buildFaultChainRenderNodes(positionOverrides, activeNodeId)
 }
 
 function buildRenderEdges(edges: GraphEdge[], map: Map<string, RenderNode>) {
@@ -815,6 +956,7 @@ function buildRenderEdges(edges: GraphEdge[], map: Map<string, RenderNode>) {
     const normalX = -unitY
     const normalY = unitX
     const labelOffset = 18
+    const causal = !isOntologyView.value && isCausalEdge(edge)
 
     return [{
       ...edge,
@@ -822,19 +964,20 @@ function buildRenderEdges(edges: GraphEdge[], map: Map<string, RenderNode>) {
       labelText: edge.label || edge.relationType,
       labelX: (startX + endX) / 2 + normalX * labelOffset,
       labelY: (startY + endY) / 2 + normalY * labelOffset,
+      causal,
     }]
   })
 }
 
 function measureGraphCanvasHeight(nodes: RenderNode[]) {
   if (!nodes.length) return 960
-  const bottom = Math.max(...nodes.map((node) => node.y + node.r + 80))
+  const bottom = Math.max(...nodes.map((node) => node.y + node.r + 140))
   return Math.max(960, bottom)
 }
 
 function measureGraphCanvasWidth(nodes: RenderNode[]) {
   if (!nodes.length) return GRAPH_WIDTH
-  const right = Math.max(...nodes.map((node) => node.x + node.r + 120))
+  const right = Math.max(...nodes.map((node) => node.x + node.r + 140))
   return Math.max(GRAPH_WIDTH, right)
 }
 
@@ -998,7 +1141,7 @@ function ontologyModuleLabel(node: GraphNode) {
 }
 
 function buildFaultTree(): TreeNode | null {
-  if (!queryResult.value || !graph.value) return null
+  if (!queryResult.value) return null
 
   const orderedSteps = queryResult.value.reasoningSteps.slice().reverse()
   if (!orderedSteps.length) return null
@@ -1029,7 +1172,7 @@ function buildFaultTree(): TreeNode | null {
   const focusId = queryResult.value.nodeId
   const supportChildren: TreeNode[] = []
 
-  for (const edge of graph.value.edges) {
+  for (const edge of queryResult.value.subgraph?.edges ?? []) {
     if (!isFaultChainEdge(edge)) continue
     const neighborId = edge.from === focusId ? edge.to : edge.to === focusId ? edge.from : null
     if (!neighborId) continue
@@ -1374,14 +1517,13 @@ const graphSubsetNodes = computed(() => {
     return builderOntologyNodes.filter((node) => ids.has(node.id))
   }
 
+  if (!isOntologyView.value && queryResult.value?.subgraph?.nodes.length) {
+    return mergeSimilarGraphNodes(queryResult.value.subgraph.nodes)
+  }
   if (!graph.value) return []
   const ids = graphSubsetIds.value
   if (isOntologyView.value) return mergeSimilarGraphNodes(graph.value.nodes.filter((node) => ids.has(node.id)))
   if (!queryResult.value && !selectedFaultNodeId.value) return []
-  if (queryResult.value?.subgraph?.nodes.length) {
-    return mergeSimilarGraphNodes(queryResult.value.subgraph.nodes)
-  }
-
   const connectedIds = new Set<string>()
   for (const edge of graph.value.edges) {
     if (!isFaultChainEdge(edge) || isSimilarEdge(edge) || !ids.has(edge.from) || !ids.has(edge.to)) continue
@@ -1405,12 +1547,11 @@ const graphSubsetEdges = computed(() => {
     return mergeSimilarGraphEdges(graph.value.edges.filter((edge) => ids.has(edge.from) && ids.has(edge.to)))
   }
 
-  if (!graph.value) return []
-  if (!queryResult.value && !selectedFaultNodeId.value) return []
-
-  if (queryResult.value?.subgraph?.edges.length) {
+  if (!isOntologyView.value && queryResult.value?.subgraph?.edges.length) {
     return mergeSimilarGraphEdges(queryResult.value.subgraph.edges)
   }
+  if (!graph.value) return []
+  if (!queryResult.value && !selectedFaultNodeId.value) return []
 
   const ids = graphSubsetIds.value
   return mergeSimilarGraphEdges(graph.value.edges.filter((edge) => ids.has(edge.from) && ids.has(edge.to) && isFaultChainEdge(edge)))
@@ -1738,7 +1879,6 @@ async function runQuery() {
     currentQuery.value = text
     activeView.value = 'fault'
     selectedFaultNodeId.value = queryResult.value.nodeId || selectedFaultNodeId.value
-    if (!graph.value) await loadGraph({ resetViewState: false })
     await nextTick()
     selectedFaultTreeId.value = faultTreeIdByNodeId.value.get(selectedFaultNodeId.value) ?? selectedFaultTreeId.value
     syncFaultExpandedState(selectedFaultNodeId.value)
@@ -1822,7 +1962,6 @@ async function selectTopMatch(match: QueryTopMatch) {
     }
     currentQuery.value = text
     selectedFaultNodeId.value = nextResult.nodeId || match.id
-    if (!graph.value) await loadGraph({ resetViewState: false })
     await nextTick()
     selectedFaultTreeId.value = faultTreeIdByNodeId.value.get(selectedFaultNodeId.value) ?? selectedFaultTreeId.value
     syncFaultExpandedState(selectedFaultNodeId.value)
@@ -1919,12 +2058,30 @@ function createZoomScrollSync(
   if (!board) return null
   const anchorX = anchor?.x ?? board.clientWidth / 2
   const anchorY = anchor?.y ?? board.clientHeight / 2
-  const contentX = (board.scrollLeft + anchorX) / previousScale
-  const contentY = (board.scrollTop + anchorY) / previousScale
+  const boardRect = board.getBoundingClientRect()
+  const svg = board.querySelector('svg')
+  const svgRect = svg?.getBoundingClientRect()
+  const clientX = boardRect.left + anchorX
+  const clientY = boardRect.top + anchorY
+  const ratioX = svgRect?.width
+    ? Math.min(Math.max((clientX - svgRect.left) / svgRect.width, 0), 1)
+    : (board.scrollLeft + anchorX) / Math.max(board.scrollWidth, 1)
+  const ratioY = svgRect?.height
+    ? Math.min(Math.max((clientY - svgRect.top) / svgRect.height, 0), 1)
+    : (board.scrollTop + anchorY) / Math.max(board.scrollHeight, 1)
 
   return () => {
-    board.scrollLeft = Math.max(contentX * nextScale - anchorX, 0)
-    board.scrollTop = Math.max(contentY * nextScale - anchorY, 0)
+    const nextSvgRect = svg?.getBoundingClientRect()
+    if (nextSvgRect) {
+      const nextClientX = nextSvgRect.left + nextSvgRect.width * ratioX
+      const nextClientY = nextSvgRect.top + nextSvgRect.height * ratioY
+      board.scrollLeft = Math.max(board.scrollLeft + nextClientX - clientX, 0)
+      board.scrollTop = Math.max(board.scrollTop + nextClientY - clientY, 0)
+      return
+    }
+
+    board.scrollLeft = Math.max((board.scrollLeft + anchorX) * nextScale / previousScale - anchorX, 0)
+    board.scrollTop = Math.max((board.scrollTop + anchorY) * nextScale / previousScale - anchorY, 0)
   }
 }
 
@@ -2038,9 +2195,10 @@ function getSvgScale(target: EventTarget | null, viewWidth: number, viewHeight: 
 }
 
 function clampGraphPoint(point: NodePoint, radius: number, canvasWidth = GRAPH_WIDTH): NodePoint {
+  const padding = radius + 48
   return {
-    x: Math.min(Math.max(point.x, radius + 20), canvasWidth - radius - 20),
-    y: Math.max(point.y, radius + 20),
+    x: Math.min(Math.max(point.x, padding), canvasWidth - padding),
+    y: Math.max(point.y, padding),
   }
 }
 
@@ -2373,10 +2531,13 @@ const TreeBranch: ReturnType<typeof defineComponent> = defineComponent({
                           <marker id="graph-arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
                             <path d="M 1 1 L 10 6 L 1 11 z" class="graph-arrow-head" />
                           </marker>
+                          <marker id="graph-causal-arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+                            <path d="M 1 1 L 10 6 L 1 11 z" class="graph-causal-arrow-head" />
+                          </marker>
                         </defs>
                         <g v-for="edge in pageRenderEdges" :key="`${edge.from}-${edge.to}-${edge.label}`">
-                          <path :d="edge.path" class="graph-edge" marker-end="url(#graph-arrow)" />
-                          <text v-if="edge.labelText" :x="edge.labelX" :y="edge.labelY" class="graph-edge-label" text-anchor="middle">
+                          <path :d="edge.path" :class="['graph-edge', { 'graph-edge--causal': edge.causal }]" :marker-end="edge.causal ? 'url(#graph-causal-arrow)' : 'url(#graph-arrow)'" />
+                          <text v-if="edge.labelText" :x="edge.labelX" :y="edge.labelY" :class="['graph-edge-label', { 'graph-edge-label--causal': edge.causal }]" text-anchor="middle">
                             {{ edge.labelText }}
                           </text>
                         </g>
@@ -2420,7 +2581,7 @@ const TreeBranch: ReturnType<typeof defineComponent> = defineComponent({
                 </div>
 
                 <div class="query-body">
-                  <textarea class="query-input" v-model="query" placeholder="请输入故障现象，例如“液氧阀打不开”" @keydown.enter.prevent="runQuery" />
+                  <textarea class="query-input" v-model="query" placeholder="请输入故障现象，例如“液氧加注阀打不开”" @keydown.enter.prevent="runQuery" />
                   <button class="primary query-action" :disabled="isQuerying || isLoading" @click="runQuery">
                     {{ isQuerying ? '查询中...' : '点击查询' }}
                   </button>
@@ -2482,10 +2643,13 @@ const TreeBranch: ReturnType<typeof defineComponent> = defineComponent({
                           <marker id="graph-arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
                             <path d="M 1 1 L 10 6 L 1 11 z" class="graph-arrow-head" />
                           </marker>
+                          <marker id="graph-causal-arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+                            <path d="M 1 1 L 10 6 L 1 11 z" class="graph-causal-arrow-head" />
+                          </marker>
                         </defs>
                         <g v-for="edge in pageRenderEdges" :key="`${edge.from}-${edge.to}-${edge.label}`">
-                          <path :d="edge.path" class="graph-edge" marker-end="url(#graph-arrow)" />
-                          <text v-if="edge.labelText" :x="edge.labelX" :y="edge.labelY" class="graph-edge-label" text-anchor="middle">
+                          <path :d="edge.path" :class="['graph-edge', { 'graph-edge--causal': edge.causal }]" :marker-end="edge.causal ? 'url(#graph-causal-arrow)' : 'url(#graph-arrow)'" />
+                          <text v-if="edge.labelText" :x="edge.labelX" :y="edge.labelY" :class="['graph-edge-label', { 'graph-edge-label--causal': edge.causal }]" text-anchor="middle">
                             {{ edge.labelText }}
                           </text>
                         </g>
@@ -2554,10 +2718,13 @@ const TreeBranch: ReturnType<typeof defineComponent> = defineComponent({
               <marker id="zoom-graph-arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
                 <path d="M 1 1 L 10 6 L 1 11 z" class="graph-arrow-head" />
               </marker>
+              <marker id="zoom-graph-causal-arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+                <path d="M 1 1 L 10 6 L 1 11 z" class="graph-causal-arrow-head" />
+              </marker>
             </defs>
             <g v-for="edge in zoomRenderEdges" :key="`zoom-${edge.from}-${edge.to}-${edge.label}`">
-              <path :d="edge.path" class="graph-edge" marker-end="url(#zoom-graph-arrow)" />
-              <text v-if="edge.labelText" :x="edge.labelX" :y="edge.labelY" class="graph-edge-label" text-anchor="middle">
+              <path :d="edge.path" :class="['graph-edge', { 'graph-edge--causal': edge.causal }]" :marker-end="edge.causal ? 'url(#zoom-graph-causal-arrow)' : 'url(#zoom-graph-arrow)'" />
+              <text v-if="edge.labelText" :x="edge.labelX" :y="edge.labelY" :class="['graph-edge-label', { 'graph-edge-label--causal': edge.causal }]" text-anchor="middle">
                 {{ edge.labelText }}
               </text>
             </g>
@@ -2688,7 +2855,10 @@ box-shadow:inset 0 1px 0 rgba(255,255,255,.9);cursor:zoom-in}
 .graph-svg{width:100%;min-width:1520px;display:block}
 .graph-edge{fill:none;stroke:#5a86df;stroke-width:3;stroke-linecap:round;filter:drop-shadow(0 3px 6px rgba(90,134,223,.18))}
 .graph-arrow-head{fill:#5a86df}
+.graph-edge--causal{stroke:#e43d30;stroke-width:5;filter:drop-shadow(0 4px 8px rgba(228,61,48,.24))}
+.graph-causal-arrow-head{fill:#e43d30}
 .graph-edge-label{font-size:12px;font-weight:900;fill:#275aaf;paint-order:stroke;stroke:rgba(255,255,255,.96);stroke-width:7px;stroke-linejoin:round;pointer-events:none}
+.graph-edge-label--causal{font-size:14px;fill:#b42318}
 .graph-node-wrap{cursor:grab;touch-action:none}
 .graph-node-wrap.dragging{cursor:grabbing}
 .graph-node{stroke:#3768c5;stroke-width:2;transition:all .2s ease;filter:drop-shadow(0 10px 20px rgba(28,55,102,.16))}
