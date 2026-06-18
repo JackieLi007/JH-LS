@@ -1,4 +1,4 @@
-import { createApp } from './app.js?v=20260601-large-table-fix';
+import { createApp } from './app.js?v=20260618-kgfeature-sync';
 
 const params = new URLSearchParams(window.location.search);
 

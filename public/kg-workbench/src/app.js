@@ -956,6 +956,7 @@ export function createApp(root, options = {}) {
   const renderExtractClean = () => {
     if (state.currentPage !== 'extract') return '';
     const EXTRACT_SAMPLE_LIMIT = 20;
+    const DOC_TRIPLE_PREVIEW_LIMIT = 4;
     if (!['table', 'document', 'image'].includes(state.sourceType)) state.sourceType = 'table';
     const isDocument = state.sourceType === 'document';
     const isImage = state.sourceType === 'image';
@@ -986,6 +987,7 @@ export function createApp(root, options = {}) {
     const loadingText = state.kgBuildProgress?.status === 'building' ? '正在构建图谱...' : T.extracting;
     const sourceTabs = ['table', 'document', 'image'].map((type) => `<button class="tab-group__button ${state.sourceType === type ? 'tab-group__button--active' : ''}" data-source-type="${type}">${sourceLabels[type]}</button>`).join('');
     const docSummary = result?.documentSummary || {};
+    const modelTriples = Array.isArray(docSummary?.triples) ? docSummary.triples : [];
     const imageSummary = result?.imageSummary || {};
     const imageRows = Array.isArray(result?.imageTableRows) ? result.imageTableRows : [];
     const imageName = imageSummary.imageName || imageSummary.drawingName || state.selectedFileName || '';
@@ -997,6 +999,7 @@ export function createApp(root, options = {}) {
       ? `${result?.charCount || 0} 字${result?.pageCount ? ` / ${result.pageCount} 页` : ''}`
       : (isImage ? imageSizeText : selectedFiles.length);
     const resultJsonPath = result?.documentJsonPath || result?.imageJsonPath || '';
+    const resultTripleJsonPath = result?.documentTripleJsonPath || '';
     const resultExcelPath = result?.imageExcelPath || '';
     const docItemText = (item, keys) => {
       if (typeof item === 'string') return item;
@@ -1004,20 +1007,67 @@ export function createApp(root, options = {}) {
       const texts = keys.map((key) => item[key]).filter((value) => String(value || '').trim()).map((value) => String(value).trim());
       return texts.length ? texts.join(' / ') : JSON.stringify(item);
     };
-    const renderDocSummaryList = (title, items, keys) => {
-      const rows = Array.isArray(items) ? items.slice(0, 5) : [];
-      return `<article class="document-insight-card"><h4>${escapeHtml(title)}</h4>${rows.length ? `<ul>${rows.map((item) => `<li>${escapeHtml(docItemText(item, keys))}</li>`).join('')}</ul>` : `<p>暂无提取结果</p>`}</article>`;
+    const renderTriplePreviewList = (items) => {
+      const rows = Array.isArray(items) ? items.slice(0, DOC_TRIPLE_PREVIEW_LIMIT) : [];
+      const hasMore = Array.isArray(items) && items.length > DOC_TRIPLE_PREVIEW_LIMIT;
+      return rows.length
+        ? `<div class="triple-list triple-list--preview">${rows.map((item) => `<article class="triple-item"><div class="triple-line"><span class="triple-node">${escapeHtml(item.subject || item.head || item.source || '--')}</span><span class="triple-rel">${escapeHtml(item.predicate || item.relation || '--')}</span><span class="triple-node">${escapeHtml(item.object || item.target || '--')}</span></div><div class="triple-meta">${escapeHtml(item.subjectType || item.subject_type || '--')} -> ${escapeHtml(item.objectType || item.object_type || '--')}</div></article>`).join('')}</div>${hasMore ? '<p class="document-insight-note">仅展示前 4 条三元组示例</p>' : ''}`
+        : `<p>暂无提取结果</p>`;
     };
+    const renderDocSummaryList = (title, items, keys) => {
+      const rows = Array.isArray(items) ? items.slice(0, 6) : [];
+      if (!rows.length) return '';
+      return `<article class="document-insight-card"><h4>${escapeHtml(title)}</h4><ul>${rows.map((item) => `<li>${escapeHtml(docItemText(item, keys))}</li>`).join('')}</ul></article>`;
+    };
+    const entityRows = Array.isArray(result?.entitySummaries) ? result.entitySummaries.slice(0, EXTRACT_SAMPLE_LIMIT) : (Array.isArray(result?.entities) ? result.entities.slice(0, EXTRACT_SAMPLE_LIMIT) : []);
+    const relationStatRows = Array.isArray(result?.relationStats) ? result.relationStats.slice(0, EXTRACT_SAMPLE_LIMIT) : (Array.isArray(result?.relations) ? result.relations.slice(0, EXTRACT_SAMPLE_LIMIT) : []);
+    const extractionResultPanels = !isImage && result ? `
+      <section class="panel">
+        <div class="panel__header panel__header--compact"><div><p class="panel__eyebrow">${T.pageExtract}</p><h3>${T.extractEntityResults}</h3></div></div>
+        <div class="table-block">
+          <table>
+            <thead>
+              <tr><th>实体名称</th><th>实体类型</th></tr>
+            </thead>
+            <tbody>
+              ${entityRows.length ? entityRows.map((item) => `<tr><td>${escapeHtml(item.name || '--')}</td><td>${escapeHtml(item.type || '--')}</td></tr>`).join('') : '<tr><td colspan="2">暂无实体结果</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section class="panel">
+        <div class="panel__header panel__header--compact"><div><p class="panel__eyebrow">${T.pageExtract}</p><h3>${T.extractRelationResults}</h3></div></div>
+        <div class="table-block">
+          <table>
+            <thead>
+              <tr><th>关系名称</th><th>出现次数</th></tr>
+            </thead>
+            <tbody>
+              ${relationStatRows.length ? relationStatRows.map((item) => `<tr><td>${escapeHtml(item.name || '--')}</td><td>${escapeHtml(item.count || 0)}</td></tr>`).join('') : '<tr><td colspan="2">暂无关系统计</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section class="panel">
+        <div class="panel__header panel__header--compact"><div><p class="panel__eyebrow">${T.pageExtract}</p><h3>${T.extractTripleResults}</h3></div></div>
+        <div class="table-block">
+          <table>
+            <thead>
+              <tr><th>主语</th><th>关系</th><th>宾语</th><th>主语类型</th><th>宾语类型</th></tr>
+            </thead>
+            <tbody>
+              ${tripleRows.length ? tripleRows.map((item) => `<tr><td>${escapeHtml(item.subject || '--')}</td><td>${escapeHtml(item.predicate || '--')}</td><td>${escapeHtml(item.object || '--')}</td><td>${escapeHtml(item.subjectType || '--')}</td><td>${escapeHtml(item.objectType || '--')}</td></tr>`).join('') : '<tr><td colspan="5">暂无三元组结果</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </section>` : '';
     const documentSummaryPanel = isDocument && result ? `<section class="panel">
-      <div class="panel__header panel__header--compact"><div><p class="panel__eyebrow">文档知识</p><h3>${escapeHtml(docSummary.equipment || '说明书知识概括')}</h3></div></div>
-      ${result.llmMessage ? `<div class="empty-state empty-state--compact">${escapeHtml(result.llmMessage)}</div>` : ''}
+      <div class="panel__header panel__header--compact"><div><p class="panel__eyebrow">文档知识</p><h3>文档故障抽取结果</h3></div></div>
       <div class="document-insight-grid">
-        ${renderDocSummaryList('功能', docSummary.functions, ['name', 'description'])}
-        ${renderDocSummaryList('特点', docSummary.features, ['name', 'description'])}
-        ${renderDocSummaryList('维修维护', docSummary.maintenance, ['task', 'method', 'cycle', 'warning'])}
-        ${renderDocSummaryList('故障类型', docSummary.faultTypes, ['fault', 'phenomenon', 'cause', 'handling'])}
-        ${renderDocSummaryList('安全注意事项', docSummary.safetyNotes, ['note', 'context'])}
-        ${renderDocSummaryList('技术参数', docSummary.specifications, ['name', 'value', 'unit'])}
+        ${renderDocSummaryList('设备', docSummary.equipmentItems, ['name'])}
+        ${renderDocSummaryList('故障现象', docSummary.phenomena, ['device', 'name'])}
+        ${renderDocSummaryList('故障原因', docSummary.causes, ['name'])}
+        <article class="document-insight-card document-insight-card--triples"><h4>三元组预览</h4>${renderTriplePreviewList(modelTriples)}</article>
       </div>
     </section>` : '';
     const imageResultPanel = extractError ? `
@@ -1043,7 +1093,7 @@ export function createApp(root, options = {}) {
     ` : `<div class="image-result-empty"><div></div><p>${state.selectedFile ? '已选择图片，请点击开始处理' : '暂无处理结果，请上传图片后开始处理'}</p></div>`;
     const uploadPanel = isDocument ? `
             <div class="upload-box upload-box--stage">
-              <div class="upload-visual"><div class="upload-icon upload-icon--stage">+</div><div><strong>上传使用说明书文档</strong><p class="upload-helper">支持 .pdf / .docx / .txt / .md，用大模型辅助提取功能、特点、维修维护、故障类型和关键参数。</p></div></div>
+              <div class="upload-visual"><div class="upload-icon upload-icon--stage">+</div><div><strong>上传使用说明书文档</strong><p class="upload-helper">支持 .pdf / .docx / .txt / .md，用大模型辅助提取设备、故障现象、故障原因和三元组。</p></div></div>
               <div class="upload-extra">
                 <div class="toolbar-actions extract-stage__actions">
                   <button class="secondary-btn" id="extract-trigger-document-btn">选择文档</button>
@@ -1127,18 +1177,12 @@ export function createApp(root, options = {}) {
             </table>
           </div>
           ${resultJsonPath ? `<div class="empty-state empty-state--compact">结果文件：${escapeHtml(resultJsonPath)}</div>` : ''}
+          ${isDocument && resultTripleJsonPath ? `<div class="empty-state empty-state--compact">文档三元组文件：${escapeHtml(resultTripleJsonPath)}</div>` : ''}
           ${renderKgBuildProgress(kgProgress)}
-        </section>
-        <section class="panel config-panel">
-          <div class="panel__header panel__header--compact"><div><p class="panel__eyebrow">${T.pageExtract}</p><h3>节点关系展示（前 ${EXTRACT_SAMPLE_LIMIT} 条样例）</h3></div></div>
-          ${relationSampleRows.length ? `<div class="results-list">${relationSampleRows.map((item) => `<article class="results-item"><strong>${escapeHtml(item.subject)}</strong><p>${escapeHtml(item.predicate)} -> ${escapeHtml(item.object)}</p></article>`).join('')}</div>` : `<div class="empty-state">暂无关系概括</div>`}
         </section>
         <section class="result-stack">
           ${documentSummaryPanel}
-          <section class="panel">
-            <div class="panel__header panel__header--compact"><div><p class="panel__eyebrow">${T.pageExtract}</p><h3>三元组展示（前 ${EXTRACT_SAMPLE_LIMIT} 条样例）</h3></div></div>
-            ${tripleRows.length ? `<div class="triple-list">${tripleRows.map((item) => `<article class="triple-item"><div class="triple-line"><span class="triple-node">${escapeHtml(item.subject)}</span><span class="triple-rel">${escapeHtml(item.predicate)}</span><span class="triple-node">${escapeHtml(item.object)}</span></div></article>`).join('')}</div>` : `<div class="empty-state">${T.extractNoResult}</div>`}
-          </section>
+          ${extractionResultPanels}
         </section>
       </section>` : ``}
     </section>`;
@@ -1368,6 +1412,19 @@ export function createApp(root, options = {}) {
     source: item.source || 'primary',
   }));
 
+  const buildOntologyConstraintPayload = () => ({
+    nodes: (state.ontology?.nodes || []).map((node) => ({
+      id: node.id,
+      label: node.label,
+      type: node.type,
+    })),
+    edges: (state.ontology?.edges || []).map((edge) => ({
+      source: edge.source || edge.from,
+      target: edge.target || edge.to,
+      label: edge.label,
+    })),
+  });
+
   const requestParsePreview = async () => {
     if (!state.selectedFileName && !state.selectedFile) return;
     state.loading = true;
@@ -1427,6 +1484,9 @@ export function createApp(root, options = {}) {
         const form = new FormData();
         form.append('sourceType', state.sourceType);
         form.append('file', state.selectedFile);
+        if (state.sourceType === 'document') {
+          form.append('ontology', JSON.stringify(buildOntologyConstraintPayload()));
+        }
         result = await requestJson('/api/extract', { method: 'POST', body: form });
       } else {
         result = await requestJson('/api/extract', {
@@ -1437,7 +1497,7 @@ export function createApp(root, options = {}) {
       state.extractionResult = result;
       state.kgBuildProgress = result?.kgBuild ? kgProgressFromBuild(result.kgBuild) : null;
       render();
-      if (shouldBuildKgFromExtraction(result)) {
+      if (!isImageSource(state.sourceType) && shouldBuildKgFromExtraction(result)) {
         const requestId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
         state.kgBuildProgress = { ...kgProgressBuilding(result), requestId };
         render();
@@ -1478,6 +1538,10 @@ export function createApp(root, options = {}) {
       render();
     }
   };
+
+  function isImageSource(sourceType) {
+    return String(sourceType || '').trim() === 'image';
+  }
 
   const fetchKgVersions = async () => {
     state.versioning = { ...(state.versioning || {}), loading: true, error: '' };

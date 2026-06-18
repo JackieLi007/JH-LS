@@ -28,6 +28,12 @@ body {
   color: var(--text);
 }
 
+html,
+body {
+  min-height: 100%;
+  height: auto;
+}
+
 button,
 input,
 select,

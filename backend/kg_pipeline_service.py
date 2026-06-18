@@ -29,6 +29,10 @@ def kg_auto_build_enabled() -> bool:
     return _env_bool('KG_AUTO_BUILD', False)
 
 
+def kg_postprocess_enabled() -> bool:
+    return _env_bool('KG_BUILD_POSTPROCESS', False)
+
+
 def get_neo4j_config(overrides: Mapping[str, Any] | None = None) -> Neo4jConfig:
     overrides = overrides or {}
     return Neo4jConfig(
@@ -357,6 +361,7 @@ def build_kg_from_extraction_result(
         payload,
         neo4j_config=get_neo4j_config(neo4j_overrides),
         artifact_dir=target_artifact_dir,
+        run_postprocess=kg_postprocess_enabled(),
         report_path=report_path,
         record_version=record_version,
         version_history_path=PROJECT_ROOT / DEFAULT_VERSION_HISTORY_PATH,

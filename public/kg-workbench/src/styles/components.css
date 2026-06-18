@@ -955,6 +955,12 @@ textarea {
   color: #48617f;
 }
 
+.extract-page-shell .triple-meta {
+  margin-top: 8px;
+  color: #6b7f99;
+  font-size: 12px;
+}
+
 .extract-page-shell .triple-rel {
   background: rgba(35, 99, 215, 0.10);
   color: #1b56c1;
@@ -967,6 +973,7 @@ textarea {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+  align-items: stretch;
 }
 
 .document-insight-card {
@@ -997,6 +1004,41 @@ textarea {
 .document-insight-card p {
   margin: 0;
   color: #7b8ba6;
+}
+
+.document-insight-card--triples {
+  min-height: 150px;
+}
+
+.triple-list--preview {
+  gap: 8px;
+}
+
+.triple-list--preview .triple-item {
+  padding: 10px 12px;
+}
+
+.triple-list--preview .triple-line {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 10px;
+}
+
+.triple-list--preview .triple-node {
+  padding: 8px 10px;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.triple-list--preview .triple-rel {
+  align-self: center;
+  white-space: nowrap;
+}
+
+.document-insight-note {
+  margin-top: 8px !important;
+  color: #6b7f99 !important;
+  font-size: 0.84rem;
 }
 
 .extract-stage__footer {
@@ -1114,23 +1156,23 @@ textarea {
 }
 
 .ontology-board {
-  min-height: 1500px;
+  min-height: clamp(720px, 78vh, 1200px);
   overflow: auto;
   padding-bottom: 8px;
 }
 
 .ontology-board--g6 {
   aspect-ratio: auto !important;
-  min-height: 1260px !important;
-  height: 1260px !important;
-  overflow: hidden;
+  min-height: clamp(680px, 74vh, 1120px) !important;
+  height: auto !important;
+  overflow: visible;
   padding: 0;
 }
 
 .ontology-g6-container {
   width: 100%;
-  min-height: 1220px;
-  height: 1220px;
+  min-height: clamp(680px, 72vh, 1080px);
+  height: auto;
   border-radius: 18px;
   background:
     radial-gradient(circle at top, rgba(61, 118, 231, 0.08), transparent 28%),
@@ -1141,7 +1183,7 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 1220px;
+  min-height: clamp(680px, 72vh, 1080px);
   color: #2851b8;
   font-size: 20px;
   font-weight: 700;
@@ -1150,7 +1192,7 @@ textarea {
 .ontology-local-svg {
   width: 100%;
   height: 100%;
-  min-height: 1220px;
+  min-height: clamp(680px, 72vh, 1080px);
   display: block;
   cursor: grab;
   user-select: none;
@@ -1211,7 +1253,8 @@ textarea {
 .ontology-svg {
   cursor: default;
   width: 2300px;
-  height: 1450px;
+  height: auto;
+  min-height: clamp(760px, 82vh, 1320px);
   max-width: none;
 }
 
