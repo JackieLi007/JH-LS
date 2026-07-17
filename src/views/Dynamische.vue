@@ -3,6 +3,8 @@ import type { VNodeChild } from 'vue'
 import { computed, defineComponent, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
+import { useAuthStore } from '@/stores/auth'
+
 type GraphNodeType = 'component' | 'fault' | 'root-cause' | 'condition' | 'impact'
 
 type GraphNode = {
@@ -83,12 +85,17 @@ type QueryResult = {
   nodeId: string
   title: string
   summary: string
+  conclusion?: string
+  conclusionMethod?: string
   pathNodeIds: string[]
   reasoningSteps: QueryStep[]
   topMatches: QueryTopMatch[]
   subgraph?: {
     nodes: GraphNode[]
     edges: GraphEdge[]
+    primaryFaultNodeId?: string
+    primaryChainNodeIds?: string[]
+    focusCauseNodeIds?: string[]
   }
 }
 
@@ -113,6 +120,7 @@ const props = withDefaults(defineProps<{
 })
 
 const route = useRoute()
+const auth = useAuthStore()
 
 type RenderNode = {
   id: string
@@ -597,6 +605,7 @@ const addParentOptions = computed(() => {
 
 const topMatches = computed(() => queryResult.value?.topMatches ?? [])
 const isOntologyView = computed(() => activeView.value === 'ontology')
+const canEditGraph = computed(() => auth.user?.role === 'editor')
 const activeViewMeta = computed(() => {
   if (activeView.value === 'ontology') {
     return {
@@ -632,6 +641,14 @@ const stageByLevel = (level: string) => {
   if (level.includes('系统')) return 1
   if (level.includes('单机')) return 2
   if (level.includes('组件')) return 3
+  return 4
+}
+
+const faultModeStageRank = (level: string) => {
+  if (level.includes('组件')) return 0
+  if (level.includes('单机')) return 1
+  if (level.includes('系统')) return 2
+  if (level.includes('总体')) return 3
   return 4
 }
 
@@ -1143,56 +1160,144 @@ function ontologyModuleLabel(node: GraphNode) {
 function buildFaultTree(): TreeNode | null {
   if (!queryResult.value) return null
 
-  const orderedSteps = queryResult.value.reasoningSteps.slice().reverse()
-  if (!orderedSteps.length) return null
+  const subgraphNodes = queryResult.value.subgraph?.nodes ?? []
+  const subgraphEdges = queryResult.value.subgraph?.edges ?? []
+  const graphNodeById = new Map(subgraphNodes.map((node) => [node.id, node] as const))
+  const faultNodes = subgraphNodes
+    .filter((node) => isFailureModeNode(node))
+    .sort((left, right) => (
+      faultModeStageRank(left.level) - faultModeStageRank(right.level)
+      || left.name.localeCompare(right.name, 'zh-CN')
+    ))
+  const causalEdges = subgraphEdges.filter((edge) => (
+    isCausalEdge(edge)
+    && isFailureModeNode(graphNodeById.get(edge.from))
+    && isFailureModeNode(graphNodeById.get(edge.to))
+  ))
+  const primaryChainNodeIds = (queryResult.value.subgraph?.primaryChainNodeIds ?? [])
+    .filter((nodeId) => graphNodeById.has(nodeId))
 
-  const makeLabel = (step: QueryStep) => `${step.stage}：${step.nodeName}`
-  const root: TreeNode = {
-    id: `fault-tree::${orderedSteps[0]!.nodeId}`,
-    nodeId: orderedSteps[0]!.nodeId,
-    label: makeLabel(orderedSteps[0]!),
-    meta: orderedSteps[0]!.nodeLevel,
-    graphNodeIds: [orderedSteps[0]!.nodeId],
-  }
-  let cursor = root
-
-  for (const step of orderedSteps.slice(1)) {
-    const next: TreeNode = {
-      id: `fault-tree::${step.nodeId}`,
-      nodeId: step.nodeId,
-      label: makeLabel(step),
-      meta: step.nodeLevel,
-      graphNodeIds: [step.nodeId],
-      children: [],
+  if (primaryChainNodeIds.length) {
+    const makePrimaryBranch = (index: number): TreeNode => {
+      const nodeId = primaryChainNodeIds[index]!
+      const node = graphNodeById.get(nodeId)!
+      const child = index + 1 < primaryChainNodeIds.length
+        ? makePrimaryBranch(index + 1)
+        : null
+      return {
+        id: 'fault-primary::' + primaryChainNodeIds.slice(0, index + 1).join('>'),
+        nodeId,
+        label: node.name,
+        meta: node.level,
+        graphNodeIds: [nodeId],
+        children: child ? [child] : undefined,
+      }
     }
-    cursor.children = [next]
-    cursor = next
+
+    const primaryBranch = makePrimaryBranch(0)
+    const primaryNode = graphNodeById.get(primaryChainNodeIds[0]!)!
+    const primaryChainSet = new Set(primaryChainNodeIds)
+    const causeNodeIds = (queryResult.value.subgraph?.focusCauseNodeIds ?? [])
+      .filter((nodeId) => graphNodeById.has(nodeId) && !primaryChainSet.has(nodeId))
+    if (!causeNodeIds.length) return primaryBranch
+
+    const causeNodes = causeNodeIds
+      .map((nodeId) => graphNodeById.get(nodeId)!)
+      .sort((left, right) => (
+        faultModeStageRank(left.level) - faultModeStageRank(right.level)
+        || left.name.localeCompare(right.name, 'zh-CN')
+      ))
+    const causeGroup: TreeNode = {
+      id: 'fault-primary-causes::' + primaryNode.id,
+      label: '指向“' + primaryNode.name + '”的直接原因',
+      meta: causeNodes.length + ' 个',
+      graphNodeIds: causeNodes.map((node) => node.id),
+      children: causeNodes.map((node) => ({
+        id: 'fault-primary-cause::' + node.id,
+        nodeId: node.id,
+        label: node.name,
+        meta: node.level,
+        graphNodeIds: [node.id],
+      })),
+    }
+    return {
+      id: 'fault-primary-root::' + primaryNode.id,
+      label: primaryNode.name + '：直接原因与后续链路',
+      meta: '单主链',
+      graphNodeIds: [...causeNodeIds, ...primaryChainNodeIds],
+      children: [causeGroup, primaryBranch],
+    }
   }
 
-  const focusId = queryResult.value.nodeId
-  const supportChildren: TreeNode[] = []
-
-  for (const edge of queryResult.value.subgraph?.edges ?? []) {
-    if (!isFaultChainEdge(edge)) continue
-    const neighborId = edge.from === focusId ? edge.to : edge.to === focusId ? edge.from : null
-    if (!neighborId) continue
-    const neighbor = nodeMap.value.get(neighborId)
-    if (!neighbor || (!attributeLevelLabels.has(neighbor.level) && !phenomenonLevelLabels.has(neighbor.level))) continue
-    if (supportChildren.some((item) => item.nodeId === neighbor.id)) continue
-    supportChildren.push({
-      id: `fault-support::${neighbor.id}`,
-      nodeId: neighbor.id,
-      label: buildTreeLabel(neighbor.name, neighbor.level),
-      meta: edge.label,
-      graphNodeIds: [neighbor.id],
-    })
+  if (!faultNodes.length) {
+    const focusNode = graphNodeById.get(queryResult.value.nodeId)
+    return focusNode
+      ? {
+          id: `fault-focus::${focusNode.id}`,
+          nodeId: focusNode.id,
+          label: buildTreeLabel(focusNode.name, focusNode.level),
+          meta: '当前焦点',
+          graphNodeIds: [focusNode.id],
+        }
+      : null
   }
 
-  if (supportChildren.length) {
-    cursor.children = supportChildren
+  const chainNodeIds = new Set<string>()
+  const incomingCount = new Map<string, number>()
+  const outgoing = new Map<string, string[]>()
+  for (const edge of causalEdges) {
+    chainNodeIds.add(edge.from)
+    chainNodeIds.add(edge.to)
+    incomingCount.set(edge.to, (incomingCount.get(edge.to) ?? 0) + 1)
+    if (!incomingCount.has(edge.from)) incomingCount.set(edge.from, incomingCount.get(edge.from) ?? 0)
+    const targets = outgoing.get(edge.from) ?? []
+    if (!targets.includes(edge.to)) targets.push(edge.to)
+    outgoing.set(edge.from, targets)
   }
 
-  return root
+  const compareNodeIds = (leftId: string, rightId: string) => {
+    const left = graphNodeById.get(leftId)
+    const right = graphNodeById.get(rightId)
+    return faultModeStageRank(left?.level ?? '') - faultModeStageRank(right?.level ?? '')
+      || (left?.name ?? leftId).localeCompare(right?.name ?? rightId, 'zh-CN')
+  }
+  const makeBranch = (nodeId: string, trail: string[]): TreeNode => {
+    const node = graphNodeById.get(nodeId)!
+    const path = [...trail, nodeId]
+    const children = (outgoing.get(nodeId) ?? [])
+      .filter((targetId) => !path.includes(targetId))
+      .sort(compareNodeIds)
+      .map((targetId) => makeBranch(targetId, path))
+    return {
+      id: `fault-chain::${path.join('>')}`,
+      nodeId: node.id,
+      label: node.name,
+      meta: node.level,
+      graphNodeIds: [node.id],
+      children: children.length ? children : undefined,
+    }
+  }
+
+  let roots = Array.from(chainNodeIds)
+    .filter((nodeId) => (incomingCount.get(nodeId) ?? 0) === 0)
+    .sort(compareNodeIds)
+  if (!roots.length && chainNodeIds.size) {
+    roots = [Array.from(chainNodeIds).sort(compareNodeIds)[0]!]
+  }
+  if (!roots.length) {
+    roots = faultNodes.map((node) => node.id)
+  }
+
+  const branches = roots.map((nodeId) => makeBranch(nodeId, []))
+  if (branches.length === 1) return branches[0]!
+
+  return {
+    id: 'fault-chain-root',
+    label: '组件级故障模式 → 总体级故障模式',
+    meta: `${faultNodes.length} 个故障模式`,
+    graphNodeIds: faultNodes.map((node) => node.id),
+    children: branches,
+  }
 }
 
 function buildGraphOntologyTree(): TreeNode | null {
@@ -1487,7 +1592,7 @@ const graphSubsetIds = computed(() => {
   if (!queryResult.value && !selectedFaultNodeId.value) return new Set<string>()
 
   if (queryResult.value?.subgraph?.nodes.length) {
-    return expandGraphIdsWithSimilarGroups(new Set(queryResult.value.subgraph.nodes.map((node) => node.id)))
+    return new Set(queryResult.value.subgraph.nodes.map((node) => node.id))
   }
 
   const ids = new Set<string>()
@@ -1518,7 +1623,7 @@ const graphSubsetNodes = computed(() => {
   }
 
   if (!isOntologyView.value && queryResult.value?.subgraph?.nodes.length) {
-    return mergeSimilarGraphNodes(queryResult.value.subgraph.nodes)
+    return queryResult.value.subgraph.nodes
   }
   if (!graph.value) return []
   const ids = graphSubsetIds.value
@@ -1547,8 +1652,8 @@ const graphSubsetEdges = computed(() => {
     return mergeSimilarGraphEdges(graph.value.edges.filter((edge) => ids.has(edge.from) && ids.has(edge.to)))
   }
 
-  if (!isOntologyView.value && queryResult.value?.subgraph?.edges.length) {
-    return mergeSimilarGraphEdges(queryResult.value.subgraph.edges)
+  if (!isOntologyView.value && queryResult.value?.subgraph) {
+    return queryResult.value.subgraph.edges
   }
   if (!graph.value) return []
   if (!queryResult.value && !selectedFaultNodeId.value) return []
@@ -1576,7 +1681,12 @@ function syncOntologyExpandedState(focusNodeId = selectedOntologyNodeId.value) {
 function syncFaultExpandedState(focusNodeId = selectedFaultNodeId.value) {
   const nextExpanded = new Set<string>()
 
-  if (faultTree.value) nextExpanded.add(faultTree.value.id)
+  const expandAllBranches = (node: TreeNode | null) => {
+    if (!node) return
+    if (node.children?.length) nextExpanded.add(node.id)
+    for (const child of node.children ?? []) expandAllBranches(child)
+  }
+  expandAllBranches(faultTree.value)
 
   if (focusNodeId) {
     for (const id of findTreePath(faultTree.value, (node) => node.nodeId === focusNodeId)) nextExpanded.add(id)
@@ -1690,10 +1800,11 @@ async function refreshQueryResultAfterGraphChange() {
     if (!response.ok) return
     queryResult.value = payload.result as QueryResult
     currentQuery.value = text
-    if (selectedFaultNodeId.value && !nodeMap.value.has(selectedFaultNodeId.value)) {
-      selectedFaultNodeId.value = queryResult.value.nodeId || ''
-    }
-    selectedFaultTreeId.value = faultTreeIdByNodeId.value.get(selectedFaultNodeId.value) ?? selectedFaultTreeId.value
+    selectedFaultNodeId.value = queryResult.value.nodeId || selectedFaultNodeId.value
+    faultGraphPositions.value = {}
+    zoomGraphPositions.value = {}
+    await nextTick()
+    selectedFaultTreeId.value = faultTreeIdByNodeId.value.get(selectedFaultNodeId.value) ?? faultTree.value?.id ?? ''
     syncFaultExpandedState(selectedFaultNodeId.value)
   } catch {
     // 查询刷新失败时保留图谱更新结果，避免阻断节点操作。
@@ -1879,8 +1990,10 @@ async function runQuery() {
     currentQuery.value = text
     activeView.value = 'fault'
     selectedFaultNodeId.value = queryResult.value.nodeId || selectedFaultNodeId.value
+    faultGraphPositions.value = {}
+    zoomGraphPositions.value = {}
     await nextTick()
-    selectedFaultTreeId.value = faultTreeIdByNodeId.value.get(selectedFaultNodeId.value) ?? selectedFaultTreeId.value
+    selectedFaultTreeId.value = faultTreeIdByNodeId.value.get(selectedFaultNodeId.value) ?? faultTree.value?.id ?? ''
     syncFaultExpandedState(selectedFaultNodeId.value)
     syncGraphBoardCenter()
   } catch {
@@ -1917,25 +2030,22 @@ function selectNode(nodeId: string) {
     selectedOntologyTreeId.value = ontologyTreeIdByNodeId.value.get(nodeId) ?? selectedOntologyTreeId.value
     syncOntologyExpandedState(nodeId)
   } else {
-    selectedFaultNodeId.value = nodeId
-    selectedFaultTreeId.value = faultTreeIdByNodeId.value.get(nodeId) ?? selectedFaultTreeId.value
-    syncFaultExpandedState(nodeId)
+    void focusFaultNode(nodeId)
   }
 }
 
-async function selectTopMatch(match: QueryTopMatch) {
+async function focusFaultNode(nodeId: string, errorLabel = '节点聚焦失败') {
+  if (!nodeId || isQuerying.value) return
+
+  const previousNodeId = selectedFaultNodeId.value
+  const previousTreeId = selectedFaultTreeId.value
   activeView.value = 'fault'
-  selectedFaultNodeId.value = match.id
-  selectedFaultTreeId.value = faultTreeIdByNodeId.value.get(match.id) ?? selectedFaultTreeId.value
-  syncFaultExpandedState(match.id)
+  selectedFaultNodeId.value = nodeId
+  selectedFaultTreeId.value = faultTreeIdByNodeId.value.get(nodeId) ?? selectedFaultTreeId.value
+  syncFaultExpandedState(nodeId)
 
   const text = currentQuery.value || query.value.trim()
   const previousTopMatches = queryResult.value?.topMatches ?? []
-  if (!text) {
-    syncGraphBoardCenter()
-    return
-  }
-
   queryError.value = ''
   isQuerying.value = true
   try {
@@ -1945,13 +2055,15 @@ async function selectTopMatch(match: QueryTopMatch) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         text,
-        nodeId: match.id,
+        nodeId,
         topMatches: previousTopMatches.length ? previousTopMatches : topMatches.value,
       }),
     })
     const payload = await response.json()
     if (!response.ok) {
-      queryError.value = payload.message ?? '候选结果切换失败，请重新查询'
+      selectedFaultNodeId.value = previousNodeId
+      selectedFaultTreeId.value = previousTreeId
+      queryError.value = payload.message ?? `${errorLabel}，请重新查询`
       return
     }
 
@@ -1960,17 +2072,25 @@ async function selectTopMatch(match: QueryTopMatch) {
       ...nextResult,
       topMatches: previousTopMatches.length ? previousTopMatches : nextResult.topMatches,
     }
-    currentQuery.value = text
-    selectedFaultNodeId.value = nextResult.nodeId || match.id
+    if (text) currentQuery.value = text
+    selectedFaultNodeId.value = nextResult.nodeId || nodeId
+    faultGraphPositions.value = {}
+    zoomGraphPositions.value = {}
     await nextTick()
-    selectedFaultTreeId.value = faultTreeIdByNodeId.value.get(selectedFaultNodeId.value) ?? selectedFaultTreeId.value
+    selectedFaultTreeId.value = faultTreeIdByNodeId.value.get(selectedFaultNodeId.value) ?? faultTree.value?.id ?? ''
     syncFaultExpandedState(selectedFaultNodeId.value)
     syncGraphBoardCenter()
   } catch {
-    queryError.value = '候选结果切换失败，请检查 Flask 服务是否正常'
+    selectedFaultNodeId.value = previousNodeId
+    selectedFaultTreeId.value = previousTreeId
+    queryError.value = `${errorLabel}，请检查 Flask 服务是否正常`
   } finally {
     isQuerying.value = false
   }
+}
+
+async function selectTopMatch(match: QueryTopMatch) {
+  await focusFaultNode(match.id, '候选结果切换失败')
 }
 
 function selectOntologyTreeNode(treeNode: TreeNode) {
@@ -2011,8 +2131,7 @@ function selectFaultTreeNode(treeNode: TreeNode) {
   selectedFaultTreeId.value = treeNode.id
   if (!treeNode.nodeId) return
 
-  selectedFaultNodeId.value = treeNode.nodeId
-  syncFaultExpandedState(treeNode.nodeId)
+  void focusFaultNode(treeNode.nodeId)
 }
 
 function topMatchTitle(match: QueryTopMatch) {
@@ -2471,7 +2590,7 @@ const TreeBranch: ReturnType<typeof defineComponent> = defineComponent({
                       <div class="eyebrow">{{ activeViewMeta.graphTitle }}</div>
                     </div>
                     <div class="panel-actions">
-                      <div class="node-actions">
+                      <div v-if="canEditGraph" class="node-actions">
                         <button type="button" class="node-action" :disabled="isNodeSaving || !graph" @pointerdown.stop @click.prevent.stop="handleAddClick">新增</button>
                         <button type="button" class="node-action" :disabled="isNodeSaving || !canModifySelectedNode" @pointerdown.stop @click.prevent.stop="handleEditClick">修改</button>
                         <button type="button" class="node-action danger" :disabled="isNodeSaving || !canDeleteSelectedNode" @pointerdown.stop @click.stop="deleteSelectedNode">删除</button>
@@ -2491,7 +2610,7 @@ const TreeBranch: ReturnType<typeof defineComponent> = defineComponent({
                     </div>
                   </div>
 
-                  <form v-if="nodeOperationMode !== 'none'" class="node-form node-form--floating" @submit.prevent="submitNodeOperation" @pointerdown.stop @click.stop>
+                  <form v-if="canEditGraph && nodeOperationMode !== 'none'" class="node-form node-form--floating" @submit.prevent="submitNodeOperation" @pointerdown.stop @click.stop>
                     <template v-if="nodeOperationMode === 'add'">
                       <label>
                         类型
@@ -2632,6 +2751,7 @@ const TreeBranch: ReturnType<typeof defineComponent> = defineComponent({
                       <span><i class="legend-dot legend-dot--blue"></i>故障模式</span>
                       <span><i class="legend-dot legend-dot--green"></i>属性要素</span>
                       <span><i class="legend-dot legend-dot--bright-red"></i>功能</span>
+                      <span><i class="legend-causal-line"></i>产生原因 → 后续故障</span>
                       <span><i class="legend-ring"></i>当前焦点</span>
                     </div>
                   </div>
@@ -2688,6 +2808,10 @@ const TreeBranch: ReturnType<typeof defineComponent> = defineComponent({
                       <TreeBranch :node="faultTree" :active-tree-id="selectedFaultTreeId" :active-node-id="selectedFaultNodeId" :expanded-ids="expandedFaultIds" tone="fault" @select="selectFaultTreeNode" @toggle="toggleExpanded" />
                     </ul>
                     <div v-else class="tree-empty">暂无推演结果</div>
+                    <div v-if="queryResult?.conclusion" class="fault-conclusion">
+                      <strong>{{ queryResult.conclusionMethod || '规则' }}推演结论</strong>
+                      <p>{{ queryResult.conclusion }}</p>
+                    </div>
                   </section>
                 </section>
               </section>
@@ -2846,6 +2970,8 @@ textarea,.query-input{width:100%;min-height:64px;height:64px;border:1px solid #d
 .legend-dot--green{background:#8bd53f}
 .legend-dot--red{background:#d71920}
 .legend-dot--bright-red{background:#ff2d2d}
+.legend-causal-line{position:relative;width:24px;height:0;border-top:4px solid #e43d30;display:inline-block}
+.legend-causal-line::after{content:"";position:absolute;right:-1px;top:-6px;border-left:7px solid #e43d30;border-top:4px solid transparent;border-bottom:4px solid transparent}
 .legend-ring{width:12px;height:12px;border-radius:999px;display:inline-block;background:#fff;border:3px solid #ef1d2f;box-shadow:0 0 0 2px rgba(239,29,47,.18)}
 .graph-board{position:relative;margin-top:12px;height:100%;min-height:420px;overflow:auto;scrollbar-gutter:stable both-edges;border-radius:20px;border:1px solid #d8e3f1;background:
 radial-gradient(circle at 24px 24px,rgba(120,152,208,.14) 1.2px,transparent 1.2px),
@@ -2871,6 +2997,9 @@ box-shadow:inset 0 1px 0 rgba(255,255,255,.9);cursor:zoom-in}
 .card-hint{margin:6px 0 0;color:#667a98;line-height:1.45;font-size:12px}
 .tree-card{background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(244,249,255,.92));display:flex;flex-direction:column;min-height:0;overflow:hidden;padding:14px 14px 14px 8px}
 .tree-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-left:0}
+.fault-conclusion{flex:0 0 auto;margin:10px 0 0 6px;padding:11px 12px;border:1px solid #cbdcf2;border-left:4px solid #2d82ff;border-radius:10px;background:linear-gradient(135deg,#f5f9ff,#edf5ff);color:#17355e}
+.fault-conclusion strong{display:block;font-size:12px;color:#2d63ad}
+.fault-conclusion p{margin:6px 0 0;font-size:13px;line-height:1.65;font-weight:700}
 .tree-load-state{min-width:0;color:#607799;font-size:11px;font-weight:800;white-space:nowrap}
 .tree-load-error{margin:8px 0 0 8px;color:#b3354b;font-size:12px;font-weight:800;line-height:1.35}
 :deep(.tree-root),:deep(.tree-children){list-style:none;margin:12px 0 0;padding:0;overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable both-edges;flex:1;min-height:0}
