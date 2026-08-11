@@ -197,21 +197,13 @@ def _split_prefixed_pairs(value: str) -> list[tuple[str, str]]:
 
     numbered_segments = _split_numbered_segments(normalized)
     if numbered_segments:
-        segments = [(segment, False) for segment in numbered_segments]
+        segments = numbered_segments
     else:
-        segments = [
-            (segment.strip(), True)
-            for segment in re.split(r'[。；;\n]+', normalized)
-            if segment.strip()
-        ]
+        segments = [segment.strip() for segment in re.split(r'[。；;\n]+', normalized) if segment.strip()]
 
-    # 编号项只按编号拆分；非编号兼容格式仍允许按并列逗号补充分段。
-    for segment, allow_comma_split in segments:
-        subsegments = (
-            [sub.strip() for sub in re.split(r'[，,、]+', segment) if sub.strip()]
-            if allow_comma_split
-            else [segment]
-        )
+    # 先按句号/分号/换行拆，再按并列逗号拆，最后按冒号配对。
+    for segment in segments:
+        subsegments = [sub.strip() for sub in re.split(r'[，,、]+', segment) if sub.strip()]
         for sub in subsegments:
             if ':' not in sub:
                 continue

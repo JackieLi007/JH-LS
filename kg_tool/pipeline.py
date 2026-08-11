@@ -43,7 +43,6 @@ def ingest_triples_link_and_index(
     index_config: Any | None = None,
     write_link_results: bool = True,
     focus_only: bool = True,
-    run_postprocess: bool = True,
     output_graph: str | Path | None = None,
     report_path: str | Path | None = None,
     record_version: bool = True,
@@ -54,45 +53,39 @@ def ingest_triples_link_and_index(
     write_summary = upsert_triples_to_neo4j(neo4j_config, payload)
 
     summary: dict[str, Any] = {"write": write_summary}
-    if run_postprocess:
-        try:
-            from kg_tool.indexing import build_semantic_index
-            from kg_tool.ml_linking import connect_graph_with_ml
+    try:
+        from kg_tool.indexing import build_semantic_index
+        from kg_tool.ml_linking import connect_graph_with_ml
 
-            graph = load_graph_from_neo4j(neo4j_config)
-            focus_node_ids = set(write_summary["touched_node_ids"]) if focus_only else None
-            link_result = connect_graph_with_ml(graph, config=ml_config, focus_node_ids=focus_node_ids)
+        graph = load_graph_from_neo4j(neo4j_config)
+        focus_node_ids = set(write_summary["touched_node_ids"]) if focus_only else None
+        link_result = connect_graph_with_ml(graph, config=ml_config, focus_node_ids=focus_node_ids)
 
-            writeback = None
-            if write_link_results:
-                writeback = write_link_results_to_neo4j(
-                    neo4j_config,
-                    merge_edges=link_result.merge_edges,
-                    added_edges=link_result.added_edges,
-                )
-                write_summary["link_relationship_changes"] = writeback.get("relationship_changes", [])
-                write_summary["link_writeback"] = {
-                    key: value for key, value in writeback.items() if key != "relationship_changes"
-                }
-
-            if output_graph:
-                link_result.merged_graph.save(output_graph)
-
-            index_artifacts = build_semantic_index(link_result.merged_graph, artifact_dir=artifact_dir, config=index_config)
-            summary["linking"] = _link_summary(graph, link_result, writeback)
-            summary["index"] = {
-                **asdict(index_artifacts),
-                "node_count": len(index_artifacts.node_order),
+        writeback = None
+        if write_link_results:
+            writeback = write_link_results_to_neo4j(
+                neo4j_config,
+                merge_edges=link_result.merge_edges,
+                added_edges=link_result.added_edges,
+            )
+            write_summary["link_relationship_changes"] = writeback.get("relationship_changes", [])
+            write_summary["link_writeback"] = {
+                key: value for key, value in writeback.items() if key != "relationship_changes"
             }
-        except Exception as exc:
-            summary["postprocess"] = {
-                "status": "skipped",
-                "error": str(exc),
-            }
-    else:
+
+        if output_graph:
+            link_result.merged_graph.save(output_graph)
+
+        index_artifacts = build_semantic_index(link_result.merged_graph, artifact_dir=artifact_dir, config=index_config)
+        summary["linking"] = _link_summary(graph, link_result, writeback)
+        summary["index"] = {
+            **asdict(index_artifacts),
+            "node_count": len(index_artifacts.node_order),
+        }
+    except Exception as exc:
         summary["postprocess"] = {
             "status": "skipped",
-            "error": "postprocess disabled",
+            "error": str(exc),
         }
 
     if record_version:

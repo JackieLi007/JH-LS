@@ -6,9 +6,7 @@
 
 .shell--embedded {
   grid-template-columns: minmax(0, 1fr);
-  min-height: 0;
-  height: auto;
-  overflow: visible;
+  min-height: 100vh;
 }
 
 .sidebar {
@@ -51,10 +49,6 @@
 .content--embedded {
   max-width: none;
   padding: 14px;
-  min-height: 0;
-  height: auto;
-  overflow: visible;
-  align-content: start;
 }
 
 .topbar {

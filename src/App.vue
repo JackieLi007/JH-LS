@@ -1,7 +1,7 @@
 <template>
-  <MainShell />
+  <RouterView />
 </template>
 
 <script setup lang="ts">
-import MainShell from '@/layouts/MainShell.vue'
+import { RouterView } from 'vue-router'
 </script>

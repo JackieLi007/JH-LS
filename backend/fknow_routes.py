@@ -36,8 +36,6 @@ def register_fknow_routes(app: Flask) -> None:
     def with_kg_build(result: dict[str, Any]) -> dict[str, Any]:
         if not kg_auto_build_enabled():
             return result
-        if str(result.get('sourceType') or '').strip().lower() not in {'table', 'document'}:
-            return result
         enriched = dict(result)
         enriched['kgBuild'] = build_kg_from_extraction_result_safe(enriched)
         return enriched
@@ -98,14 +96,12 @@ def register_fknow_routes(app: Flask) -> None:
             primary_file = request.files.get('file')
             extra_file = request.files.get('extraFile')
             mappings_raw = request.form.get('mappings', '[]')
-            ontology_raw = request.form.get('ontology', '{}')
             if primary_file is None or not primary_file.filename:
                 return jsonify({'error': '缺少上传文件。'}), 400
 
             if source_type == 'document':
                 try:
-                    ontology = json.loads(ontology_raw) if ontology_raw.strip() else None
-                    result = get_document_extraction_result(primary_file.filename, primary_file.read(), ontology)
+                    result = get_document_extraction_result(primary_file.filename, primary_file.read())
                     return jsonify(with_kg_build(result))
                 except Exception as exc:
                     return jsonify({'error': str(exc)}), 400

@@ -1,13 +1,17 @@
 ﻿from __future__ import annotations
 
 import os
+import hmac
 import json
 import re
+import secrets
 import shutil
 import sys
 import time
+import traceback
 import zipfile
 from collections import defaultdict, deque
+from difflib import SequenceMatcher
 from functools import lru_cache
 from pathlib import Path
 from threading import Lock
@@ -18,6 +22,7 @@ from urllib import request as urlrequest
 
 from flask import Flask, g, has_request_context, jsonify, request
 from flask_cors import CORS
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from neo4j import GraphDatabase
 from neo4j.exceptions import TransientError
 
@@ -27,6 +32,22 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from backend.offline_config import configure_offline_environment, offline_enabled, url_allowed_in_offline
 from backend.fknow_routes import register_fknow_routes
+from backend.graph_registry import (
+    GraphRegistryError,
+    create_registered_graph,
+    delete_registered_graph,
+    default_graph,
+    graph_summary,
+    list_graph_summaries,
+    request_graph_database,
+    select_request_graph,
+)
+from backend.fault_query_config import (
+    fault_query_config,
+    relation_group_for_edge,
+    semantic_role_for_node,
+)
+from kg_tool.search_text import SYNONYM_GROUPS, build_search_text
 
 configure_offline_environment()
 
@@ -34,10 +55,67 @@ DEFAULT_LOCAL_LLM_BASE_URL = 'http://192.168.102.240:8866/v1'
 DEFAULT_LOCAL_LLM_MODEL = 'Qwen3-Next-80B-A3B-Instruct'
 DEFAULT_BERT_MODEL_NAME = 'bert-base-chinese'
 ATTRIBUTE_MATERIALIZE_LOCK = Lock()
+FAULT_SEARCH_INDEX_LOCK = Lock()
+FAULT_SEARCH_INDEX_READY: set[str] = set()
+FAULT_SEARCH_INDEX_NAME = 'fault_node_search'
+AUTH_COOKIE_NAME = 'jh_auth'
+AUTH_SESSION_MAX_AGE = 12 * 60 * 60
+AUTH_RUNTIME_SECRET = secrets.token_urlsafe(32)
+AUTH_PUBLIC_API_PATHS = {
+    '/api/auth/login',
+    '/api/auth/logout',
+    '/api/auth/me',
+}
+AUTH_EDITOR_API_RULES = {
+    ('POST', '/api/graph/nodes'),
+    ('POST', '/api/parse-preview'),
+    ('POST', '/api/extract'),
+    ('POST', '/api/kg/build'),
+    ('POST', '/api/kg/rollback'),
+    ('POST', '/api/graphs'),
+}
 
 
 class FaultQueryBertError(RuntimeError):
     pass
+
+
+class FaultChainQueryProfiler:
+    def __init__(self) -> None:
+        self.started_at = time.perf_counter()
+
+    def record(self, step: str, started_at: float, **metrics: Any) -> float:
+        ended_at = time.perf_counter()
+        details = ' '.join(f'{key}={value}' for key, value in metrics.items())
+        print(
+            f"[FaultChainQuery] step={step} start={started_at:.6f} end={ended_at:.6f} "
+            f"cost={(ended_at - started_at) * 1000:.1f}ms"
+            + (f' {details}' if details else ''),
+            flush=True,
+        )
+        return ended_at
+
+    def total(self, **metrics: Any) -> None:
+        ended_at = time.perf_counter()
+        details = ' '.join(f'{key}={value}' for key, value in metrics.items())
+        print(
+            f"[FaultChainQuery] total={(ended_at - self.started_at) * 1000:.1f}ms"
+            + (f' {details}' if details else ''),
+            flush=True,
+        )
+
+
+def current_fault_chain_profiler() -> FaultChainQueryProfiler | None:
+    if not has_request_context():
+        return None
+    profiler = getattr(g, 'fault_chain_profiler', None)
+    return profiler if isinstance(profiler, FaultChainQueryProfiler) else None
+
+
+def record_fault_chain_step(step: str, started_at: float, **metrics: Any) -> None:
+    profiler = current_fault_chain_profiler()
+    if profiler:
+        profiler.record(step, started_at, **metrics)
 
 
 RELATION_LABELS = {
@@ -277,21 +355,190 @@ SUPPORT_LEVELS = {
 }
 FAULT_CHAIN_SUPPORT_LEVELS = SUPPORT_LEVELS
 
+
+def auth_users() -> dict[str, dict[str, str]]:
+    editor_username = os.environ.get('AUTH_EDITOR_USERNAME', 'admin').strip() or 'admin'
+    viewer_username = os.environ.get('AUTH_VIEWER_USERNAME', 'viewer').strip() or 'viewer'
+    return {
+        editor_username: {
+            'username': editor_username,
+            'password': os.environ.get('AUTH_EDITOR_PASSWORD', 'admin123'),
+            'displayName': os.environ.get('AUTH_EDITOR_DISPLAY_NAME', '本体管理员').strip() or '本体管理员',
+            'role': 'editor',
+            'homePath': '/ontology-builder',
+        },
+        viewer_username: {
+            'username': viewer_username,
+            'password': os.environ.get('AUTH_VIEWER_PASSWORD', 'viewer123'),
+            'displayName': os.environ.get('AUTH_VIEWER_DISPLAY_NAME', '查询用户').strip() or '查询用户',
+            'role': 'viewer',
+            'homePath': '/ontology',
+        },
+    }
+
+
+def auth_serializer() -> URLSafeTimedSerializer:
+    secret = os.environ.get('AUTH_SECRET_KEY', '').strip() or AUTH_RUNTIME_SECRET
+    return URLSafeTimedSerializer(secret, salt='jh-auth-session')
+
+
+def public_auth_user(user: dict[str, str]) -> dict[str, str]:
+    return {
+        'username': user['username'],
+        'displayName': user['displayName'],
+        'role': user['role'],
+        'homePath': user['homePath'],
+    }
+
+
+def create_auth_token(user: dict[str, str]) -> str:
+    return auth_serializer().dumps({
+        'username': user['username'],
+        'role': user['role'],
+    })
+
+
+def read_auth_user() -> dict[str, str] | None:
+    token = request.cookies.get(AUTH_COOKIE_NAME, '').strip()
+    if not token:
+        return None
+    try:
+        payload = auth_serializer().loads(token, max_age=AUTH_SESSION_MAX_AGE)
+    except (BadSignature, SignatureExpired):
+        return None
+
+    username = str(payload.get('username') or '').strip() if isinstance(payload, dict) else ''
+    role = str(payload.get('role') or '').strip() if isinstance(payload, dict) else ''
+    user = auth_users().get(username)
+    if not user or user['role'] != role:
+        return None
+    return user
+
+
+def editor_api_required() -> bool:
+    if request.method in {'PATCH', 'DELETE'} and (
+        request.path.startswith('/api/graph/nodes/')
+        or request.path.startswith('/api/graphs/')
+    ):
+        return True
+    return (request.method, request.path) in AUTH_EDITOR_API_RULES
+
+
+def auth_cookie_secure() -> bool:
+    return os.environ.get('AUTH_COOKIE_SECURE', '').strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
 def create_app() -> Flask:
     app = Flask(__name__)
     app.json.sort_keys = False
-    CORS(app)
+    CORS(app, supports_credentials=True)
 
     @app.before_request
-    def log_api_request() -> None:
+    def select_knowledge_graph() -> Any:
+        """Resolve the graph selected by the client before any Neo4j work."""
+        if not request.path.startswith('/api/'):
+            return None
+        try:
+            select_request_graph()
+        except GraphRegistryError as exc:
+            return jsonify({'message': str(exc), 'error': str(exc)}), 400
+        return None
+
+    @app.before_request
+    def authenticate_api_request() -> Any:
         if request.path.startswith('/api/'):
             print(f"[API] {request.method} {request.path} from={request.remote_addr}", flush=True)
+        if (
+            request.method == 'OPTIONS'
+            or not request.path.startswith('/api/')
+            or request.path in AUTH_PUBLIC_API_PATHS
+            or not editor_api_required()
+        ):
+            return None
+
+        user = read_auth_user()
+        if not user:
+            return jsonify({
+                'success': False,
+                'code': 401,
+                'message': '登录已失效，请重新登录。',
+                'result': None,
+            }), 401
+
+        g.auth_user = user
+        if user['role'] != 'editor':
+            return jsonify({
+                'success': False,
+                'code': 403,
+                'message': '当前账号没有本体修改权限。',
+                'result': None,
+            }), 403
+        return None
 
     @app.after_request
     def prevent_api_cache(response: Any) -> Any:
         if request.path.startswith('/api/'):
             response.headers['Cache-Control'] = 'no-store'
         return response
+
+    @app.post('/api/auth/login')
+    def auth_login() -> Any:
+        payload = request.get_json(silent=True) or {}
+        username = str(payload.get('username') or '').strip()
+        password = str(payload.get('password') or '')
+        user = auth_users().get(username)
+        if not user or not hmac.compare_digest(password, user['password']):
+            return jsonify({
+                'success': False,
+                'code': 401,
+                'message': '用户名或密码错误。',
+                'result': None,
+            }), 401
+
+        response = jsonify({
+            'success': True,
+            'code': 200,
+            'message': '登录成功。',
+            'result': public_auth_user(user),
+        })
+        response.set_cookie(
+            AUTH_COOKIE_NAME,
+            create_auth_token(user),
+            max_age=AUTH_SESSION_MAX_AGE,
+            httponly=True,
+            secure=auth_cookie_secure(),
+            samesite='Lax',
+            path='/',
+        )
+        return response
+
+    @app.post('/api/auth/logout')
+    def auth_logout() -> Any:
+        response = jsonify({
+            'success': True,
+            'code': 200,
+            'message': '已退出登录。',
+            'result': None,
+        })
+        response.delete_cookie(AUTH_COOKIE_NAME, path='/')
+        return response
+
+    @app.get('/api/auth/me')
+    def auth_me() -> Any:
+        user = read_auth_user()
+        if not user:
+            return jsonify({
+                'success': False,
+                'code': 401,
+                'message': '尚未登录。',
+                'result': None,
+            }), 401
+        return jsonify({
+            'success': True,
+            'code': 200,
+            'message': '登录状态有效。',
+            'result': public_auth_user(user),
+        })
 
     @app.get('/api/health')
     def health() -> Any:
@@ -307,7 +554,52 @@ def create_app() -> Flask:
             'llmEnabled': is_llm_query_enabled(),
             'llmBaseUrl': get_llm_base_url(),
             'llmModel': get_llm_model(),
+            'bert': bert_diagnostics(load_model=False),
         })
+
+    @app.get('/api/graphs')
+    def graphs() -> Any:
+        default = default_graph()
+        return jsonify({
+            'graphs': list_graph_summaries(),
+            'defaultDatabase': default['database'],
+        })
+
+    @app.post('/api/graphs')
+    def create_graph() -> Any:
+        payload = request.get_json(silent=True) or {}
+        try:
+            graph_record = create_registered_graph(
+                payload.get('name'),
+                payload.get('description', ''),
+            )
+            return jsonify({
+                'message': '图谱已创建',
+                'graph': graph_summary(graph_record),
+            }), 201
+        except GraphRegistryError as exc:
+            return jsonify({'message': str(exc), 'error': str(exc)}), 400
+
+    @app.delete('/api/graphs/<database>')
+    def delete_graph(database: str) -> Any:
+        try:
+            deleted = delete_registered_graph(database)
+            FAULT_SEARCH_INDEX_READY.discard(deleted['database'])
+            default = default_graph()
+            return jsonify({
+                'message': '图谱已删除',
+                'deletedDatabase': deleted['database'],
+                'defaultDatabase': default['database'],
+            })
+        except GraphRegistryError as exc:
+            return jsonify({'message': str(exc), 'error': str(exc)}), 400
+
+    @app.get('/api/bert/status')
+    def bert_status() -> Any:
+        load_model = str(request.args.get('load', '')).strip().lower() in {'1', 'true', 'yes'}
+        diagnostics = bert_diagnostics(load_model=load_model)
+        status_code = 200 if diagnostics.get('ok') else 500
+        return jsonify(build_api_envelope(bool(diagnostics.get('ok')), status_code, diagnostics.get('message', ''), diagnostics)), status_code
 
     @app.get('/api/graph')
     def graph() -> Any:
@@ -341,27 +633,62 @@ def create_app() -> Flask:
 
     @app.post('/api/query')
     def query_fault() -> Any:
+        profiler = FaultChainQueryProfiler()
+        g.fault_chain_profiler = profiler
+        parse_started = time.perf_counter()
         payload = request.get_json(silent=True) or {}
         text = str(payload.get('text', '')).strip()
+        profiler.record('parse_input', parse_started, textChars=len(text))
         print(f"[FaultQuery] received text={text!r}", flush=True)
-        if not text:
-            return jsonify(build_api_envelope(False, 400, '请先输入故障现象。', empty_query_result())), 400
 
-        graph = fetch_graph_from_neo4j()
+        def respond(envelope: dict[str, Any], status_code: int = 200) -> Any:
+            result = envelope.get('result') if isinstance(envelope, dict) else None
+            subgraph = result.get('subgraph') if isinstance(result, dict) else None
+            node_count = len(subgraph.get('nodes', [])) if isinstance(subgraph, dict) else 0
+            edge_count = len(subgraph.get('edges', [])) if isinstance(subgraph, dict) else 0
+            serialize_started = time.perf_counter()
+            body = app.json.dumps(envelope)
+            body_bytes = len(body.encode('utf-8'))
+            profiler.record(
+                'serialize',
+                serialize_started,
+                nodes=node_count,
+                edges=edge_count,
+                bytes=body_bytes,
+            )
+            profiler.total(status=status_code, nodes=node_count, edges=edge_count, bytes=body_bytes)
+            response = app.response_class(body + '\n', status=status_code, mimetype='application/json')
+            return response
+
+        if not text:
+            return respond(build_api_envelope(False, 400, '请先输入故障现象。', empty_query_result()), 400)
+
         try:
-            ranked = rank_fault_chain_query_nodes(text, graph)
-        except FaultQueryBertError as exc:
+            ranked, graph = query_fault_chain_from_neo4j(text)
+        except Exception as exc:
             log_query_backend_strategy(text)
-            message = str(exc)
-            return jsonify(build_api_envelope(False, 500, message, {**empty_query_result(), 'summary': message})), 500
+            print(f"[FaultQuery][INDEX_ERROR] {exc}", flush=True)
+            traceback.print_exception(type(exc), exc, exc.__traceback__)
+            message = f'故障链索引查询失败：{exc}'
+            return respond(build_api_envelope(False, 500, message, {**empty_query_result(), 'summary': message}), 500)
         if not ranked:
             log_query_backend_strategy(text)
-            return jsonify(build_api_envelope(False, 404, 'BERT 未匹配到故障节点', {**empty_query_result(), 'summary': 'BERT 已完成向量匹配，但未在 Neo4j 图数据库中匹配到相关故障节点。'})), 404
+            return respond(build_api_envelope(False, 404, '未匹配到图谱节点', {**empty_query_result(), 'summary': '全文索引未召回与输入问题相关的图谱节点。'}), 404)
 
         best = ranked[0]
         log_query_backend_strategy(text, best)
+        build_started = time.perf_counter()
         top_matches = build_top_matches(text, ranked)
-        return jsonify(build_api_envelope(True, 200, '查询成功', build_query_result_payload(text, best, graph, top_matches)))
+        result = build_query_result_payload(text, best, graph, top_matches)
+        subgraph = result.get('subgraph') or {}
+        profiler.record(
+            'result_parse',
+            build_started,
+            topMatches=len(top_matches),
+            nodes=len(subgraph.get('nodes', [])),
+            edges=len(subgraph.get('edges', [])),
+        )
+        return respond(build_api_envelope(True, 200, '查询成功', result))
 
     @app.post('/api/query/node')
     def query_fault_node() -> Any:
@@ -371,8 +698,7 @@ def create_app() -> Flask:
         if not node_id:
             return jsonify(build_api_envelope(False, 400, '请选择候选节点。', empty_query_result())), 400
 
-        graph = fetch_graph_from_neo4j()
-        node = next((item for item in graph['nodes'] if item['id'] == node_id), None)
+        node, graph = fetch_fault_chain_for_node(node_id, text)
         if not node:
             return jsonify(build_api_envelope(False, 404, '当前图谱中未找到该候选节点，请重新查询。', empty_query_result())), 404
 
@@ -406,8 +732,10 @@ def empty_query_result() -> dict[str, Any]:
     return {
         'nodeId': '', 'activeTab': 'overview', 'title': '等待查询',
         'summary': '输入故障现象后，系统会从 Neo4j 图数据库中查询关联节点与关系。',
+        'conclusion': '', 'conclusionMethod': '',
         'checks': [], 'matchedKeywords': [], 'matchedNode': None, 'matchedLabel': None, 'pathNodeIds': [],
         'reasoningSteps': [], 'reasoningEvidence': [], 'topMatches': [],
+        'subgraph': {'nodes': [], 'edges': []},
     }
 
 
@@ -417,14 +745,25 @@ def build_query_result_payload(
     graph: dict[str, list[dict[str, Any]]],
     top_matches: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    related = collect_related(node['id'], graph)
-    reasoning = build_full_chain_reasoning(query_text, node, graph, related)
+    subgraph = node.get('faultChainSubgraph') or expand_fault_chain_subgraph(node, graph)
+    related = collect_related_from_subgraph(node['id'], subgraph)
+    reasoning = build_full_chain_reasoning(query_text, node, graph, related, subgraph)
+    conclusion = build_fault_chain_conclusion(query_text, node, subgraph)
     active_tab = 'layer' if node['type'] in {'impact', 'condition'} else 'path'
+    payload_subgraph = {
+        'nodes': subgraph['nodes'],
+        'edges': subgraph['edges'],
+    }
+    for key in ('primaryFaultNodeId', 'primaryChainNodeIds', 'focusCauseNodeIds'):
+        if key in subgraph:
+            payload_subgraph[key] = subgraph[key]
     return {
         'nodeId': node['id'],
         'activeTab': active_tab,
         'title': f"命中图谱节点：{node['name']}",
         'summary': reasoning['summary'],
+        'conclusion': conclusion['text'],
+        'conclusionMethod': conclusion['method'],
         'checks': reasoning['checks'],
         'matchedKeywords': matched_terms(query_text, node),
         'matchedNode': node['name'],
@@ -433,6 +772,7 @@ def build_query_result_payload(
         'pathNodeIds': reasoning['pathNodeIds'],
         'reasoningSteps': reasoning['steps'],
         'reasoningEvidence': reasoning['evidence'],
+        'subgraph': payload_subgraph,
     }
 
 
@@ -666,7 +1006,7 @@ def list_current_fault_modes() -> list[dict[str, Any]]:
     graph = fetch_graph_from_neo4j()
     fault_nodes = [
         node for node in graph['nodes']
-        if node.get('type') in {'root-cause', 'fault', 'impact'} or '故障模式' in str(node.get('level', ''))
+        if semantic_role_for_node(node) == 'fault_mode'
     ]
     return [build_plm_fault_mode_view(node) for node in sorted(fault_nodes, key=lambda item: (item.get('level', ''), item.get('name', '')))]
 
@@ -716,17 +1056,17 @@ def run_local_reasoning(item: dict[str, Any]) -> dict[str, Any]:
     if not text:
         return empty_query_result()
 
-    graph = fetch_graph_from_neo4j()
     try:
-        ranked = rank_fault_chain_query_nodes(text, graph)
-    except FaultQueryBertError as exc:
+        ranked, graph = query_fault_chain_from_neo4j(text)
+    except Exception as exc:
         return {**empty_query_result(), 'summary': str(exc)}
     if not ranked:
-        return {**empty_query_result(), 'summary': '未在知识图谱中匹配到可推理的故障模式。'}
+        return {**empty_query_result(), 'summary': '未在知识图谱中匹配到相关节点。'}
 
     best = ranked[0]
-    related = collect_related(best['id'], graph)
-    reasoning = build_full_chain_reasoning(text, best, graph, related)
+    subgraph = best.get('faultChainSubgraph') or subgraph_metadata(graph)
+    related = collect_related_from_subgraph(best['id'], subgraph)
+    reasoning = build_full_chain_reasoning(text, best, graph, related, subgraph)
     return {
         'nodeId': best['id'],
         'title': f"命中图谱节点：{best['name']}",
@@ -739,7 +1079,7 @@ def run_local_reasoning(item: dict[str, Any]) -> dict[str, Any]:
 
 
 def build_inference_text(item: dict[str, Any]) -> str:
-    fields = ('productName', 'function', 'faultMode', 'faultReason', 'name', 'text')
+    fields = ('productName', 'function', 'faultMode', 'name', 'text')
     return ' '.join(str(item.get(field, '')).strip() for field in fields if str(item.get(field, '')).strip())
 
 
@@ -750,7 +1090,7 @@ def build_fmea_result(item: dict[str, Any], reasoning: dict[str, Any]) -> dict[s
         'productName': item.get('productName') or infer_stage_node_name(reasoning, '系统级') or infer_stage_node_name(reasoning, '单体级'),
         'function': item.get('function'),
         'faultMode': reasoning.get('matchedNode') or item.get('faultMode'),
-        'faultReason': item.get('faultReason') or reasoning.get('summary'),
+        'faultReason': item.get('faultReason'),
         'countermeasures': item.get('countermeasures') or extract_check_value(checks, '设计措施'),
         'taskPhase': item.get('taskPhase') or extract_check_value(checks, '发生阶段'),
         'singlePoint': item.get('singlePoint') or single_point_code(extract_check_value(checks, '是否单点')),
@@ -849,12 +1189,15 @@ def get_neo4j_username() -> str:
 
 
 def get_neo4j_password() -> str:
-    return os.environ.get('NEO4J_PASSWORD', '').strip() or 'jkok123999'
+    return os.environ.get('NEO4J_PASSWORD', '').strip() or '123456789'
 
 
 def get_database() -> str | None:
-    database = os.environ.get('NEO4J_DATABASE', '').strip()
-    return database or None
+    try:
+        return request_graph_database()
+    except GraphRegistryError:
+        database = os.environ.get('NEO4J_DATABASE', '').strip()
+        return database or None
 
 
 def quote_cypher_identifier(identifier: str) -> str:
@@ -922,6 +1265,7 @@ def ensure_fault_attribute_nodes_from_properties_once() -> None:
                                     attribute.generated_from = 'fault_property'
                     SET attribute.name = $combinedName,
                         attribute.value_list = $values,
+                        attribute.searchText = $searchText,
                         attribute.updated_at = datetime()
                     MERGE (fault)-[rel:{relation_type}]->(attribute)
                       ON CREATE SET rel.generated_from = 'fault_property'
@@ -937,14 +1281,32 @@ def ensure_fault_attribute_nodes_from_properties_once() -> None:
                     combinedKey=combined_key,
                     combinedName=combined_name,
                     values=values,
+                    searchText=build_search_text(
+                        {'name': combined_name, 'value_list': values},
+                        spec['node_label'],
+                    ),
                 ).consume()
 
 
 def fetch_graph_from_neo4j() -> dict[str, list[dict[str, Any]]]:
+    fetch_started = time.perf_counter()
+    materialize_started = time.perf_counter()
     ensure_fault_attribute_nodes_from_properties()
+    record_fault_chain_step('neo4j_materialize_attributes', materialize_started)
+    node_query = 'MATCH (n) RETURN elementId(n) AS id, labels(n)[0] AS label, properties(n) AS props ORDER BY label, coalesce(n.owner, ""), coalesce(n.name, "")'
+    edge_query = 'MATCH (a)-[r]->(b) RETURN elementId(a) AS source, type(r) AS relation, elementId(b) AS target ORDER BY relation'
     with get_driver().session(database=get_database()) as session:
-        node_records = session.run('MATCH (n) RETURN elementId(n) AS id, labels(n)[0] AS label, properties(n) AS props ORDER BY label, coalesce(n.owner, ""), coalesce(n.name, "")').data()
-        edge_records = session.run('MATCH (a)-[r]->(b) RETURN elementId(a) AS source, type(r) AS relation, elementId(b) AS target ORDER BY relation').data()
+        node_query_started = time.perf_counter()
+        node_records = session.run(node_query).data()
+        node_query_cost = (time.perf_counter() - node_query_started) * 1000
+        record_fault_chain_step('neo4j_nodes', node_query_started, records=len(node_records))
+        edge_query_started = time.perf_counter()
+        edge_records = session.run(edge_query).data()
+        edge_query_cost = (time.perf_counter() - edge_query_started) * 1000
+        record_fault_chain_step('neo4j_edges', edge_query_started, records=len(edge_records))
+        explain_slow_neo4j_query(session, 'nodes', node_query, node_query_cost)
+        explain_slow_neo4j_query(session, 'edges', edge_query, edge_query_cost)
+    parse_started = time.perf_counter()
     nodes = []
     for record in node_records:
         if is_ontology_placeholder_record(record):
@@ -956,7 +1318,27 @@ def fetch_graph_from_neo4j() -> dict[str, list[dict[str, Any]]]:
         for record in edge_records
         if record.get('source') in visible_node_ids and record.get('target') in visible_node_ids
     ]
+    record_fault_chain_step('graph_record_parse', parse_started, nodes=len(nodes), edges=len(edges))
+    record_fault_chain_step('neo4j_fetch', fetch_started, nodes=len(nodes), edges=len(edges))
     return {'nodes': nodes, 'edges': edges}
+
+
+def explain_slow_neo4j_query(session: Any, name: str, query: str, cost_ms: float) -> None:
+    threshold_ms = float(os.environ.get('FAULT_QUERY_NEO4J_EXPLAIN_THRESHOLD_MS', '500'))
+    if cost_ms < threshold_ms:
+        return
+    try:
+        summary = session.run(f'EXPLAIN {query}').consume()
+        print(
+            f"[FaultChainQuery][Neo4jExplain] query={name} cost={cost_ms:.1f}ms "
+            f"plan={summary.plan}",
+            flush=True,
+        )
+    except Exception as exc:
+        print(
+            f"[FaultChainQuery][Neo4jExplain] query={name} cost={cost_ms:.1f}ms error={exc}",
+            flush=True,
+        )
 
 
 def is_ontology_placeholder_record(record: dict[str, Any]) -> bool:
@@ -1008,24 +1390,1234 @@ def build_node_view(record: dict[str, Any]) -> dict[str, Any]:
     description = props.get('raw_text') or props.get('key') or f'{meta["level"]}节点：{name}'
     tags = [meta['level'], *([props['owner']] if props.get('owner') else [])]
     x, y = layout_position(label, name)
-    return {
+    node = {
         'id': record['id'], 'name': name, 'shortName': shorten(name), 'x': x, 'y': y,
         'type': meta['node_type'], 'level': meta['level'], 'status': meta['status'],
         'description': description, 'tags': tags, 'hierarchyPath': hierarchy_path, 'priority': meta['priority'],
         'label': label, 'owner': props.get('owner', ''), 'rawText': props.get('raw_text', ''), 'key': props.get('key', ''),
+        'alias': props.get('alias', props.get('aliases', '')),
     }
+    node['semanticRole'] = semantic_role_for_node(node)
+    return node
 
 
 def build_edge_view(record: dict[str, Any]) -> dict[str, Any]:
     raw_relation = record['relation']
     relation = normalize_relation_type(raw_relation)
-    return {
+    edge = {
         'from': record['source'], 'to': record['target'],
         'label': RELATION_LABELS.get(relation, relation),
         'strength': 'critical' if relation in {'LEADS_TO', 'HAS_FAILURE_MODE'} else 'normal',
         'relationType': relation,
         'rawRelationType': raw_relation,
     }
+    edge['relationGroup'] = relation_group_for_edge(edge)
+    return edge
+
+
+def fault_search_index_labels() -> list[str]:
+    configured = {
+        str(alias).strip()
+        for aliases in fault_query_config()['semanticRoles'].values()
+        for alias in aliases
+        if str(alias).strip()
+    }
+    return sorted(configured | set(LABEL_META))
+
+
+def ensure_fault_search_index() -> None:
+    database = get_database() or 'neo4j'
+    if database in FAULT_SEARCH_INDEX_READY:
+        return
+    with FAULT_SEARCH_INDEX_LOCK:
+        if database in FAULT_SEARCH_INDEX_READY:
+            return
+        labels = '|'.join(quote_cypher_identifier(label) for label in fault_search_index_labels())
+        create_query = (
+            f'CREATE FULLTEXT INDEX {quote_cypher_identifier(FAULT_SEARCH_INDEX_NAME)} IF NOT EXISTS '
+            f'FOR (node:{labels}) ON EACH [node.searchText]'
+        )
+        with get_driver().session(database=get_database()) as session:
+            session.run(
+                '''
+                MATCH (node)
+                WHERE node.searchText IS NULL OR trim(toString(node.searchText)) = ''
+                SET node.searchText = trim(
+                    coalesce(toString(node.name), '') + ' ' +
+                    coalesce(toString(node.alias), '') + ' ' +
+                    coalesce(toString(node.aliases), '') + ' ' +
+                    coalesce(toString(node.description), '') + ' ' +
+                    coalesce(toString(node.rawText), '') + ' ' +
+                    coalesce(toString(node.raw_text), '') + ' ' +
+                    coalesce(toString(node.owner), '') + ' ' +
+                    coalesce(toString(node.key), '') + ' ' +
+                    reduce(text = '', label IN labels(node) | text + ' ' + label)
+                )
+                '''
+            ).consume()
+            session.run(create_query).consume()
+            try:
+                session.run('CALL db.awaitIndexes($timeout)', timeout=30).consume()
+            except Exception:
+                session.run('CALL db.awaitIndexes()').consume()
+        FAULT_SEARCH_INDEX_READY.add(database)
+
+
+def lightweight_query_terms(query_text: str) -> list[str]:
+    variants = query_variants(query_text)
+    normalized = normalize(query_text)
+    subjects = query_subject_phrases(query_text)
+    prioritized = unique_non_empty_texts(
+        [*subjects, query_text, normalized, *variants],
+        limit=10,
+    )
+    for group in SYNONYM_GROUPS:
+        if any(term in normalized for term in group):
+            prioritized.extend(term for term in group if term not in prioritized)
+    for subject in OPEN_SUBJECT_TERMS:
+        if subject in query_text and subject not in prioritized:
+            prioritized.append(subject)
+    expanded = sorted(
+        (
+            term for term in expanded_query_terms(variants)
+            if len(compact_exact_text(term)) >= 2 and term not in prioritized
+        ),
+        key=lambda item: (-len(item), item),
+    )
+    return unique_non_empty_texts([*prioritized, *expanded], limit=24)
+
+
+def lucene_query_for_terms(terms: list[str]) -> str:
+    escaped: list[str] = []
+    for index, term in enumerate(terms):
+        value = re.sub(r'([+\-!(){}\[\]^"~*?:\\/]|&&|\|\|)', r'\\\1', term.strip())
+        if value:
+            boost = 5 if any(intent in term for intent in FAILURE_INTENT_TERMS) else 4 if index < 4 else 2
+            escaped.append(f'"{value}"^{boost}')
+    return ' OR '.join(dict.fromkeys(escaped))
+
+
+def failure_intent_alignment_score(query_text: str, node: dict[str, Any]) -> float:
+    query_value = normalize(query_text)
+    corpus = node_corpus(node)
+    if not has_failure_intent(query_variants(query_text)):
+        return 0.0
+    open_failure_terms = {
+        '打不开', '无法打开', '不能打开', '开不了', '开启失败', '开启失效',
+        '一次打不开', '不易打开', '打开困难',
+    }
+    positive_open_terms = {'通电后打开', '正常打开', '可以打开', '可打开', '打开成功'}
+    if any(term in query_value for term in open_failure_terms):
+        if any(term in corpus for term in open_failure_terms):
+            return 1.0
+        if any(term in corpus for term in positive_open_terms):
+            return -1.0
+    return 0.0
+
+
+def query_subject_phrases(query_text: str) -> list[str]:
+    removable_terms = sorted({
+        *FAILURE_INTENT_TERMS,
+        *OPEN_FAILURE_EXPANSIONS,
+        *OPEN_DELAY_EXPRESSIONS,
+        '发生', '出现', '存在', '问题', '故障', '现象',
+    }, key=len, reverse=True)
+    subjects: list[str] = []
+    for source in (str(query_text or '').lower().strip(), normalize(query_text)):
+        subject = source
+        for term in removable_terms:
+            subject = subject.replace(term, ' ')
+        subjects.extend(
+            compact_exact_text(part)
+            for part in re.split(r'[\s，,。；;、]+', subject)
+            if len(compact_exact_text(part)) >= 2
+        )
+    return unique_non_empty_texts(subjects, limit=8)
+
+
+def query_subject_match_score(query_text: str, node: dict[str, Any]) -> float:
+    subjects = query_subject_phrases(query_text)
+    if not subjects:
+        return 0.0
+    node_values = [
+        compact_exact_text(str(node.get(field) or ''))
+        for field in ('name', 'alias', 'owner', 'rawText', 'description')
+        if compact_exact_text(str(node.get(field) or ''))
+    ]
+    best = 0.0
+    for subject in subjects:
+        for value in node_values:
+            if subject == value:
+                best = max(best, 1.0)
+            elif subject in value or value in subject:
+                shorter = subject if len(subject) <= len(value) else value
+                longer = value if len(value) >= len(subject) else subject
+                if len(shorter) >= 4:
+                    containment_score = 0.99 if longer.endswith(shorter) else 0.97
+                else:
+                    overlap = len(shorter) / max(1, len(longer))
+                    containment_score = 0.88 + overlap * 0.1
+                best = max(best, containment_score)
+            else:
+                best = max(best, SequenceMatcher(None, subject, value).ratio() * 0.7)
+    return min(1.0, best)
+
+
+def entity_entry_priority(query_text: str, node: dict[str, Any]) -> float:
+    if semantic_role_for_node(node) != 'entity':
+        return 0.0
+    subject_match = query_subject_match_score(query_text, node)
+    return subject_match if subject_match >= 0.75 else 0.0
+
+
+def recall_fault_candidates(session: Any, query_text: str, terms: list[str]) -> list[dict[str, Any]]:
+    limit = int(fault_query_config()['limits']['candidateTopK'])
+    lucene_query = lucene_query_for_terms(terms)
+    if not lucene_query:
+        return []
+    recall_query = '''
+        CALL db.index.fulltext.queryNodes($indexName, $searchQuery, {limit: $limit})
+        YIELD node, score
+        RETURN elementId(node) AS id, labels(node)[0] AS label,
+               properties(node) AS props, score
+        ORDER BY score DESC
+        LIMIT $limit
+    '''
+    records_by_id: dict[str, dict[str, Any]] = {}
+    query_specs = [(lucene_query, limit)]
+    for subject in query_subject_phrases(query_text):
+        subject_query = lucene_query_for_terms([subject])
+        if subject_query:
+            query_specs.append((subject_query, min(20, limit)))
+    for term in terms[:8]:
+        exact_query = lucene_query_for_terms([term])
+        if exact_query:
+            query_specs.append((exact_query, min(12, limit)))
+    for search_query, query_limit in query_specs:
+        for record in session.run(
+            recall_query,
+            indexName=FAULT_SEARCH_INDEX_NAME,
+            searchQuery=search_query,
+            limit=query_limit,
+        ).data():
+            node_id = str(record.get('id') or '')
+            if not node_id:
+                continue
+            previous = records_by_id.get(node_id)
+            if not previous or float(record.get('score') or 0.0) > float(previous.get('score') or 0.0):
+                records_by_id[node_id] = record
+    records = sorted(
+        records_by_id.values(),
+        key=lambda record: -float(record.get('score') or 0.0),
+    )[:limit]
+    candidates: list[dict[str, Any]] = []
+    max_index_score = max((float(record.get('score') or 0.0) for record in records), default=1.0)
+    variants = query_variants(query_text)
+    for record in records:
+        if is_ontology_placeholder_record(record):
+            continue
+        node = build_node_view(record)
+        index_score = float(record.get('score') or 0.0) / max(1.0, max_index_score)
+        keyword_score = keyword_query_node_score(variants, node)
+        fuzzy_score = fuzzy_query_node_score(variants, node)
+        exact_match = query_exactly_matches_node(variants, node)
+        intent_alignment = failure_intent_alignment_score(query_text, node)
+        subject_match = query_subject_match_score(query_text, node)
+        entity_priority = entity_entry_priority(query_text, node)
+        recall_score = max(
+            0.0,
+            min(
+                1.0,
+                index_score * 0.3
+                + keyword_score * 0.15
+                + fuzzy_score * 0.05
+                + subject_match * 0.35
+                + max(0.0, intent_alignment) * 0.25
+                + min(0.0, intent_alignment) * 0.35,
+            ),
+        )
+        candidates.append({
+            **node,
+            'indexScore': round(index_score, 6),
+            'keywordMatchScore': round(keyword_score, 6),
+            'fuzzyMatchScore': round(fuzzy_score, 6),
+            'failureIntentAlignment': round(intent_alignment, 6),
+            'subjectMatchScore': round(subject_match, 6),
+            'entityEntryPriority': round(entity_priority, 6),
+            'exactTextMatch': exact_match,
+            'hybridRecallScore': round(recall_score, 6),
+            'score': confidence_ratio_to_percent(1.0 if exact_match else min(recall_score, 0.99)),
+        })
+    candidates.sort(key=lambda item: (
+        -float(item.get('entityEntryPriority', 0.0)),
+        -float(item['hybridRecallScore']),
+        -float(item.get('subjectMatchScore', 0.0)),
+        item.get('name', ''),
+    ))
+    return candidates
+
+
+def prioritize_explicit_entity_candidates(
+    query_text: str,
+    candidates: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    explicit_entities = [
+        candidate for candidate in candidates
+        if semantic_role_for_node(candidate) == 'entity'
+        and float(candidate.get('subjectMatchScore', 0.0)) >= 0.75
+    ]
+    if not explicit_entities:
+        return candidates
+
+    explicit_entity_ids = {candidate['id'] for candidate in explicit_entities}
+    explicit_entities.sort(key=lambda item: (
+        -float(item.get('subjectMatchScore', 0.0)),
+        -float(item.get('hybridRecallScore', 0.0)),
+        len(str(item.get('name') or '')),
+        item.get('name', ''),
+    ))
+    remaining = [
+        candidate for candidate in candidates
+        if candidate.get('id') not in explicit_entity_ids
+    ]
+    return [*explicit_entities, *remaining]
+
+
+def configured_fault_relation_types() -> list[str]:
+    allowed_groups = set(fault_query_config()['allowedRelationGroups'])
+    values: set[str] = set()
+    for group, aliases in fault_query_config()['relationGroups'].items():
+        if group in allowed_groups:
+            values.update(str(alias).strip() for alias in aliases if str(alias).strip())
+    return sorted(values)
+
+
+def available_fault_relation_types(session: Any) -> list[str]:
+    configured = set(configured_fault_relation_types())
+    try:
+        records = session.run(
+            'CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType'
+        ).data()
+        existing = {
+            str(record.get('relationshipType') or '').strip()
+            for record in records
+            if str(record.get('relationshipType') or '').strip()
+        }
+        return sorted(configured & existing)
+    except Exception as exc:
+        print(f'[FaultChainQuery] relationship type discovery failed: {exc}', flush=True)
+        return sorted(configured)
+
+
+def fetch_local_fault_subgraph(
+    session: Any,
+    entries: list[dict[str, Any]],
+) -> tuple[dict[str, Any], int]:
+    limits = fault_query_config()['limits']
+    max_depth = max(1, min(5, int(limits['maxDepth'])))
+    max_nodes = int(limits['maxResultNodes'])
+    max_edges = int(limits['maxResultEdges'])
+    path_limit = max(max_edges * 3, len(entries) * 20)
+    relation_types = available_fault_relation_types(session)
+    if not relation_types:
+        return {
+            'nodes': [{key: value for key, value in entry.items() if key != 'faultChainSubgraph'} for entry in entries],
+            'edges': [],
+        }, 0
+    relation_pattern = '|'.join(
+        quote_cypher_identifier(relation)
+        for relation in relation_types
+    )
+    query = f'''
+        UNWIND $entryIds AS entryId
+        MATCH (start) WHERE elementId(start) = entryId
+        MATCH path = (start)-[rels:{relation_pattern}*1..{max_depth}]-(neighbor)
+        RETURN [node IN nodes(path) | {{
+                   id: elementId(node), label: labels(node)[0], props: properties(node)
+               }}] AS nodes,
+               [rel IN relationships(path) | {{
+                   source: elementId(startNode(rel)),
+                   relation: type(rel),
+                   target: elementId(endNode(rel))
+               }}] AS edges
+        ORDER BY length(path)
+        LIMIT $pathLimit
+    '''
+    started = time.perf_counter()
+    records = session.run(
+        query,
+        entryIds=[entry['id'] for entry in entries],
+        pathLimit=path_limit,
+    ).data()
+    query_cost = (time.perf_counter() - started) * 1000
+    record_fault_chain_step(
+        'neo4j_expand',
+        started,
+        entries=len(entries),
+        paths=len(records),
+        maxDepth=max_depth,
+        relationTypes=len(relation_types),
+    )
+    explain_slow_neo4j_query(
+        session,
+        'fault_chain_expand',
+        query.replace('$entryIds', '[]').replace('$pathLimit', str(path_limit)),
+        query_cost,
+    )
+
+    build_started = time.perf_counter()
+    nodes_by_id = {
+        entry['id']: {
+            key: value
+            for key, value in entry.items()
+            if key != 'faultChainSubgraph'
+        }
+        for entry in entries
+    }
+    edges_by_key: dict[tuple[str, str, str], dict[str, Any]] = {}
+    degree: dict[str, int] = defaultdict(int)
+    max_edges_per_node = int(limits['maxEdgesPerNode'])
+    for record in records:
+        for raw_node in record.get('nodes') or []:
+            node_id = str(raw_node.get('id') or '')
+            if node_id and node_id not in nodes_by_id and len(nodes_by_id) < max_nodes:
+                nodes_by_id[node_id] = build_node_view(raw_node)
+        for raw_edge in record.get('edges') or []:
+            source = str(raw_edge.get('source') or '')
+            target = str(raw_edge.get('target') or '')
+            relation = str(raw_edge.get('relation') or '')
+            key = (source, relation, target)
+            if (
+                not source or not target or key in edges_by_key
+                or source not in nodes_by_id or target not in nodes_by_id
+                or degree[source] >= max_edges_per_node or degree[target] >= max_edges_per_node
+                or len(edges_by_key) >= max_edges
+            ):
+                continue
+            edges_by_key[key] = build_edge_view(raw_edge)
+            degree[source] += 1
+            degree[target] += 1
+    graph = {'nodes': list(nodes_by_id.values()), 'edges': list(edges_by_key.values())}
+    record_fault_chain_step(
+        'build_subgraph',
+        build_started,
+        records=len(records),
+        nodes=len(graph['nodes']),
+        edges=len(graph['edges']),
+    )
+    return graph, len(records)
+
+
+def subgraph_metadata(graph: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
+    roles = {fault_chain_node_category(node) for node in graph['nodes']}
+    expected_roles = set(fault_query_config()['expectedSemanticRoles'])
+    relation_weights = fault_query_config()['relationGroupWeights']
+    relation_scores = [
+        float(relation_weights.get(relation_group_for_edge(edge), 0.0))
+        for edge in graph['edges']
+    ]
+    serializable_nodes = [
+        {
+            key: value
+            for key, value in node.items()
+            if key != 'faultChainSubgraph'
+        }
+        for node in graph['nodes']
+    ]
+    serializable_edges = [dict(edge) for edge in graph['edges']]
+    metadata = {
+        'nodes': serializable_nodes,
+        'edges': serializable_edges,
+        'nodeIds': [node['id'] for node in serializable_nodes],
+        'categories': sorted(roles),
+        'completeness': round(len(roles & expected_roles) / max(1, len(expected_roles)), 6),
+        'averageDepth': 1.0,
+        'relationGroupScore': round(sum(relation_scores) / max(1, len(relation_scores)), 6),
+    }
+    for key in ('primaryFaultNodeId', 'primaryChainNodeIds', 'focusCauseNodeIds'):
+        if key in graph:
+            metadata[key] = graph[key]
+    return metadata
+
+
+def focus_fault_chain_graph(
+    graph: dict[str, list[dict[str, Any]]],
+    start_id: str,
+) -> dict[str, list[dict[str, Any]]]:
+    node_map = {str(node.get('id') or ''): node for node in graph['nodes']}
+    if start_id not in node_map:
+        return {'nodes': [], 'edges': []}
+
+    causal_edges = [
+        edge for edge in graph['edges']
+        if relation_group_for_edge(edge) == 'causal_link'
+    ]
+    causal_adjacency: dict[str, list[tuple[str, dict[str, Any]]]] = defaultdict(list)
+    for edge in causal_edges:
+        source = str(edge.get('from') or '')
+        target = str(edge.get('to') or '')
+        if source in node_map and target in node_map:
+            causal_adjacency[source].append((target, edge))
+            causal_adjacency[target].append((source, edge))
+
+    anchors = [start_id] if start_id in causal_adjacency else []
+    connecting_edges: list[dict[str, Any]] = []
+    if not anchors:
+        for edge in graph['edges']:
+            source = str(edge.get('from') or '')
+            target = str(edge.get('to') or '')
+            neighbor_id = target if source == start_id else source if target == start_id else ''
+            if neighbor_id and neighbor_id in causal_adjacency:
+                anchors.append(neighbor_id)
+                connecting_edges.append(edge)
+
+    max_depth = int(fault_query_config()['limits']['maxDepth'])
+    backbone_ids = {start_id, *anchors}
+    queue: deque[tuple[str, int]] = deque((anchor, 0) for anchor in anchors)
+    selected_edges: dict[tuple[str, str, str], dict[str, Any]] = {}
+    for edge in connecting_edges:
+        selected_edges[(
+            str(edge.get('from') or ''),
+            str(edge.get('relationType') or edge.get('label') or ''),
+            str(edge.get('to') or ''),
+        )] = edge
+
+    visited = set(anchors)
+    while queue:
+        node_id, depth = queue.popleft()
+        if depth >= max_depth:
+            continue
+        for neighbor_id, edge in causal_adjacency.get(node_id, []):
+            backbone_ids.add(neighbor_id)
+            selected_edges[(
+                str(edge.get('from') or ''),
+                str(edge.get('relationType') or edge.get('label') or ''),
+                str(edge.get('to') or ''),
+            )] = edge
+            if neighbor_id not in visited:
+                visited.add(neighbor_id)
+                queue.append((neighbor_id, depth + 1))
+
+    relation_weights = fault_query_config()['relationGroupWeights']
+    support_edges: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for edge in graph['edges']:
+        if relation_group_for_edge(edge) == 'causal_link':
+            continue
+        source = str(edge.get('from') or '')
+        target = str(edge.get('to') or '')
+        if source in backbone_ids and target not in backbone_ids:
+            support_edges[source].append(edge)
+        elif target in backbone_ids and source not in backbone_ids:
+            support_edges[target].append(edge)
+
+    selected_node_ids = set(backbone_ids)
+    for backbone_id, edges in support_edges.items():
+        edges.sort(key=lambda edge: (
+            -float(relation_weights.get(relation_group_for_edge(edge), 0.0)),
+            str(edge.get('label') or ''),
+        ))
+        for edge in edges:
+            source = str(edge.get('from') or '')
+            target = str(edge.get('to') or '')
+            selected_node_ids.update((source, target))
+            selected_edges[(
+                source,
+                str(edge.get('relationType') or edge.get('label') or ''),
+                target,
+            )] = edge
+
+    return {
+        'nodes': [node_map[node_id] for node_id in selected_node_ids if node_id in node_map],
+        'edges': [
+            edge for edge in selected_edges.values()
+            if str(edge.get('from') or '') in selected_node_ids
+            and str(edge.get('to') or '') in selected_node_ids
+        ],
+    }
+
+
+def merge_all_direct_relations(
+    session: Any,
+    graph: dict[str, list[dict[str, Any]]],
+    node_id: str,
+) -> dict[str, list[dict[str, Any]]]:
+    records = session.run(
+        '''
+        MATCH (start)-[rel]-(neighbor)
+        WHERE elementId(start) = $nodeId
+        RETURN elementId(neighbor) AS id,
+               labels(neighbor)[0] AS label,
+               properties(neighbor) AS props,
+               elementId(startNode(rel)) AS source,
+               type(rel) AS relation,
+               elementId(endNode(rel)) AS target
+        ''',
+        nodeId=node_id,
+    ).data()
+    nodes_by_id = {str(node.get('id') or ''): node for node in graph['nodes']}
+    edges_by_key = {
+        (
+            str(edge.get('from') or ''),
+            str(edge.get('relationType') or edge.get('label') or ''),
+            str(edge.get('to') or ''),
+        ): edge
+        for edge in graph['edges']
+    }
+    for record in records:
+        neighbor_id = str(record.get('id') or '')
+        if neighbor_id and neighbor_id not in nodes_by_id:
+            nodes_by_id[neighbor_id] = build_node_view(record)
+        edge = build_edge_view(record)
+        edges_by_key[(
+            str(edge.get('from') or ''),
+            str(edge.get('relationType') or edge.get('label') or ''),
+            str(edge.get('to') or ''),
+        )] = edge
+    return {'nodes': list(nodes_by_id.values()), 'edges': list(edges_by_key.values())}
+
+
+def fault_mode_anchor_ids(
+    graph: dict[str, list[dict[str, Any]]],
+    start_id: str,
+) -> list[str]:
+    node_map = {str(node.get('id') or ''): node for node in graph['nodes']}
+    start_node = node_map.get(start_id)
+    if not start_node:
+        return []
+
+    anchors: set[str] = set()
+    allowed_groups = set(fault_query_config()['allowedRelationGroups'])
+    if semantic_role_for_node(start_node) == 'fault_mode':
+        return [start_id]
+    for edge in graph['edges']:
+        if relation_group_for_edge(edge) not in allowed_groups:
+            continue
+        source = str(edge.get('from') or '')
+        target = str(edge.get('to') or '')
+        neighbor_id = target if source == start_id else source if target == start_id else ''
+        neighbor = node_map.get(neighbor_id)
+        if neighbor and semantic_role_for_node(neighbor) == 'fault_mode':
+            anchors.add(neighbor_id)
+    return sorted(anchors)
+
+
+def fault_mode_level_rank(node: dict[str, Any]) -> int:
+    level = str(node.get('level') or node.get('label') or '')
+    if '组件' in level or '零部组件' in level:
+        return 0
+    if '单机' in level:
+        return 1
+    if '系统' in level:
+        return 2
+    if '总体' in level:
+        return 3
+    return 99
+
+
+def primary_fault_anchor_id(
+    graph: dict[str, list[dict[str, Any]]],
+    start_id: str,
+    query_text: str = '',
+) -> str:
+    anchor_ids = fault_mode_anchor_ids(graph, start_id)
+    if not anchor_ids:
+        return ''
+    if len(anchor_ids) == 1:
+        return anchor_ids[0]
+
+    node_map = {str(node.get('id') or ''): node for node in graph['nodes']}
+    start_node = node_map.get(start_id, {})
+    context_rank = fault_mode_level_rank(start_node)
+    if context_rank < 99:
+        same_stage = [
+            anchor_id
+            for anchor_id in anchor_ids
+            if fault_mode_level_rank(node_map.get(anchor_id, {})) == context_rank
+        ]
+        if same_stage:
+            anchor_ids = same_stage
+
+    context_texts = [
+        query_text,
+        str(start_node.get('name') or ''),
+        str(start_node.get('owner') or ''),
+        str(start_node.get('rawText') or ''),
+    ]
+    return min(
+        anchor_ids,
+        key=lambda anchor_id: (
+            -keyword_query_node_score(context_texts, node_map.get(anchor_id, {})),
+            -query_subject_match_score(query_text, node_map.get(anchor_id, {})),
+            fault_mode_level_rank(node_map.get(anchor_id, {})),
+            str(node_map.get(anchor_id, {}).get('name') or ''),
+            anchor_id,
+        ),
+    )
+
+
+def merge_causal_chains_for_focus(
+    session: Any,
+    graph: dict[str, list[dict[str, Any]]],
+    start_id: str,
+    query_text: str = '',
+) -> dict[str, list[dict[str, Any]]]:
+    anchor_id = primary_fault_anchor_id(graph, start_id, query_text)
+    if not anchor_id:
+        return graph
+
+    if anchor_id != start_id:
+        graph = merge_all_direct_relations(session, graph, anchor_id)
+    causal_relation_types = [
+        str(relation).strip()
+        for relation in fault_query_config()['relationGroups'].get('causal_link', [])
+        if str(relation).strip()
+    ]
+    if not causal_relation_types:
+        return graph
+
+    max_depth = max(1, min(5, int(fault_query_config()['limits']['maxDepth'])))
+    relation_pattern = '|'.join(
+        quote_cypher_identifier(relation)
+        for relation in causal_relation_types
+    )
+    path_limit = min(
+        int(fault_query_config()['limits']['maxResultEdges']),
+        max(24, max_depth * 16),
+    )
+    records = session.run(
+        f'''
+        MATCH (anchor) WHERE elementId(anchor) = $anchorId
+        MATCH path = (anchor)-[rels:{relation_pattern}*1..{max_depth}]->(neighbor)
+        RETURN [node IN nodes(path) | {{
+                   id: elementId(node), label: labels(node)[0], props: properties(node)
+               }}] AS nodes,
+               [rel IN relationships(path) | {{
+                   source: elementId(startNode(rel)),
+                   relation: type(rel),
+                   target: elementId(endNode(rel))
+               }}] AS edges
+        ORDER BY length(path)
+        LIMIT $pathLimit
+        ''',
+        anchorId=anchor_id,
+        pathLimit=path_limit,
+    ).data()
+
+    nodes_by_id = {str(node.get('id') or ''): node for node in graph['nodes']}
+    edges_by_key = {
+        (
+            str(edge.get('from') or ''),
+            str(edge.get('relationType') or edge.get('label') or ''),
+            str(edge.get('to') or ''),
+        ): edge
+        for edge in graph['edges']
+    }
+    for record in records:
+        for raw_node in record.get('nodes') or []:
+            node_id = str(raw_node.get('id') or '')
+            if node_id and node_id not in nodes_by_id:
+                nodes_by_id[node_id] = build_node_view(raw_node)
+        for raw_edge in record.get('edges') or []:
+            edge = build_edge_view(raw_edge)
+            edges_by_key[(
+                str(edge.get('from') or ''),
+                str(edge.get('relationType') or edge.get('label') or ''),
+                str(edge.get('to') or ''),
+            )] = edge
+    return {'nodes': list(nodes_by_id.values()), 'edges': list(edges_by_key.values())}
+
+
+def select_primary_causal_chain(
+    graph: dict[str, list[dict[str, Any]]],
+    anchor_id: str,
+    query_text: str,
+    focus_node: dict[str, Any],
+) -> tuple[list[str], list[dict[str, Any]]]:
+    node_map = {str(node.get('id') or ''): node for node in graph['nodes']}
+    if anchor_id not in node_map:
+        return [], []
+
+    outgoing: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for edge in graph['edges']:
+        source = str(edge.get('from') or '')
+        target = str(edge.get('to') or '')
+        if (
+            relation_group_for_edge(edge) == 'causal_link'
+            and semantic_role_for_node(node_map.get(source, {})) == 'fault_mode'
+            and semantic_role_for_node(node_map.get(target, {})) == 'fault_mode'
+        ):
+            outgoing[source].append(edge)
+
+    max_depth = max(1, min(5, int(fault_query_config()['limits']['maxDepth'])))
+    branch_limit = max(2, min(8, int(fault_query_config()['limits']['maxEdgesPerNode'])))
+    paths: list[tuple[list[str], list[dict[str, Any]]]] = []
+
+    def walk(node_id: str, node_ids: list[str], edges: list[dict[str, Any]]) -> None:
+        if len(edges) >= max_depth or len(paths) >= 256:
+            paths.append((node_ids, edges))
+            return
+        candidates = [
+            edge
+            for edge in outgoing.get(node_id, [])
+            if str(edge.get('to') or '') not in node_ids
+        ]
+        candidates.sort(key=lambda edge: (
+            fault_mode_level_rank(node_map.get(str(edge.get('to') or ''), {})),
+            str(node_map.get(str(edge.get('to') or ''), {}).get('name') or ''),
+            str(edge.get('to') or ''),
+        ))
+        if not candidates:
+            paths.append((node_ids, edges))
+            return
+        for edge in candidates[:branch_limit]:
+            target_id = str(edge.get('to') or '')
+            walk(target_id, [*node_ids, target_id], [*edges, edge])
+
+    walk(anchor_id, [anchor_id], [])
+    if not paths:
+        return [anchor_id], []
+
+    context_texts = [
+        query_text,
+        str(focus_node.get('name') or ''),
+        str(focus_node.get('owner') or ''),
+        str(node_map[anchor_id].get('name') or ''),
+    ]
+
+    def path_sort_key(path: tuple[list[str], list[dict[str, Any]]]) -> tuple[Any, ...]:
+        node_ids, path_edges = path
+        ranks = [fault_mode_level_rank(node_map.get(node_id, {})) for node_id in node_ids]
+        known_ranks = [rank for rank in ranks if rank < 99]
+        max_rank = max(known_ranks, default=-1)
+        terminal_rank = ranks[-1] if ranks and ranks[-1] < 99 else -1
+        progressions = sum(
+            1
+            for left, right in zip(ranks, ranks[1:])
+            if left < 99 and right < 99 and right > left
+        )
+        regressions = sum(
+            1
+            for left, right in zip(ranks, ranks[1:])
+            if left < 99 and right < 99 and right < left
+        )
+        relevance = sum(
+            keyword_query_node_score(context_texts, node_map.get(node_id, {}))
+            + query_subject_match_score(query_text, node_map.get(node_id, {})) * 0.35
+            for node_id in node_ids[1:]
+        )
+        names = tuple(str(node_map.get(node_id, {}).get('name') or '') for node_id in node_ids)
+        return (
+            -max_rank,
+            -terminal_rank,
+            regressions,
+            -progressions,
+            -round(relevance, 6),
+            -len(path_edges),
+            names,
+        )
+
+    return min(paths, key=path_sort_key)
+
+
+def build_query_display_graph(
+    graph: dict[str, list[dict[str, Any]]],
+    start_id: str,
+    query_text: str = '',
+) -> dict[str, Any]:
+    node_map = {str(node.get('id') or ''): node for node in graph['nodes']}
+    start_node = node_map.get(start_id)
+    if not start_node:
+        return {'nodes': [], 'edges': []}
+
+    selected_node_ids = {start_id}
+    selected_edges: dict[tuple[str, str, str], dict[str, Any]] = {}
+
+    def add_edge(edge: dict[str, Any]) -> None:
+        source = str(edge.get('from') or '')
+        target = str(edge.get('to') or '')
+        selected_node_ids.update((source, target))
+        selected_edges[(
+            source,
+            str(edge.get('relationType') or edge.get('label') or ''),
+            target,
+        )] = edge
+
+    # Keep every direct business relation of the matched node. Causal relations
+    # are added separately below so only their primary branch is expanded.
+    for edge in graph['edges']:
+        source = str(edge.get('from') or '')
+        target = str(edge.get('to') or '')
+        relation_group = relation_group_for_edge(edge)
+        if (
+            start_id in {source, target}
+            and relation_group != 'causal_link'
+        ):
+            add_edge(edge)
+
+    anchor_id = primary_fault_anchor_id(graph, start_id, query_text)
+    chain_node_ids: list[str] = []
+    if anchor_id:
+        chain_node_ids, chain_edges = select_primary_causal_chain(
+            graph,
+            anchor_id,
+            query_text,
+            start_node,
+        )
+        selected_node_ids.update(chain_node_ids)
+        for edge in chain_edges:
+            add_edge(edge)
+
+        if start_id != anchor_id:
+            for edge in graph['edges']:
+                source = str(edge.get('from') or '')
+                target = str(edge.get('to') or '')
+                if (
+                    {source, target} == {start_id, anchor_id}
+                    and relation_group_for_edge(edge) == 'causal_link'
+                ):
+                    add_edge(edge)
+
+    cause_node_ids: set[str] = set()
+    chain_node_id_set = set(chain_node_ids)
+    if anchor_id:
+        for edge in graph['edges']:
+            source = str(edge.get('from') or '')
+            target = str(edge.get('to') or '')
+            if (
+                relation_group_for_edge(edge) == 'causal_link'
+                and target == anchor_id
+                and source in node_map
+                and source not in chain_node_id_set
+            ):
+                cause_node_ids.add(source)
+                add_edge(edge)
+
+    nodes = sorted(
+        (node_map[node_id] for node_id in selected_node_ids if node_id in node_map),
+        key=lambda item: (
+            0 if str(item.get('id') or '') == start_id else 1,
+            0 if semantic_role_for_node(item) == 'fault_mode' else 1,
+            fault_mode_level_rank(item),
+            str(item.get('name') or ''),
+        ),
+    )
+    edges = sorted(
+        (
+            edge
+            for edge in selected_edges.values()
+            if str(edge.get('from') or '') in selected_node_ids
+            and str(edge.get('to') or '') in selected_node_ids
+        ),
+        key=lambda edge: (
+            0 if relation_group_for_edge(edge) == 'causal_link' else 1,
+            str(edge.get('from') or ''),
+            str(edge.get('to') or ''),
+            str(edge.get('label') or ''),
+        ),
+    )
+    return {
+        'nodes': nodes,
+        'edges': edges,
+        'primaryFaultNodeId': anchor_id,
+        'primaryChainNodeIds': chain_node_ids,
+        'focusCauseNodeIds': sorted(
+            cause_node_ids,
+            key=lambda node_id: (
+                fault_mode_level_rank(node_map.get(node_id, {})),
+                str(node_map.get(node_id, {}).get('name') or ''),
+                node_id,
+            ),
+        ),
+    }
+
+
+def related_query_coverage_score(
+    query_text: str,
+    start_id: str,
+    graph: dict[str, list[dict[str, Any]]],
+) -> float:
+    node_map = {str(node.get('id') or ''): node for node in graph['nodes']}
+    start_node = node_map.get(start_id)
+    if not start_node:
+        return 0.0
+    query_value = compact_exact_text(normalize(query_text))
+    if not query_value:
+        return 0.0
+
+    related_nodes = [start_node]
+    for edge in graph['edges']:
+        source = str(edge.get('from') or '')
+        target = str(edge.get('to') or '')
+        neighbor_id = target if source == start_id else source if target == start_id else ''
+        neighbor = node_map.get(neighbor_id)
+        if neighbor and all(item['id'] != neighbor['id'] for item in related_nodes):
+            related_nodes.append(neighbor)
+
+    corpus = compact_exact_text(normalize(' '.join(
+        str(node.get(field) or '')
+        for node in related_nodes
+        for field in ('name', 'alias', 'owner', 'rawText', 'description')
+    )))
+    query_grams = text_bigrams(query_value)
+    if not query_grams:
+        return 0.0
+    coverage = len(query_grams & text_bigrams(corpus)) / len(query_grams)
+    split_bonus = 0.0
+    if len(related_nodes) > 1:
+        individual_coverages = []
+        for node in related_nodes:
+            node_text = compact_exact_text(normalize(' '.join(
+                str(node.get(field) or '')
+                for field in ('name', 'alias', 'owner', 'rawText', 'description')
+            )))
+            individual_coverages.append(len(query_grams & text_bigrams(node_text)) / len(query_grams))
+        if coverage >= 0.75 and max(individual_coverages, default=0.0) < coverage:
+            split_bonus = 0.2
+    return min(1.0, coverage + split_bonus)
+
+
+def direct_query_coverage_score(query_text: str, node: dict[str, Any]) -> float:
+    query_values = unique_non_empty_texts(
+        [query_text, normalize(query_text), *query_subject_phrases(query_text)],
+        limit=8,
+    )
+    node_values = unique_non_empty_texts([
+        str(node.get('name', '')),
+        str(node.get('alias', '')),
+        str(node.get('rawText', '')),
+        str(node.get('key', '')),
+    ], limit=8)
+    best = 0.0
+    for query_value in query_values:
+        compact_query = compact_exact_text(query_value)
+        if not compact_query:
+            continue
+        query_grams = text_bigrams(compact_query)
+        for node_value in node_values:
+            compact_node = compact_exact_text(normalize(node_value))
+            if not compact_node:
+                continue
+            if compact_query == compact_node:
+                best = max(best, 1.0)
+            elif compact_query in compact_node or compact_node in compact_query:
+                shorter = min(len(compact_query), len(compact_node))
+                longer = max(len(compact_query), len(compact_node))
+                if shorter >= 2:
+                    best = max(best, min(1.0, 0.55 + shorter / max(1, longer) * 0.45))
+            else:
+                node_grams = text_bigrams(compact_node)
+                if query_grams and node_grams:
+                    best = max(best, len(query_grams & node_grams) / len(query_grams))
+    return min(1.0, best)
+
+
+def visible_query_coverage_score(query_text: str, node: dict[str, Any]) -> float:
+    query_values = unique_non_empty_texts(
+        [query_text, normalize(query_text), *query_subject_phrases(query_text)],
+        limit=8,
+    )
+    node_values = unique_non_empty_texts([
+        str(node.get('name', '')),
+        str(node.get('alias', '')),
+        str(node.get('key', '')),
+    ], limit=6)
+    best = 0.0
+    for query_value in query_values:
+        compact_query = compact_exact_text(query_value)
+        if not compact_query:
+            continue
+        query_grams = text_bigrams(compact_query)
+        for node_value in node_values:
+            compact_node = compact_exact_text(normalize(node_value))
+            if not compact_node:
+                continue
+            if compact_query == compact_node:
+                best = max(best, 1.0)
+            elif compact_query in compact_node or compact_node in compact_query:
+                shorter = min(len(compact_query), len(compact_node))
+                longer = max(len(compact_query), len(compact_node))
+                if shorter >= 2:
+                    best = max(best, min(1.0, 0.55 + shorter / max(1, longer) * 0.45))
+            else:
+                node_grams = text_bigrams(compact_node)
+                if query_grams and node_grams:
+                    best = max(best, len(query_grams & node_grams) / len(query_grams))
+    return min(1.0, best)
+
+
+def final_relevance_score(query_text: str, candidate: dict[str, Any]) -> float:
+    direct_coverage = float(candidate.get('directQueryCoverage', 0.0))
+    visible_coverage = float(candidate.get('visibleQueryCoverage', direct_coverage))
+    keyword_score = float(candidate.get('keywordMatchScore', 0.0))
+    subject_score = float(candidate.get('subjectMatchScore', 0.0))
+    intent_score = max(0.0, float(candidate.get('failureIntentAlignment', 0.0)))
+    related_score = float(candidate.get('relatedQueryCoverage', 0.0))
+    if candidate.get('exactTextMatch'):
+        return 1.0
+    return min(
+        1.0,
+        direct_coverage * 0.42
+        + visible_coverage * 0.18
+        + keyword_score * 0.18
+        + subject_score * 0.10
+        + intent_score * 0.08
+        + related_score * 0.04,
+    )
+
+
+def unrelated_candidate_penalty(query_text: str, candidate: dict[str, Any]) -> float:
+    relevance = final_relevance_score(query_text, candidate)
+    penalty = 0.0
+    direct_coverage = float(candidate.get('directQueryCoverage', 0.0))
+    visible_coverage = float(candidate.get('visibleQueryCoverage', direct_coverage))
+    intent_score = float(candidate.get('failureIntentAlignment', 0.0))
+    if (
+        has_failure_intent(query_variants(query_text))
+        and not candidate.get('exactTextMatch')
+        and visible_coverage < 0.18
+        and intent_score <= 0.0
+    ):
+        penalty = 0.18
+
+    if (
+        semantic_role_for_node(candidate) == 'entity'
+        and not candidate.get('exactTextMatch')
+        and visible_coverage < 0.12
+    ):
+        penalty = max(penalty, 0.22)
+
+    if relevance < 0.28:
+        penalty = max(penalty, (0.28 - relevance) * 1.25)
+    return min(0.35, penalty)
+
+
+def query_fault_chain_from_neo4j(
+    query_text: str,
+) -> tuple[list[dict[str, Any]], dict[str, list[dict[str, Any]]]]:
+    normalize_started = time.perf_counter()
+    terms = lightweight_query_terms(query_text)
+    record_fault_chain_step('normalize', normalize_started, variants=len(query_variants(query_text)), terms=len(terms))
+
+    ensure_fault_search_index()
+    with get_driver().session(database=get_database()) as session:
+        recall_started = time.perf_counter()
+        candidates = recall_fault_candidates(session, query_text, terms)
+        record_fault_chain_step(
+            'fulltext_recall',
+            recall_started,
+            candidates=len(candidates),
+            topK=int(fault_query_config()['limits']['candidateTopK']),
+        )
+
+        merge_started = time.perf_counter()
+        candidates = list({item['id']: item for item in candidates}.values())
+        candidates.sort(key=lambda item: (
+            -float(item.get('entityEntryPriority', 0.0)),
+            -float(item.get('hybridRecallScore', 0.0)),
+            -float(item.get('subjectMatchScore', 0.0)),
+            item.get('name', ''),
+        ))
+        candidates = prioritize_explicit_entity_candidates(query_text, candidates)
+        entry_limit = int(fault_query_config()['limits']['expansionEntryLimit'])
+        entries = candidates[:entry_limit]
+        record_fault_chain_step(
+            'candidate_merge',
+            merge_started,
+            candidates=len(candidates),
+            entries=len(entries),
+        )
+        if not entries:
+            return [], {'nodes': [], 'edges': []}
+
+        graph, path_count = fetch_local_fault_subgraph(session, entries)
+
+    sort_started = time.perf_counter()
+    for candidate in entries:
+        candidate_graph = focus_fault_chain_graph(graph, str(candidate.get('id') or ''))
+        metadata = subgraph_metadata(candidate_graph)
+        candidate['faultChainSubgraph'] = metadata
+        completeness = float(metadata['completeness'])
+        related_coverage = related_query_coverage_score(
+            query_text,
+            str(candidate.get('id') or ''),
+            candidate_graph,
+        )
+        candidate['relatedQueryCoverage'] = round(related_coverage, 6)
+        direct_coverage = direct_query_coverage_score(query_text, candidate)
+        candidate['directQueryCoverage'] = round(direct_coverage, 6)
+        visible_coverage = visible_query_coverage_score(query_text, candidate)
+        candidate['visibleQueryCoverage'] = round(visible_coverage, 6)
+        candidate['faultChainScore'] = min(
+            1.0,
+            float(candidate.get('hybridRecallScore', 0.0)) * 0.42
+            + float(candidate.get('subjectMatchScore', 0.0)) * 0.2
+            + float(candidate.get('entityEntryPriority', 0.0)) * 0.22
+            + related_coverage * 0.1
+            + completeness * 0.06,
+        )
+        relevance = final_relevance_score(query_text, candidate)
+        penalty = unrelated_candidate_penalty(query_text, candidate)
+        candidate['finalRelevanceScore'] = round(relevance, 6)
+        candidate['unrelatedPenalty'] = round(penalty, 6)
+        candidate['faultChainScore'] = max(0.0, candidate['faultChainScore'] - penalty)
+        candidate['score'] = confidence_ratio_to_percent(
+            1.0 if candidate.get('exactTextMatch') else min(candidate['faultChainScore'], 0.99)
+        )
+    entries.sort(key=lambda item: (
+        -float(item.get('entityEntryPriority', 0.0)),
+        float(item.get('unrelatedPenalty', 0.0)),
+        -float(item['faultChainScore']),
+        -float(item.get('finalRelevanceScore', 0.0)),
+        -float(item.get('subjectMatchScore', 0.0)),
+        item.get('name', ''),
+    ))
+    if entries:
+        best_id = str(entries[0].get('id') or '')
+        best_node = {
+            key: value
+            for key, value in entries[0].items()
+            if key != 'faultChainSubgraph'
+        }
+        with get_driver().session(database=get_database()) as session:
+            best_graph = {'nodes': [best_node], 'edges': []}
+            best_graph = merge_all_direct_relations(
+                session,
+                best_graph,
+                best_id,
+            )
+            best_graph = merge_causal_chains_for_focus(
+                session,
+                best_graph,
+                best_id,
+                query_text,
+            )
+        focused_best_graph = build_query_display_graph(best_graph, best_id, query_text)
+        entries[0]['faultChainSubgraph'] = subgraph_metadata(focused_best_graph)
+    record_fault_chain_step('candidate_sort', sort_started, candidates=len(entries), paths=path_count)
+    return entries, graph
+
+
+def fetch_fault_chain_for_node(
+    node_id: str,
+    query_text: str = '',
+) -> tuple[dict[str, Any] | None, dict[str, list[dict[str, Any]]]]:
+    with get_driver().session(database=get_database()) as session:
+        record = session.run(
+            '''
+            MATCH (node) WHERE elementId(node) = $nodeId
+            RETURN elementId(node) AS id, labels(node)[0] AS label, properties(node) AS props
+            ''',
+            nodeId=node_id,
+        ).single()
+        if not record:
+            return None, {'nodes': [], 'edges': []}
+        node = build_node_view(dict(record))
+        graph = {'nodes': [node], 'edges': []}
+        graph = merge_all_direct_relations(session, graph, node_id)
+        graph = merge_causal_chains_for_focus(session, graph, node_id, query_text)
+    display_graph = build_query_display_graph(graph, node_id, query_text)
+    node['faultChainSubgraph'] = subgraph_metadata(display_graph)
+    return node, display_graph
 
 
 def create_business_node(payload: dict[str, Any]) -> dict[str, Any]:
@@ -1083,6 +2675,7 @@ def create_business_node(payload: dict[str, Any]) -> dict[str, Any]:
                   ON CREATE SET node.created_from = 'manual',
                                 node.source_type = 'manual'
                 SET node.name = $name,
+                    node.searchText = $searchText,
                     node.updated_at = datetime()
                 MERGE (parent)-[rel:{relation_ref}]->(node)
                   ON CREATE SET rel.created_from = 'manual'
@@ -1091,6 +2684,7 @@ def create_business_node(payload: dict[str, Any]) -> dict[str, Any]:
                 parentId=parent_id,
                 key=key,
                 name=name,
+                searchText=build_search_text({'name': name}, node_label),
             ).single()
             created_id = created['id'] if created else ''
 
@@ -1121,10 +2715,15 @@ def update_business_node(node_id: str, payload: dict[str, Any]) -> dict[str, Any
             MATCH (node)
             WHERE elementId(node) = $nodeId
             SET node.name = $name,
+                node.searchText = $searchText,
                 node.updated_at = datetime()
             ''',
             nodeId=node_id,
             name=name,
+            searchText=build_search_text(
+                {**(dict(record).get('props') or {}), 'name': name},
+                str(dict(record).get('label') or ''),
+            ),
         ).consume()
 
     return {'nodeId': node_id, 'graph': build_graph_payload()}
@@ -1381,9 +2980,166 @@ def rank_nodes(query_text: str, nodes: list[dict[str, Any]]) -> list[dict[str, A
     return rank_nodes_with_project_bert(query_text, nodes)
 
 
-def rank_fault_chain_query_nodes(query_text: str, graph: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
-    candidates = semantic_candidate_pool(graph['nodes'])
-    return prioritize_fault_chain_query_nodes(rank_nodes_with_project_bert(query_text, candidates), graph)
+def query_evidence_node_ids(
+    query_texts: list[str],
+    nodes: list[dict[str, Any]],
+    limit: int | None = None,
+) -> set[str]:
+    effective_limit = limit or int(fault_query_config()['limits']['candidateTopK'])
+    ranked = sorted(
+        (
+            (
+                keyword_query_node_score(query_texts, node),
+                fuzzy_query_node_score(query_texts, node),
+                str(node.get('id', '')),
+            )
+            for node in nodes
+            if node.get('id')
+        ),
+        key=lambda item: (-max(item[0], item[1] * 0.8), -item[0], -item[1], item[2]),
+    )
+    return {
+        node_id
+        for keyword_score, fuzzy_score, node_id in ranked[:max(1, effective_limit)]
+        if keyword_score >= 0.25 or fuzzy_score >= 0.5
+    }
+
+
+def directly_related_node_ids(
+    node_ids: set[str],
+    graph: dict[str, list[dict[str, Any]]],
+) -> set[str]:
+    related_ids: set[str] = set()
+    for edge in graph['edges']:
+        source_id = str(edge.get('from', ''))
+        target_id = str(edge.get('to', ''))
+        if source_id in node_ids:
+            related_ids.add(target_id)
+        if target_id in node_ids:
+            related_ids.add(source_id)
+    return related_ids
+
+
+def ontology_rewrite_candidates(
+    nodes: list[dict[str, Any]],
+    query_texts: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for node in nodes:
+        groups[fault_chain_node_category(node)].append(node)
+
+    candidates: list[dict[str, Any]] = []
+    for semantic_role, role_nodes in sorted(groups.items()):
+        ranked_nodes = sorted(
+            role_nodes,
+            key=lambda node: (
+                -query_text_overlap_score(query_texts or [], node),
+                str(node.get('name', '')),
+            ),
+        )
+        examples = unique_non_empty_texts([str(node.get('name', '')) for node in ranked_nodes], limit=6)
+        candidates.append({
+            'id': f'semantic-role::{semantic_role}',
+            'name': semantic_role,
+            'level': semantic_role,
+            'owner': '',
+            'rawText': '；'.join(examples),
+            'key': semantic_role,
+        })
+    return candidates
+
+
+def query_text_overlap_score(query_texts: list[str], node: dict[str, Any]) -> float:
+    node_values = unique_non_empty_texts([
+        str(node.get('name', '')),
+        str(node.get('alias', '')),
+        str(node.get('owner', '')),
+        str(node.get('rawText', '')),
+        str(node.get('description', '')),
+        str(node.get('key', '')),
+    ], limit=6)
+    best_score = 0.0
+    for query_text in query_texts:
+        query_value = compact_exact_text(query_text)
+        if not query_value:
+            continue
+        query_grams = text_bigrams(query_value)
+        for node_value in node_values:
+            compact_node_value = compact_exact_text(node_value)
+            if not compact_node_value:
+                continue
+            if compact_node_value in query_value or query_value in compact_node_value:
+                best_score = max(best_score, 2.0 + min(len(compact_node_value), len(query_value)) / 100)
+                continue
+            node_grams = text_bigrams(compact_node_value)
+            if query_grams and node_grams:
+                best_score = max(best_score, len(query_grams & node_grams) / len(node_grams))
+    return best_score
+
+
+def fuzzy_query_node_score(query_texts: list[str], node: dict[str, Any]) -> float:
+    node_values = unique_non_empty_texts([
+        str(node.get('name', '')),
+        str(node.get('alias', '')),
+        str(node.get('owner', '')),
+        str(node.get('rawText', '')),
+        str(node.get('description', '')),
+        str(node.get('key', '')),
+    ], limit=6)
+    best_score = 0.0
+    for query_text in query_texts:
+        query_value = compact_exact_text(query_text)
+        if not query_value:
+            continue
+        for node_value in node_values:
+            compact_node_value = compact_exact_text(node_value)
+            if compact_node_value:
+                best_score = max(best_score, SequenceMatcher(None, query_value, compact_node_value).ratio())
+    return best_score
+
+
+def keyword_query_node_score(query_texts: list[str], node: dict[str, Any]) -> float:
+    overlap = query_text_overlap_score(query_texts, node)
+    if overlap >= 2.0:
+        return 1.0
+    return max(0.0, min(1.0, overlap))
+
+
+def text_bigrams(text: str) -> set[str]:
+    value = compact_exact_text(text)
+    if len(value) < 2:
+        return {value} if value else set()
+    return {value[index:index + 2] for index in range(len(value) - 1)}
+
+
+def build_related_semantic_texts(graph: dict[str, list[dict[str, Any]]]) -> dict[str, list[str]]:
+    node_map = {str(node.get('id', '')): node for node in graph['nodes'] if node.get('id')}
+    related_texts: dict[str, list[str]] = defaultdict(list)
+    for edge in graph['edges']:
+        source_id = str(edge.get('from', ''))
+        target_id = str(edge.get('to', ''))
+        source = node_map.get(source_id)
+        target = node_map.get(target_id)
+        if not source or not target:
+            continue
+
+        relation = str(edge.get('label') or edge.get('relationType') or '').strip()
+        source_name = str(source.get('name', '')).strip()
+        target_name = str(target.get('name', '')).strip()
+        compact_text = '；'.join(part for part in (source_name, relation, target_name) if part)
+        detailed_text = '；'.join(part for part in (
+            node_primary_semantic_text(source),
+            f'关系：{relation}' if relation else '',
+            node_primary_semantic_text(target),
+        ) if part)
+        edge_texts = unique_non_empty_texts([compact_text, detailed_text], limit=2)
+        related_texts[source_id].extend(edge_texts)
+        related_texts[target_id].extend(edge_texts)
+
+    return {
+        node_id: unique_non_empty_texts(texts, limit=len(texts))
+        for node_id, texts in related_texts.items()
+    }
 
 
 OPEN_FAILURE_EXPANSIONS = (
@@ -1394,7 +3150,6 @@ OPEN_FAILURE_EXPANSIONS = (
     '开启失败',
     '开不了',
     '卡滞',
-    '通电后打开',
 )
 
 OPEN_DELAY_EXPRESSIONS = (
@@ -1577,7 +3332,10 @@ def rank_nodes_with_semantic_fallback(
 
 
 def semantic_candidate_pool(nodes: list[dict[str, Any]], allowed_ids: set[str] | None = None) -> list[dict[str, Any]]:
-    allowed = [node for node in nodes if allowed_ids is None or node.get('id') in allowed_ids]
+    allowed = [
+        node for node in nodes
+        if (allowed_ids is None or node.get('id') in allowed_ids)
+    ]
     return sorted(allowed, key=query_candidate_sort_key)
 
 
@@ -1708,7 +3466,12 @@ def bounded_percent_score(value: Any, exact_match: bool = False) -> int:
     return max(1, min(upper_bound, score))
 
 
-def rank_nodes_with_project_bert(query_text: str, candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def rank_nodes_with_project_bert(
+    query_text: str,
+    candidates: list[dict[str, Any]],
+    related_texts_by_node: dict[str, list[str]] | None = None,
+    prepared_query_texts: list[str] | None = None,
+) -> list[dict[str, Any]]:
     encoder = get_project_bert_encoder()
     if not encoder:
         message = 'BERT 模型未加载，故障链查询已停止：请检查 FAULT_QUERY_BERT_MODEL 或本地 bert-base-chinese 模型文件。'
@@ -1716,34 +3479,55 @@ def rank_nodes_with_project_bert(query_text: str, candidates: list[dict[str, Any
         raise FaultQueryBertError(message)
 
     tokenizer, model, device, source = encoder
-    limit = max(1, int(os.environ.get('FAULT_QUERY_BERT_CANDIDATE_LIMIT', '256')))
-    selected_candidates = candidates[:limit]
+    selected_candidates = candidates
     if not selected_candidates:
         return []
-    query_texts = bert_query_texts(query_text, selected_candidates)
+    query_texts = prepared_query_texts or bert_query_texts(query_text, selected_candidates)
     node_texts = [node_primary_semantic_text(node) for node in selected_candidates]
     object_texts = [node_object_semantic_text(node) for node in selected_candidates]
-    texts = [*query_texts, *node_texts, *object_texts]
+    related_texts: list[str] = []
+    related_ranges: list[tuple[int, int]] = []
+    for node in selected_candidates:
+        start = len(related_texts)
+        related_texts.extend((related_texts_by_node or {}).get(str(node.get('id', '')), []))
+        related_ranges.append((start, len(related_texts)))
+    texts = [*query_texts, *node_texts, *object_texts, *related_texts]
 
     try:
         import torch
 
         embeddings = encode_with_project_bert(tokenizer, model, device, texts)
         query_count = len(query_texts)
-        if embeddings.size(0) < query_count + len(selected_candidates):
+        if embeddings.size(0) != len(texts):
             message = 'BERT 向量输出数量异常，故障链查询已停止。'
             update_llm_trace({'semanticFallback': 'bert-error', 'semanticModel': source, 'error': message})
             raise FaultQueryBertError(message)
         query_embeddings = embeddings[:query_count]
         node_embeddings = embeddings[query_count:query_count + len(selected_candidates)]
-        object_embeddings = embeddings[query_count + len(selected_candidates):]
+        object_start = query_count + len(selected_candidates)
+        object_end = object_start + len(selected_candidates)
+        object_embeddings = embeddings[object_start:object_end]
+        related_embeddings = embeddings[object_end:]
         node_score_matrix = torch.matmul(node_embeddings, query_embeddings.T)
         object_score_matrix = torch.matmul(object_embeddings, query_embeddings.T) if object_embeddings.size(0) else None
+        related_score_matrix = torch.matmul(related_embeddings, query_embeddings.T) if related_embeddings.size(0) else None
         node_scores, node_query_indexes = torch.max(node_score_matrix, dim=1)
         if object_score_matrix is not None and object_score_matrix.size(0):
             object_scores, _ = torch.max(object_score_matrix, dim=1)
         else:
             object_scores = torch.zeros(len(selected_candidates))
+        related_scores = torch.zeros(len(selected_candidates))
+        related_query_indexes = torch.zeros(len(selected_candidates), dtype=torch.long)
+        related_text_indexes = [-1] * len(selected_candidates)
+        if related_score_matrix is not None and related_score_matrix.size(0):
+            for index, (start, end) in enumerate(related_ranges):
+                if start >= end:
+                    continue
+                flat_index = int(torch.argmax(related_score_matrix[start:end]).item())
+                text_offset, query_index = divmod(flat_index, query_count)
+                related_scores[index] = related_score_matrix[start + text_offset, query_index]
+                related_query_indexes[index] = query_index
+                related_text_indexes[index] = start + text_offset
     except FaultQueryBertError:
         raise
     except Exception as exc:
@@ -1752,28 +3536,54 @@ def rank_nodes_with_project_bert(query_text: str, candidates: list[dict[str, Any
         raise FaultQueryBertError(message) from exc
 
     ranked: list[dict[str, Any]] = []
-    for index, (node, similarity) in enumerate(zip(selected_candidates, node_scores.tolist())):
+    for index, node in enumerate(selected_candidates):
         node_score = float(node_scores[index])
         object_score = float(object_scores[index]) if index < len(object_scores) else 0.0
-        matched_query_text = query_texts[int(node_query_indexes[index])] if index < len(node_query_indexes) else query_text
+        related_score = float(related_scores[index]) if index < len(related_scores) else 0.0
+        query_overlap_score = query_text_overlap_score(query_texts, node)
+        related_weight = 0.9 if query_overlap_score >= 0.25 else 0.65
+        related_combination_score = related_score * related_weight + node_score * (1.0 - related_weight)
+        use_related_score = related_combination_score > node_score
+        matched_query_index = related_query_indexes[index] if use_related_score else node_query_indexes[index]
+        matched_query_text = query_texts[int(matched_query_index)] if int(matched_query_index) < len(query_texts) else query_text
+        matched_related_index = related_text_indexes[index]
+        matched_related_text = related_texts[matched_related_index] if matched_related_index >= 0 else ''
         exact_match = query_exactly_matches_node([query_text], node)
         raw_node_score = 1.0 if exact_match else node_score
-        final_node_score = semantic_confidence_ratio(raw_node_score, exact_match)
-        semantic_score = confidence_ratio_to_percent(final_node_score)
+        raw_semantic_score = 1.0 if exact_match else max(node_score, related_combination_score)
+        final_semantic_score = semantic_confidence_ratio(raw_semantic_score, exact_match)
+        keyword_score = keyword_query_node_score(query_texts, node)
+        fuzzy_score = fuzzy_query_node_score(query_texts, node)
+        hybrid_score = 1.0 if exact_match else (
+            final_semantic_score * 0.72
+            + keyword_score * 0.18
+            + fuzzy_score * 0.10
+        )
+        final_hybrid_score = semantic_confidence_ratio(hybrid_score, exact_match)
+        semantic_score = confidence_ratio_to_percent(final_hybrid_score)
         ranked.append({
             **node,
             'score': semantic_score,
             'semanticScore': semantic_score,
-            'nodeSemanticScore': round(final_node_score, 6),
+            'nodeSemanticScore': round(semantic_confidence_ratio(raw_node_score, exact_match), 6),
             'bertNodeSemanticScore': round(node_score, 6),
             'objectSemanticScore': round(semantic_confidence_ratio(object_score, exact_match), 4),
+            'relatedSemanticScore': round(semantic_confidence_ratio(related_score), 6),
+            'relatedCombinationScore': round(semantic_confidence_ratio(related_combination_score), 6),
+            'queryOverlapScore': round(query_overlap_score, 6),
+            'combinedSemanticScore': round(final_semantic_score, 6),
+            'keywordMatchScore': round(keyword_score, 6),
+            'fuzzyMatchScore': round(fuzzy_score, 6),
+            'hybridRecallScore': round(final_hybrid_score, 6),
+            'matchedRelatedText': matched_related_text if use_related_score else '',
             'matchedQueryText': matched_query_text,
             'queryRewrites': query_texts,
             'exactTextMatch': exact_match,
             'rankSource': 'bert',
+            'semanticMatchSource': 'related-combination' if use_related_score else 'node',
         })
 
-    ranked.sort(key=lambda item: (-item['nodeSemanticScore'], -item['objectSemanticScore'], item['name']))
+    ranked.sort(key=lambda item: (-item['hybridRecallScore'], -item['combinedSemanticScore'], item['name']))
     if ranked:
         update_llm_trace({'semanticFallback': 'bert', 'semanticModel': source})
     return ranked
@@ -1835,6 +3645,93 @@ def fault_query_bert_candidates(configured: str = '') -> list[Path]:
         PROJECT_ROOT / 'fknow' / 'models' / DEFAULT_BERT_MODEL_NAME,
     ])
     return candidates
+
+
+def describe_bert_source(path: Path) -> dict[str, Any]:
+    required_files = ['config.json', 'vocab.txt']
+    weight_files = ['pytorch_model.bin', 'model.safetensors']
+    return {
+        'path': str(path),
+        'exists': path.exists(),
+        'isDir': path.is_dir(),
+        'requiredFiles': {name: (path / name).exists() for name in required_files},
+        'weightFiles': {name: (path / name).exists() for name in weight_files},
+        'hasWeights': any((path / name).exists() for name in weight_files),
+    }
+
+
+def dependency_status(module_name: str) -> dict[str, Any]:
+    try:
+        module = __import__(module_name)
+        return {
+            'ok': True,
+            'version': str(getattr(module, '__version__', 'unknown')),
+            'file': str(getattr(module, '__file__', '')),
+        }
+    except Exception as exc:
+        return {'ok': False, 'error': str(exc)}
+
+
+def bert_diagnostics(load_model: bool = False) -> dict[str, Any]:
+    configured = os.environ.get('FAULT_QUERY_BERT_MODEL', '').strip()
+    candidates = fault_query_bert_candidates(configured)
+    resolved_source = resolve_project_bert_source()
+    torch_status = dependency_status('torch')
+    transformers_status = dependency_status('transformers')
+    diagnostics: dict[str, Any] = {
+        'ok': False,
+        'message': '',
+        'pythonExecutable': sys.executable,
+        'pythonVersion': sys.version,
+        'projectRoot': str(PROJECT_ROOT),
+        'cwd': str(Path.cwd()),
+        'env': {
+            'FAULT_QUERY_BERT_MODEL': configured,
+            'FAULT_QUERY_BERT_DEVICE': os.environ.get('FAULT_QUERY_BERT_DEVICE', '').strip(),
+            'FAULT_QUERY_BERT_MAX_LENGTH': os.environ.get('FAULT_QUERY_BERT_MAX_LENGTH', '').strip(),
+            'FAULT_QUERY_BERT_BATCH_SIZE': os.environ.get('FAULT_QUERY_BERT_BATCH_SIZE', '').strip(),
+        },
+        'dependencies': {
+            'torch': torch_status,
+            'transformers': transformers_status,
+        },
+        'candidates': [describe_bert_source(path) for path in candidates],
+        'resolvedSource': resolved_source or '',
+        'loadRequested': load_model,
+    }
+
+    if not torch_status.get('ok') or not transformers_status.get('ok'):
+        diagnostics['message'] = 'BERT 依赖未安装或不可导入，请检查 Flask 启动所用 Python 环境。'
+        return diagnostics
+
+    if not resolved_source:
+        diagnostics['message'] = '未找到 BERT 模型目录，请检查 FAULT_QUERY_BERT_MODEL 或 models/bert-base-chinese。'
+        return diagnostics
+
+    source_info = describe_bert_source(Path(resolved_source))
+    diagnostics['resolvedSourceFiles'] = source_info
+    missing_required = [name for name, exists in source_info['requiredFiles'].items() if not exists]
+    if missing_required or not source_info['hasWeights']:
+        diagnostics['message'] = f"BERT 模型文件不完整，缺少：{', '.join(missing_required) or '权重文件 pytorch_model.bin/model.safetensors'}。"
+        return diagnostics
+
+    if load_model:
+        try:
+            _, _, device, source = get_project_bert_encoder()
+            diagnostics['device'] = device
+            diagnostics['resolvedSource'] = source
+        except FaultQueryBertError as exc:
+            diagnostics['message'] = str(exc)
+            diagnostics['traceback'] = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+            return diagnostics
+        except Exception as exc:
+            diagnostics['message'] = f'BERT 诊断加载失败：{exc}'
+            diagnostics['traceback'] = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+            return diagnostics
+
+    diagnostics['ok'] = True
+    diagnostics['message'] = 'BERT 配置检查通过。' if not load_model else 'BERT 模型加载成功。'
+    return diagnostics
 
 
 def resolve_huggingface_snapshot(model_name: str) -> Path | None:
@@ -1938,29 +3835,15 @@ def get_llm_trace() -> dict[str, Any]:
 
 
 def log_query_backend_strategy(query_text: str, best_node: dict[str, Any] | None = None) -> None:
-    trace = get_llm_trace()
-    if trace.get('semanticFallback') == 'bert':
-        if trace.get('rewriteSource') == 'llm':
-            strategy = '大模型改写+BERT'
-            detail = f"{trace.get('model') or get_llm_model()} -> {trace.get('semanticModel') or resolve_project_bert_source() or DEFAULT_BERT_MODEL_NAME}"
-        else:
-            strategy = 'BERT'
-            detail = str(trace.get('semanticModel') or resolve_project_bert_source() or DEFAULT_BERT_MODEL_NAME)
-    elif trace.get('semanticFallback') == 'bert-error':
-        strategy = 'BERT失败'
-        detail = str(trace.get('error') or 'BERT 未跑通')
-    elif trace.get('called'):
-        strategy = '本地规则匹配'
-        detail = str(trace.get('error') or '大模型未选中节点')
-    else:
-        strategy = '本地规则匹配'
-        detail = '大模型未调用'
-
     best_name = best_node.get('name', '') if best_node else ''
     best_score = top_match_score(query_text, best_node) if best_node else ''
+    index_score = best_node.get('indexScore', '') if best_node else ''
+    keyword_score = best_node.get('keywordMatchScore', '') if best_node else ''
+    fuzzy_score = best_node.get('fuzzyMatchScore', '') if best_node else ''
     print(
-        f"[FaultQuery] query={query_text!r} strategy={strategy} detail={detail} "
-        f"best={best_name!r} score={best_score}",
+        f"[FaultQuery] query={query_text!r} strategy=fulltext+keyword+fuzzy "
+        f"index={FAULT_SEARCH_INDEX_NAME} best={best_name!r} score={best_score} "
+        f"indexScore={index_score} keywordScore={keyword_score} fuzzyScore={fuzzy_score}",
         flush=True,
     )
 
@@ -1968,6 +3851,9 @@ def log_query_backend_strategy(query_text: str, best_node: dict[str, Any] | None
 def log_runtime_config() -> None:
     bert_source = resolve_project_bert_source()
     llm_state = 'enabled' if is_llm_query_enabled() else 'disabled'
+    users = auth_users()
+    editor = next((user for user in users.values() if user['role'] == 'editor'), None)
+    viewer = next((user for user in users.values() if user['role'] == 'viewer'), None)
     print(
         "[Startup] Fault query logging enabled. "
         f"Python={sys.executable} "
@@ -1977,6 +3863,25 @@ def log_runtime_config() -> None:
         f"Neo4j={get_neo4j_uri()} database={get_database() or 'neo4j'}",
         flush=True,
     )
+    print(
+        "[Startup] Authentication enabled. "
+        f"editor={editor['username'] if editor else 'not configured'} "
+        f"viewer={viewer['username'] if viewer else 'not configured'} "
+        f"sessionHours={AUTH_SESSION_MAX_AGE // 3600} "
+        f"secureCookie={auth_cookie_secure()} "
+        f"persistentSecret={bool(os.environ.get('AUTH_SECRET_KEY', '').strip())}",
+        flush=True,
+    )
+    try:
+        started = time.perf_counter()
+        ensure_fault_search_index()
+        print(
+            f"[Startup] Fault search index ready. "
+            f"index={FAULT_SEARCH_INDEX_NAME} cost={(time.perf_counter() - started) * 1000:.1f}ms",
+            flush=True,
+        )
+    except Exception as exc:
+        print(f"[Startup] Fault search index unavailable: {exc}", flush=True)
 
 
 def is_llm_query_enabled() -> bool:
@@ -2022,8 +3927,7 @@ def get_llm_model() -> str:
 
 
 def llm_candidate_pool(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    limit = max(1, int(os.environ.get('FAULT_QUERY_LLM_CANDIDATE_LIMIT', '256')))
-    return sorted(nodes, key=query_candidate_sort_key)[:limit]
+    return sorted(nodes, key=query_candidate_sort_key)
 
 
 def call_query_rewrite_llm(query_text: str, candidates: list[dict[str, Any]]) -> dict[str, Any]:
@@ -2047,7 +3951,7 @@ def call_query_rewrite_llm(query_text: str, candidates: list[dict[str, Any]]) ->
         '你是故障知识图谱查询语义转写器，不负责选择节点、排序或打分。'
         '请根据候选图谱文本的 name、rawText、key、level、owner 的命名结构，'
         '把用户口语化问题改写成 1 到 6 个更可能出现在图谱节点中的表达方式。'
-        '改写应尽量短，优先接近故障模式、故障现象或实体对象名称；不要输出候选节点 ID；不要做最终匹配。'
+        '改写应尽量短并接近图谱中的节点名称；不要偏向任何节点类型；不要输出候选节点 ID；不要做最终匹配。'
         '例如“发动机多次才能打开”可改写为“发动机一次起动失败”“发动机一次打不开”“一次起动失败”。'
         '只输出 JSON：{"rewrites":["..."],"reason":"..."}。'
     )
@@ -2143,7 +4047,12 @@ def top_match_confidence(query_text: str, item: dict[str, Any]) -> float:
     exact_match = bool(item.get('exactTextMatch')) or query_exactly_matches_node([query_text], item)
     if item.get('rankSource') == 'bert':
         try:
-            node_score = max(0.0, float(item.get('nodeSemanticScore', 0.0)))
+            node_score = max(0.0, float(
+                item.get(
+                    'faultChainScore',
+                    item.get('hybridRecallScore', item.get('combinedSemanticScore', item.get('nodeSemanticScore', 0.0))),
+                )
+            ))
         except (TypeError, ValueError):
             node_score = 0.0
         confidence = round(semantic_confidence_ratio(node_score, exact_match) * 100, 1)
@@ -2159,51 +4068,171 @@ def top_match_confidence(query_text: str, item: dict[str, Any]) -> float:
 
 def query_candidate_sort_key(node: dict[str, Any]) -> tuple[Any, ...]:
     return (
-        0 if is_failure_mode_node(node) else 1,
         LEVEL_ORDER.get(node.get('level', ''), 999),
         node.get('owner', ''),
         node.get('name', ''),
     )
 
 
-def prioritize_fault_chain_query_nodes(ranked: list[dict[str, Any]], graph: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
-    if not ranked:
-        return []
-    connected_ids = fault_chain_connected_node_ids(graph)
-    connected_failures = [
-        node for node in ranked
-        if node.get('id') in connected_ids and is_failure_mode_node(node)
-    ]
-    if connected_failures:
-        return connected_failures
-
-    failures = [node for node in ranked if is_failure_mode_node(node)]
-    if failures:
-        return failures
-
-    return ranked
-
-
-def filter_fault_chain_query_nodes(ranked: list[dict[str, Any]], graph: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
-    connected_ids = fault_chain_connected_node_ids(graph)
-    return [
-        node for node in ranked
-        if node.get('id') in connected_ids and is_failure_mode_node(node)
-    ]
-
-
-def fault_chain_connected_node_ids(graph: dict[str, list[dict[str, Any]]]) -> set[str]:
-    ids: set[str] = set()
-    for edge in graph['edges']:
-        if not is_fault_chain_edge(edge):
-            continue
-        ids.add(edge['from'])
-        ids.add(edge['to'])
-    return ids
-
-
 def is_failure_mode_node(node: dict[str, Any]) -> bool:
-    return node.get('type') in {'root-cause', 'fault', 'impact'} or '故障模式' in str(node.get('level', ''))
+    return semantic_role_for_node(node) == 'fault_mode'
+
+
+def fault_chain_node_category(node: dict[str, Any]) -> str:
+    return semantic_role_for_node(node)
+
+
+def is_query_chain_edge(edge: dict[str, Any]) -> bool:
+    return relation_group_for_edge(edge) in set(fault_query_config()['allowedRelationGroups'])
+
+
+def fault_chain_transition_allowed(source: dict[str, Any], target: dict[str, Any], edge: dict[str, Any]) -> bool:
+    return is_query_chain_edge(edge)
+
+
+def expand_fault_chain_subgraph(
+    start_node: dict[str, Any],
+    graph: dict[str, list[dict[str, Any]]],
+) -> dict[str, Any]:
+    config = fault_query_config()
+    limits = config['limits']
+    max_depth = int(limits['maxDepth'])
+    max_edges_per_node = int(limits['maxEdgesPerNode'])
+    max_nodes = int(limits['maxResultNodes'])
+    max_edges = int(limits['maxResultEdges'])
+    expected_roles = set(config['expectedSemanticRoles'])
+    role_order = {
+        role: index
+        for index, role in enumerate([*config['expectedSemanticRoles'], 'function', 'other'])
+    }
+    node_map = {str(node.get('id', '')): node for node in graph['nodes']}
+    adjacency: dict[str, list[tuple[str, dict[str, Any]]]] = defaultdict(list)
+    for edge in graph['edges']:
+        source = node_map.get(str(edge.get('from', '')))
+        target = node_map.get(str(edge.get('to', '')))
+        if not source or not target or not fault_chain_transition_allowed(source, target, edge):
+            continue
+        adjacency[source['id']].append((target['id'], edge))
+        adjacency[target['id']].append((source['id'], edge))
+    relation_weights = config['relationGroupWeights']
+    for node_id in adjacency:
+        adjacency[node_id].sort(key=lambda item: (
+            -float(relation_weights.get(relation_group_for_edge(item[1]), 0.0)),
+            str(item[1].get('label', '')),
+            item[0],
+        ))
+        adjacency[node_id] = adjacency[node_id][:max_edges_per_node]
+
+    start_id = str(start_node.get('id', ''))
+    depths = {start_id: 0}
+    selected_edges: dict[tuple[str, str, str, str], dict[str, Any]] = {}
+    queue: deque[str] = deque([start_id])
+    while queue and len(depths) < max_nodes and len(selected_edges) < max_edges:
+        current_id = queue.popleft()
+        current_depth = depths[current_id]
+        if current_depth >= max_depth:
+            continue
+        for neighbor_id, edge in adjacency.get(current_id, []):
+            next_depth = current_depth + 1
+            if neighbor_id not in depths:
+                depths[neighbor_id] = next_depth
+                queue.append(neighbor_id)
+            if depths.get(neighbor_id, next_depth) <= max_depth:
+                edge_key = (
+                    str(edge.get('from', '')),
+                    str(edge.get('to', '')),
+                    str(edge.get('relationType', '')),
+                    str(edge.get('label', '')),
+                )
+                selected_edges[edge_key] = edge
+                if len(selected_edges) >= max_edges:
+                    break
+
+    nodes = [node_map[node_id] for node_id in depths if node_id in node_map]
+    nodes.sort(key=lambda node: (
+        depths.get(node['id'], max_depth + 1),
+        role_order.get(fault_chain_node_category(node), 99),
+        node.get('name', ''),
+    ))
+    node_ids = {node['id'] for node in nodes}
+    edges = [
+        edge for edge in selected_edges.values()
+        if edge.get('from') in node_ids and edge.get('to') in node_ids
+    ]
+    edges.sort(key=lambda edge: (
+        min(depths.get(str(edge.get('from', '')), 99), depths.get(str(edge.get('to', '')), 99)),
+        str(edge.get('label', '')),
+        str(edge.get('from', '')),
+        str(edge.get('to', '')),
+    ))
+    categories = {fault_chain_node_category(node) for node in nodes}
+    completeness = len(categories & expected_roles) / max(1, len(expected_roles))
+    average_depth = sum(depths.values()) / max(1, len(depths))
+    relation_group_scores = [
+        float(relation_weights.get(relation_group_for_edge(edge), 0.0))
+        for edge in edges
+    ]
+    return {
+        'nodes': nodes,
+        'edges': edges,
+        'nodeIds': [node['id'] for node in nodes],
+        'categories': sorted(categories, key=lambda category: role_order.get(category, 99)),
+        'completeness': round(completeness, 6),
+        'averageDepth': round(average_depth, 6),
+        'relationGroupScore': round(
+            sum(relation_group_scores) / max(1, len(relation_group_scores)),
+            6,
+        ),
+    }
+
+
+def fault_chain_type_priority(node: dict[str, Any]) -> float:
+    weights = fault_query_config()['semanticRoleWeights']
+    return float(weights.get(fault_chain_node_category(node), weights.get('other', 0.5)))
+
+
+def rerank_fault_chain_candidates(
+    query_text: str,
+    ranked: list[dict[str, Any]],
+    graph: dict[str, list[dict[str, Any]]],
+) -> list[dict[str, Any]]:
+    config = fault_query_config()
+    entry_limit = int(config['limits']['expansionEntryLimit'])
+    reranked: list[dict[str, Any]] = []
+    for item in ranked[:entry_limit]:
+        subgraph = expand_fault_chain_subgraph(item, graph)
+        recall_score = float(item.get('hybridRecallScore', item.get('combinedSemanticScore', 0.0)))
+        completeness = float(subgraph['completeness'])
+        relation_group_score = float(subgraph.get('relationGroupScore', 0.0))
+        depth_penalty = min(0.08, float(subgraph['averageDepth']) * 0.025)
+        keyword_coverage = float(item.get('keywordMatchScore', 0.0))
+        final_score = (
+            recall_score * 0.62
+            + fault_chain_type_priority(item) * 0.10
+            + completeness * 0.14
+            + relation_group_score * 0.06
+            + keyword_coverage * 0.08
+            - depth_penalty
+        )
+        bounded_final_score = max(0.0, min(1.0, final_score))
+        reranked.append({
+            **item,
+            'score': confidence_ratio_to_percent(
+                semantic_confidence_ratio(bounded_final_score, bool(item.get('exactTextMatch')))
+            ),
+            'faultChainScore': round(bounded_final_score, 6),
+            'pathCompleteness': round(completeness, 6),
+            'relationGroupScore': round(relation_group_score, 6),
+            'pathLengthPenalty': round(depth_penalty, 6),
+            'faultChainSubgraph': subgraph,
+        })
+
+    reranked.sort(key=lambda item: (
+        -item['faultChainScore'],
+        -item.get('hybridRecallScore', 0.0),
+        item.get('name', ''),
+    ))
+    return reranked + ranked[entry_limit:]
 
 
 def collect_related(node_id: str, graph: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
@@ -2219,6 +4248,17 @@ def collect_related(node_id: str, graph: dict[str, list[dict[str, Any]]]) -> lis
     return related[:8]
 
 
+def collect_related_from_subgraph(node_id: str, subgraph: dict[str, Any]) -> list[dict[str, Any]]:
+    node_map = {node['id']: node for node in subgraph.get('nodes', [])}
+    related: list[dict[str, Any]] = []
+    for edge in subgraph.get('edges', []):
+        if edge.get('from') == node_id and edge.get('to') in node_map:
+            related.append({'direction': '输出', 'relation': edge.get('label', ''), 'target': node_map[edge['to']]})
+        elif edge.get('to') == node_id and edge.get('from') in node_map:
+            related.append({'direction': '输入', 'relation': edge.get('label', ''), 'target': node_map[edge['from']]})
+    return related[:8]
+
+
 def build_summary(node: dict[str, Any], related: list[dict[str, Any]]) -> str:
     if not related:
         return f"Neo4j 图数据库匹配到“{node['name']}”节点，当前没有抽取到更多直接关联关系。"
@@ -2230,23 +4270,6 @@ def build_checks(related: list[dict[str, Any]]) -> list[str]:
     return [f"检查{item['direction']}{item['relation']}节点：{item['target']['name']}" for item in related[:6]]
 
 
-def stage_for_level(level: str) -> dict[str, Any] | None:
-    for stage in STAGE_DEFINITIONS:
-        if level in stage['levels']:
-            return stage
-    return None
-
-
-def build_adjacency(graph: dict[str, list[dict[str, Any]]]) -> dict[str, list[dict[str, Any]]]:
-    adjacency: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for edge in graph['edges']:
-        if not is_fault_chain_edge(edge):
-            continue
-        adjacency[edge['from']].append({'neighbor': edge['to'], 'edge': edge, 'direction': '输出'})
-        adjacency[edge['to']].append({'neighbor': edge['from'], 'edge': edge, 'direction': '输入'})
-    return adjacency
-
-
 def is_fault_chain_edge(edge: dict[str, Any]) -> bool:
     return (
         edge.get('relationType') in FAULT_CHAIN_RELATION_TYPES
@@ -2254,155 +4277,228 @@ def is_fault_chain_edge(edge: dict[str, Any]) -> bool:
     )
 
 
-def shortest_paths_from(start_id: str, graph: dict[str, list[dict[str, Any]]]) -> tuple[dict[str, int], dict[str, tuple[str, dict[str, Any]]]]:
-    adjacency = build_adjacency(graph)
-    distances = {start_id: 0}
-    previous: dict[str, tuple[str, dict[str, Any]]] = {}
-    queue: deque[str] = deque([start_id])
+def conclusion_stage_rank(node: dict[str, Any]) -> int:
+    return fault_mode_level_rank(node)
 
+
+def reachable_fault_nodes(
+    start_id: str,
+    adjacency: dict[str, list[str]],
+    node_map: dict[str, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    visited = {start_id}
+    queue = deque([start_id])
     while queue:
-        current = queue.popleft()
-        for item in adjacency.get(current, []):
-            neighbor = item['neighbor']
-            if neighbor in distances:
+        current_id = queue.popleft()
+        for neighbor_id in adjacency.get(current_id, []):
+            if neighbor_id in visited:
                 continue
-            distances[neighbor] = distances[current] + 1
-            previous[neighbor] = (current, item['edge'])
-            queue.append(neighbor)
-
-    return distances, previous
-
-
-def reconstruct_path(target_id: str, previous: dict[str, tuple[str, dict[str, Any]]]) -> list[dict[str, Any]]:
-    path: list[dict[str, Any]] = []
-    cursor = target_id
-    while cursor in previous:
-        source, edge = previous[cursor]
-        path.append({'from': source, 'to': cursor, 'edge': edge})
-        cursor = source
-    path.reverse()
-    return path
+            visited.add(neighbor_id)
+            neighbor = node_map.get(neighbor_id)
+            if neighbor:
+                result.append(neighbor)
+                queue.append(neighbor_id)
+    return result
 
 
-def find_best_stage_node(stage: dict[str, Any], start_node: dict[str, Any], graph: dict[str, list[dict[str, Any]]], distances: dict[str, int]) -> dict[str, Any] | None:
-    candidates = [node for node in graph['nodes'] if node['level'] in stage['levels'] and node['id'] in distances]
-    if not candidates:
-        if start_node['level'] in stage['levels']:
-            return start_node
-        return None
-    candidates.sort(key=lambda item: (
-        distances.get(item['id'], 10**6),
-        stage['preference'].get(item['level'], 99),
-        0 if item['type'] in {'root-cause', 'fault', 'impact'} else 1,
-        item['name'],
+def conclusion_display_name(node: dict[str, Any] | None, fallback: str = '') -> str:
+    value = str((node or {}).get('name') or fallback).strip()
+    return value.rstrip('。；;，,、.!！?？').strip() or fallback
+
+
+def conclusion_sentence(
+    focus_node: dict[str, Any],
+    current_fault: dict[str, Any],
+    cause: dict[str, Any] | None,
+    phenomenon: dict[str, Any] | None,
+    effect: dict[str, Any] | None,
+) -> str:
+    focus_role = semantic_role_for_node(focus_node)
+    focus_name = conclusion_display_name(focus_node, '当前对象')
+    current_name = conclusion_display_name(current_fault, '当前故障')
+    has_leading_clause = False
+    if cause:
+        cause_name = conclusion_display_name(cause, '前置故障')
+        if focus_role == 'entity':
+            text = f'“{cause_name}”导致了“{focus_name}”的“{current_name}”故障'
+        else:
+            text = f'“{cause_name}”导致了“{current_name}”故障'
+        has_leading_clause = True
+    elif focus_role == 'entity':
+        text = f'“{focus_name}”可能发生“{current_name}”故障'
+        has_leading_clause = True
+    else:
+        text = f'“{current_name}”故障'
+
+    if phenomenon:
+        phenomenon_name = conclusion_display_name(phenomenon, '故障现象')
+        text += f'，其故障现象表现为“{phenomenon_name}”'
+        has_leading_clause = True
+    if effect:
+        effect_name = conclusion_display_name(effect, '后续故障')
+        connector = '，后续可能导致' if has_leading_clause else '后续可能导致'
+        text += f'{connector}“{effect_name}”'
+    elif not cause and not phenomenon and focus_role != 'entity':
+        text = f'查询命中“{current_name}”故障，当前图谱中未发现明确的前后级因果关系'
+    return text.rstrip('。') + '。'
+
+
+def build_fault_chain_conclusion(
+    query_text: str,
+    focus_node: dict[str, Any],
+    chain: dict[str, Any],
+) -> dict[str, str]:
+    nodes = [node for node in chain.get('nodes', []) if isinstance(node, dict)]
+    edges = [edge for edge in chain.get('edges', []) if isinstance(edge, dict)]
+    node_map = {str(node.get('id') or ''): node for node in nodes if node.get('id')}
+    focus_id = str(focus_node.get('id') or '')
+    focus = node_map.get(focus_id, focus_node)
+
+    primary_id = str(chain.get('primaryFaultNodeId') or '')
+    primary_chain_ids = [
+        str(node_id)
+        for node_id in chain.get('primaryChainNodeIds', [])
+        if str(node_id) in node_map
+    ]
+    if not primary_id and primary_chain_ids:
+        primary_id = primary_chain_ids[0]
+    if not primary_id:
+        primary_id = primary_fault_anchor_id(
+            {'nodes': nodes, 'edges': edges},
+            focus_id,
+            query_text,
+        )
+    if primary_id and primary_id not in primary_chain_ids:
+        primary_chain_ids.insert(0, primary_id)
+
+    current_fault = node_map.get(primary_id)
+    if not current_fault and semantic_role_for_node(focus) == 'fault_mode':
+        current_fault = focus
+        primary_id = focus_id
+        primary_chain_ids = [focus_id]
+    if not current_fault:
+        return {
+            'text': f'查询命中“{conclusion_display_name(focus, "当前节点")}”，当前图谱中未发现可整理的故障链。',
+            'method': '规则',
+        }
+
+    cause_ids = [
+        str(node_id)
+        for node_id in chain.get('focusCauseNodeIds', [])
+        if str(node_id) in node_map
+    ]
+    if not cause_ids:
+        cause_ids = [
+            str(edge.get('from') or '')
+            for edge in edges
+            if relation_group_for_edge(edge) == 'causal_link'
+            and str(edge.get('to') or '') == primary_id
+            and str(edge.get('from') or '') not in primary_chain_ids
+        ]
+    causes = list({
+        cause_id: node_map[cause_id]
+        for cause_id in cause_ids
+        if cause_id in node_map
+    }.values())
+    context_texts = [query_text, str(focus.get('name') or ''), str(current_fault.get('name') or '')]
+    causes.sort(key=lambda item: (
+        -keyword_query_node_score(context_texts, item),
+        -query_subject_match_score(query_text, item),
+        conclusion_stage_rank(item),
+        str(item.get('name') or ''),
     ))
-    return candidates[0]
+    cause = causes[0] if causes else None
+
+    effect = None
+    if len(primary_chain_ids) > 1:
+        effect = node_map.get(primary_chain_ids[-1])
+
+    phenomenon = focus if semantic_role_for_node(focus) == 'phenomenon' else None
+    if not phenomenon:
+        for edge in edges:
+            source = str(edge.get('from') or '')
+            target = str(edge.get('to') or '')
+            neighbor_id = target if source == primary_id else source if target == primary_id else ''
+            neighbor = node_map.get(neighbor_id)
+            if neighbor and semantic_role_for_node(neighbor) == 'phenomenon':
+                phenomenon = neighbor
+                break
+
+    return {
+        'text': conclusion_sentence(focus, current_fault, cause, phenomenon, effect),
+        'method': '规则',
+    }
 
 
-def collect_supporting_nodes(path_node_ids: set[str], graph: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
-    node_map = {node['id']: node for node in graph['nodes']}
-    supports: dict[str, dict[str, Any]] = {}
-    for edge in graph['edges']:
-        if not is_fault_chain_edge(edge):
-            continue
-        if edge['from'] in path_node_ids and edge['to'] in node_map:
-            target = node_map[edge['to']]
-            if target['level'] in FAULT_CHAIN_SUPPORT_LEVELS:
-                supports[target['id']] = target
-        if edge['to'] in path_node_ids and edge['from'] in node_map:
-            source = node_map[edge['from']]
-            if source['level'] in FAULT_CHAIN_SUPPORT_LEVELS:
-                supports[source['id']] = source
-    return sorted(supports.values(), key=lambda item: (item['level'], item['name']))
+def build_full_chain_reasoning(
+    query_text: str,
+    node: dict[str, Any],
+    graph: dict[str, list[dict[str, Any]]],
+    related: list[dict[str, Any]],
+    subgraph: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    chain = subgraph or expand_fault_chain_subgraph(node, graph)
+    category_titles = {
+        'entity': '实体对象',
+        'fault_mode': '故障模式',
+        'attribute': '属性要素',
+        'attribute_value': '属性值',
+        'phenomenon': '故障现象',
+        'measure': '故障措施',
+        'function': '功能',
+        'other': '其他关联',
+    }
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for chain_node in chain['nodes']:
+        grouped[fault_chain_node_category(chain_node)].append(chain_node)
 
-
-def summarize_stage_step(stage_title: str, node: dict[str, Any], path: list[dict[str, Any]]) -> str:
-    if not path:
-        return f"{stage_title}命中“{node['name']}”，当前作为推理起点。"
-    relations = ' -> '.join(step['edge']['label'] for step in path[:3])
-    return f"{stage_title}定位到“{node['name']}”（{node['level']}），可通过链路 {relations} 与搜索命中内容建立关联。"
-
-
-def build_full_chain_reasoning(query_text: str, node: dict[str, Any], graph: dict[str, list[dict[str, Any]]], related: list[dict[str, Any]]) -> dict[str, Any]:
-    distances, previous = shortest_paths_from(node['id'], graph)
-    stage_nodes: list[dict[str, Any]] = []
-    path_node_ids: set[str] = {node['id']}
-
-    for stage in STAGE_DEFINITIONS:
-        stage_node = find_best_stage_node(stage, node, graph, distances)
-        if not stage_node:
-            continue
-        path = reconstruct_path(stage_node['id'], previous) if stage_node['id'] != node['id'] else []
-        stage_nodes.append({
-            'stage': stage['title'],
-            'node': stage_node,
-            'path': path,
+    configured_roles = list(fault_query_config()['expectedSemanticRoles'])
+    role_order = {role: index for index, role in enumerate([*configured_roles, 'function', 'other'])}
+    steps: list[dict[str, Any]] = []
+    for category in sorted(grouped, key=lambda item: role_order.get(item, 99)):
+        category_nodes = grouped[category]
+        representative = node if any(item['id'] == node['id'] for item in category_nodes) else category_nodes[0]
+        names = '、'.join(item['name'] for item in category_nodes[:4])
+        steps.append({
+            'stage': category_titles.get(category, category),
+            'nodeId': representative['id'],
+            'nodeName': representative['name'],
+            'nodeLevel': representative['level'],
+            'summary': f"{category_titles.get(category, category)}：{names}",
         })
-        path_node_ids.add(stage_node['id'])
-        for item in path:
-            path_node_ids.add(item['from'])
-            path_node_ids.add(item['to'])
-
-    supports = collect_supporting_nodes(path_node_ids, graph)
-    for support in supports:
-        path_node_ids.add(support['id'])
-
-    steps = [{
-        'stage': item['stage'],
-        'nodeId': item['node']['id'],
-        'nodeName': item['node']['name'],
-        'nodeLevel': item['node']['level'],
-        'summary': summarize_stage_step(item['stage'], item['node'], item['path']),
-    } for item in stage_nodes]
 
     evidence: list[str] = []
     keywords = matched_terms(query_text, node)
     if keywords:
         evidence.append('搜索命中关键词：' + '、'.join(keywords))
+    evidence.append(
+        f"受限模板扩展：{len(chain['nodes'])} 个节点、{len(chain['edges'])} 条关系，"
+        f"链路完整度 {round(float(chain['completeness']) * 100)}%。"
+    )
     if related:
         evidence.append('直接关联节点：' + '；'.join(f"{item['target']['name']}（{item['relation']}）" for item in related[:4]))
-    if supports:
-        evidence.append('支撑条件：' + '；'.join(f"{item['level']}：{item['name']}" for item in supports[:4]))
 
-    summary_parts = [f"搜索内容首先命中“{node['name']}”（{node['level']}）。"]
-    if steps:
-        summary_parts.append('系统已按组件级、单体级、系统级、总体级完成链路收敛：' + ' -> '.join(
-            f"{item['stage']}“{item['nodeName']}”" for item in steps
-        ) + '。')
-    measures = [item['name'] for item in supports if item['level'] == '设计措施']
+    measures = [item['name'] for item in grouped.get('measure', [])]
+    summary = (
+        f"混合召回首先命中“{node['name']}”（{node['level']}），"
+        f"随后按故障链模板扩展到 {len(chain['nodes'])} 个节点和 {len(chain['edges'])} 条关系。"
+    )
     if measures:
-        summary_parts.append('可优先结合设计措施执行处置：' + '、'.join(measures[:3]) + '。')
+        summary += ' 可参考措施：' + '、'.join(measures[:3]) + '。'
 
     checks = build_checks(related)
-    for support in supports:
-        checks.append(f"复核{support['level']}：{support['name']}")
+    for category in ('phenomenon', 'measure', 'attribute', 'attribute_value'):
+        for item in grouped.get(category, [])[:2]:
+            checks.append(f"复核{category_titles[category]}：{item['name']}")
 
-    deduped_checks: list[str] = []
-    for check in checks:
-        if check not in deduped_checks:
-            deduped_checks.append(check)
-
-    ordered_path_ids: list[str] = []
-
-    def append_path_id(node_id: str) -> None:
-        if node_id not in ordered_path_ids:
-            ordered_path_ids.append(node_id)
-
-    append_path_id(node['id'])
-    for item in stage_nodes:
-        for path_item in item['path']:
-            append_path_id(path_item['from'])
-            append_path_id(path_item['to'])
-        append_path_id(item['node']['id'])
-    for support in supports:
-        append_path_id(support['id'])
-
+    deduped_checks = list(dict.fromkeys(checks))
     return {
-        'summary': ''.join(summary_parts) if summary_parts else build_summary(node, related),
-        'checks': deduped_checks[:8],
-        'pathNodeIds': ordered_path_ids,
+        'summary': summary,
+        'checks': deduped_checks[:10],
+        'pathNodeIds': chain['nodeIds'],
         'steps': steps,
-        'evidence': evidence[:4],
+        'evidence': evidence[:5],
     }
 
 
@@ -2434,12 +4530,6 @@ app = create_app()
 
 if __name__ == '__main__':
     debug_enabled = os.environ.get('FLASK_DEBUG', '').strip().lower() in {'1', 'true', 'yes', 'on'}
+    flask_port = int(os.environ.get('FLASK_PORT', '5001'))
     log_runtime_config()
-    app.run(host='0.0.0.0', port=5000, debug=debug_enabled, use_reloader=debug_enabled)
-
-
-
-
-
-
-
+    app.run(host='0.0.0.0', port=flask_port, debug=debug_enabled, use_reloader=debug_enabled)

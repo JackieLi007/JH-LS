@@ -7,6 +7,14 @@ import os
 from pathlib import Path
 from typing import Any, Mapping
 
+from backend.graph_registry import (
+    graph_index_dir,
+    graph_report_dir,
+    graph_version_history_path,
+    request_graph_database,
+    touch_graph,
+    validate_database_name,
+)
 from kg_tool.neo4j_graph import Neo4jConfig
 from kg_tool.versioning import DEFAULT_MAX_VERSIONS, DEFAULT_VERSION_HISTORY_PATH, list_triple_versions
 
@@ -29,17 +37,18 @@ def kg_auto_build_enabled() -> bool:
     return _env_bool('KG_AUTO_BUILD', False)
 
 
-def kg_postprocess_enabled() -> bool:
-    return _env_bool('KG_BUILD_POSTPROCESS', False)
-
-
-def get_neo4j_config(overrides: Mapping[str, Any] | None = None) -> Neo4jConfig:
+def get_neo4j_config(
+    overrides: Mapping[str, Any] | None = None,
+    *,
+    database: str | None = None,
+) -> Neo4jConfig:
     overrides = overrides or {}
+    requested_database = database or overrides.get('database') or os.environ.get('KG_NEO4J_DATABASE') or os.environ.get('NEO4J_DATABASE') or 'neo4j'
     return Neo4jConfig(
         uri=str(overrides.get('uri') or os.environ.get('KG_NEO4J_URI') or os.environ.get('NEO4J_URI') or 'bolt://127.0.0.1:7687'),
         user=str(overrides.get('user') or os.environ.get('KG_NEO4J_USER') or os.environ.get('NEO4J_USERNAME') or 'neo4j'),
-        password=str(overrides.get('password') or os.environ.get('KG_NEO4J_PASSWORD') or os.environ.get('NEO4J_PASSWORD') or '12345678'),
-        database=str(overrides.get('database') or os.environ.get('KG_NEO4J_DATABASE') or os.environ.get('NEO4J_DATABASE') or 'neo4j'),
+        password=str(overrides.get('password') or os.environ.get('KG_NEO4J_PASSWORD') or os.environ.get('NEO4J_PASSWORD') or '123456789'),
+        database=validate_database_name(requested_database),
     )
 
 
@@ -340,6 +349,7 @@ def build_kg_from_extraction_result(
     artifact_dir: str | Path | None = None,
     report_dir: str | Path | None = None,
     record_version: bool = True,
+    graph_database: str | None = None,
 ) -> dict[str, Any]:
     payload = normalize_extraction_result_to_triple_payload(extraction_result)
     if not payload.get('triples') and not payload.get('entities'):
@@ -351,24 +361,28 @@ def build_kg_from_extraction_result(
 
     from kg_tool.pipeline import ingest_triples_link_and_index
 
-    target_artifact_dir = Path(artifact_dir or os.environ.get('KG_ARTIFACT_DIR') or DEFAULT_ARTIFACT_DIR)
-    target_report_dir = Path(report_dir or os.environ.get('KG_REPORT_DIR') or DEFAULT_REPORT_DIR)
+    database = validate_database_name(graph_database or request_graph_database())
+    # Keep non-Neo4j artifacts segregated as well: a version rollback or an
+    # embedding rebuild for one product model must never affect another one.
+    target_artifact_dir = Path(artifact_dir or graph_index_dir(database))
+    target_report_dir = Path(report_dir or graph_report_dir(database))
     target_report_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     report_path = target_report_dir / f'{_safe_file_stem(str(payload.get("fileName") or ""))}_{timestamp}.json'
 
     summary = ingest_triples_link_and_index(
         payload,
-        neo4j_config=get_neo4j_config(neo4j_overrides),
+        neo4j_config=get_neo4j_config(neo4j_overrides, database=database),
         artifact_dir=target_artifact_dir,
-        run_postprocess=kg_postprocess_enabled(),
         report_path=report_path,
         record_version=record_version,
-        version_history_path=PROJECT_ROOT / DEFAULT_VERSION_HISTORY_PATH,
+        version_history_path=graph_version_history_path(database),
         max_versions=DEFAULT_MAX_VERSIONS,
     )
+    touch_graph(database)
     return {
         'status': 'ok',
+        'graphDatabase': database,
         'reportPath': str(report_path.relative_to(PROJECT_ROOT)).replace('\\', '/'),
         'payloadCounts': {
             'entities': len(payload.get('entities', [])),
@@ -426,26 +440,36 @@ def _version_record_summary(record: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def list_kg_versions(limit: int = DEFAULT_MAX_VERSIONS) -> dict[str, Any]:
-    versions = list_triple_versions(history_path=PROJECT_ROOT / DEFAULT_VERSION_HISTORY_PATH)
+def list_kg_versions(
+    limit: int = DEFAULT_MAX_VERSIONS,
+    *,
+    graph_database: str | None = None,
+) -> dict[str, Any]:
+    database = validate_database_name(graph_database or request_graph_database())
+    versions = list_triple_versions(history_path=graph_version_history_path(database))
     limited = list(reversed(versions))[:limit]
     return {
         'status': 'ok',
+        'graphDatabase': database,
         'limit': limit,
         'versions': [_version_record_summary(record) for record in limited if isinstance(record, Mapping)],
     }
 
 
-def rollback_latest_kg_version() -> dict[str, Any]:
+def rollback_latest_kg_version(*, graph_database: str | None = None) -> dict[str, Any]:
     from kg_tool.pipeline import rollback_latest_version_and_reindex
 
+    database = validate_database_name(graph_database or request_graph_database())
     summary = rollback_latest_version_and_reindex(
-        get_neo4j_config(),
-        artifact_dir=Path(os.environ.get('KG_ARTIFACT_DIR') or DEFAULT_ARTIFACT_DIR),
-        version_history_path=PROJECT_ROOT / DEFAULT_VERSION_HISTORY_PATH,
+        get_neo4j_config(database=database),
+        artifact_dir=graph_index_dir(database),
+        version_history_path=graph_version_history_path(database),
     )
+    if summary.get('rollback', {}).get('rolled_back'):
+        touch_graph(database)
     return {
         'status': 'ok',
+        'graphDatabase': database,
         'summary': json.loads(json.dumps(summary, ensure_ascii=False, default=str)),
-        'history': list_kg_versions(),
+        'history': list_kg_versions(graph_database=database),
     }
