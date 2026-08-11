@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
+from kg_tool.search_text import build_search_text
+
 from kg_tool.neo4j_graph import Neo4jConfig, _import_driver, load_graph_from_neo4j
 from kg_tool.neo4j_writeback import _quote_relation_type, write_link_results_to_neo4j
 
@@ -135,6 +137,7 @@ def _parse_entities(items: list[Mapping[str, Any]]) -> list[ParsedEntity]:
         node_type = _as_text(item.get("type"), default=DEFAULT_NODE_TYPE)
         properties = {"id": input_id, "name": name}
         properties.update(_defined_properties(item))
+        properties["searchText"] = build_search_text(properties, node_type)
         entities.append(ParsedEntity(input_id=input_id, name=name, node_type=node_type, properties=properties))
     _ensure_unique_ids(entities, "entity")
     return entities
