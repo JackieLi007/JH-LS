@@ -1127,7 +1127,7 @@ def get_neo4j_username() -> str:
 
 
 def get_neo4j_password() -> str:
-    return os.environ.get('NEO4J_PASSWORD', '').strip() or '123456789'
+    return os.environ.get('NEO4J_PASSWORD', '').strip() or '12345678'
 
 
 def get_database() -> str | None:

@@ -208,6 +208,9 @@ const selectedOntologyNodeId = ref('')
 const selectedFaultNodeId = ref('')
 const selectedOntologyTreeId = ref('graph-ontology-tree-root')
 const selectedFaultTreeId = ref('')
+const ontologyTreeSearch = ref('')
+const graphNodeSearch = ref('')
+const isGraphNodeFuzzySearch = ref(false)
 const isInitialOntologySampleMode = ref(false)
 const initialOntologySampleIds = ref<Set<string> | null>(null)
 const expandedOntologyIds = ref<string[]>([])
@@ -448,6 +451,67 @@ const nodeMap = computed(() => {
   return new Map(nodes.map((node) => [node.id, node] as const))
 })
 
+const normalizedGraphNodeSearch = computed(() => graphNodeSearch.value.trim().toLocaleLowerCase('zh-CN'))
+
+function editDistanceSimilarity(leftText: string, rightText: string) {
+  const left = Array.from(leftText)
+  const right = Array.from(rightText)
+  if (!left.length || !right.length) return left.length === right.length ? 1 : 0
+
+  let previous = Array.from({ length: right.length + 1 }, (_, index) => index)
+  for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {
+    const current = [leftIndex]
+    for (let rightIndex = 1; rightIndex <= right.length; rightIndex += 1) {
+      const replaceCost = left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1
+      current[rightIndex] = Math.min(
+        current[rightIndex - 1]! + 1,
+        previous[rightIndex]! + 1,
+        previous[rightIndex - 1]! + replaceCost,
+      )
+    }
+    previous = current
+  }
+
+  return 1 - previous[right.length]! / Math.max(left.length, right.length)
+}
+
+function fuzzyNameSimilarity(name: string, query: string) {
+  const normalizedName = name.toLocaleLowerCase('zh-CN').replace(/\s+/g, '')
+  const normalizedQuery = query.replace(/\s+/g, '')
+  if (!normalizedName || !normalizedQuery) return 0
+  if (normalizedName.includes(normalizedQuery)) return 1
+  if (normalizedQuery.length === 1) return 0
+
+  let bestScore = editDistanceSimilarity(normalizedName, normalizedQuery)
+  const nameCharacters = Array.from(normalizedName)
+  const queryLength = Array.from(normalizedQuery).length
+  const minimumWindowLength = Math.max(1, queryLength - 1)
+  const maximumWindowLength = Math.min(nameCharacters.length, queryLength + 1)
+
+  for (let windowLength = minimumWindowLength; windowLength <= maximumWindowLength; windowLength += 1) {
+    for (let start = 0; start + windowLength <= nameCharacters.length; start += 1) {
+      const candidate = nameCharacters.slice(start, start + windowLength).join('')
+      bestScore = Math.max(bestScore, editDistanceSimilarity(candidate, normalizedQuery))
+    }
+  }
+  return bestScore
+}
+
+const graphNodeSearchMatches = computed(() => {
+  const query = normalizedGraphNodeSearch.value
+  if (!query) return []
+  return (graph.value?.nodes ?? [])
+    .map((node) => ({
+      node,
+      score: isGraphNodeFuzzySearch.value
+        ? fuzzyNameSimilarity(node.name, query)
+        : node.name.toLocaleLowerCase('zh-CN').includes(query) ? 1 : 0,
+    }))
+    .filter((item) => item.score >= 0.6)
+    .sort((left, right) => right.score - left.score || left.node.name.localeCompare(right.node.name, 'zh-CN'))
+    .map((item) => item.node)
+})
+
 function findSimilarParent(parent: Map<string, string>, nodeId: string) {
   let cursor = parent.get(nodeId) ?? nodeId
   const trail: string[] = []
@@ -682,6 +746,7 @@ function isOntologyTemplateTreeNode(treeNode: TreeNode | null | undefined) {
 
 function isOntologyTemplateRenderModeActive() {
   return isOntologyView.value
+    && !normalizedGraphNodeSearch.value
     && !isInitialOntologySampleMode.value
     && !selectedOntologyNodeId.value
     && isOntologyTemplateTreeNode(selectedOntologyTree.value)
@@ -931,7 +996,40 @@ function buildFaultChainRenderNodes(positionOverrides: Record<string, NodePoint>
   })
 }
 
+function buildSearchGraphRenderNodes(positionOverrides: Record<string, NodePoint>, activeNodeId: string) {
+  const nodes = graphSubsetNodes.value
+  if (!nodes.length) return []
+
+  const columnCount = Math.min(5, Math.max(1, Math.ceil(Math.sqrt(nodes.length))))
+  const horizontalGap = 250
+  const verticalGap = 180
+  const rowCount = Math.ceil(nodes.length / columnCount)
+  const startY = Math.max(180, 480 - ((rowCount - 1) * verticalGap) / 2)
+
+  return nodes.map((node, index) => {
+    const row = Math.floor(index / columnCount)
+    const column = index % columnCount
+    const itemsInRow = Math.min(columnCount, nodes.length - row * columnCount)
+    const startX = GRAPH_WIDTH / 2 - ((itemsInRow - 1) * horizontalGap) / 2
+    const override = positionOverrides[node.id]
+    return {
+      id: node.id,
+      name: node.name,
+      shortName: node.shortName || node.name,
+      level: node.level,
+      x: override?.x ?? startX + column * horizontalGap,
+      y: override?.y ?? startY + row * verticalGap,
+      r: activeNodeId === node.id ? 60 : 52,
+      fill: toneByNode(node),
+    }
+  })
+}
+
 function buildRenderNodes(positionOverrides: Record<string, NodePoint>, activeNodeId: string) {
+  if (isOntologyView.value && normalizedGraphNodeSearch.value) {
+    return buildSearchGraphRenderNodes(positionOverrides, activeNodeId)
+  }
+
   if (isOntologyTemplateRenderModeActive()) {
     return graphSubsetNodes.value.map((node) => {
       const override = positionOverrides[node.id]
@@ -1432,6 +1530,38 @@ function buildGraphOntologyTree(): TreeNode | null {
 const faultTree = computed(() => buildFaultTree())
 const graphOntologyTree = computed(() => buildGraphOntologyTree())
 
+function filterTreeByNodeType(node: TreeNode, query: string): TreeNode | null {
+  const children = (node.children ?? [])
+    .map((child) => filterTreeByNodeType(child, query))
+    .filter((child): child is TreeNode => Boolean(child))
+  const isMatchingType = !node.nodeId && node.label.toLocaleLowerCase('zh-CN').includes(query)
+
+  if (!isMatchingType && !children.length) return null
+  return { ...node, children: children.length ? children : undefined }
+}
+
+const normalizedOntologyTreeSearch = computed(() => ontologyTreeSearch.value.trim().toLocaleLowerCase('zh-CN'))
+const filteredGraphOntologyTree = computed(() => {
+  const tree = graphOntologyTree.value
+  const query = normalizedOntologyTreeSearch.value
+  if (!tree || !query) return tree
+  return filterTreeByNodeType(tree, query)
+})
+
+const displayedOntologyExpandedIds = computed(() => {
+  if (!normalizedOntologyTreeSearch.value || !filteredGraphOntologyTree.value) return expandedOntologyIds.value
+
+  const ids = new Set(expandedOntologyIds.value)
+  const visit = (node: TreeNode) => {
+    if (node.children?.length) {
+      ids.add(node.id)
+      for (const child of node.children) visit(child)
+    }
+  }
+  visit(filteredGraphOntologyTree.value)
+  return Array.from(ids)
+})
+
 const ontologyTreeNodeMap = computed(() => {
   const map = new Map<string, TreeNode>()
 
@@ -1554,6 +1684,7 @@ const graphActiveNodeId = computed(() => {
 
 const graphSubsetIds = computed(() => {
   if (isOntologyView.value) {
+    if (normalizedGraphNodeSearch.value) return new Set(graphNodeSearchMatches.value.map((node) => node.id))
     if (isOntologyTemplateRenderModeActive()) return new Set(ontologyTemplateRenderNodeIds.value)
     if (!graph.value?.nodes.length) return new Set<string>()
     if (isInitialOntologySampleMode.value && initialOntologySampleIds.value?.size) {
@@ -1627,6 +1758,9 @@ const graphSubsetNodes = computed(() => {
   }
   if (!graph.value) return []
   const ids = graphSubsetIds.value
+  if (isOntologyView.value && normalizedGraphNodeSearch.value) {
+    return graphNodeSearchMatches.value
+  }
   if (isOntologyView.value) return mergeSimilarGraphNodes(graph.value.nodes.filter((node) => ids.has(node.id)))
   if (!queryResult.value && !selectedFaultNodeId.value) return []
   const connectedIds = new Set<string>()
@@ -1649,6 +1783,9 @@ const graphSubsetEdges = computed(() => {
   if (isOntologyView.value) {
     if (!graph.value) return []
     const ids = graphSubsetIds.value
+    if (normalizedGraphNodeSearch.value) {
+      return graph.value.edges.filter((edge) => !isSimilarEdge(edge) && ids.has(edge.from) && ids.has(edge.to))
+    }
     return mergeSimilarGraphEdges(graph.value.edges.filter((edge) => ids.has(edge.from) && ids.has(edge.to)))
   }
 
@@ -2433,6 +2570,12 @@ watch(() => route.fullPath, () => {
   void applyRouteQuery()
 })
 
+watch([normalizedGraphNodeSearch, isGraphNodeFuzzySearch], () => {
+  ontologyGraphPositions.value = {}
+  zoomGraphPositions.value = {}
+  void nextTick(() => syncGraphBoardCenter())
+})
+
 onBeforeUnmount(() => {
   window.removeEventListener('resize', syncViewportScale)
   window.removeEventListener('pointermove', handlePointerMove)
@@ -2577,11 +2720,16 @@ const TreeBranch: ReturnType<typeof defineComponent> = defineComponent({
                     <div class="eyebrow">图谱树</div>
                     <span class="tree-load-state">{{ graph ? `${graph.stats.nodeCount} 个节点` : isLoading ? '加载中...' : graphError ? '加载失败' : '本体模板' }}</span>
                   </div>
+                  <label class="tree-search">
+                    <span class="tree-search-icon" aria-hidden="true">⌕</span>
+                    <input v-model="ontologyTreeSearch" type="search" placeholder="搜索节点类型" aria-label="搜索图谱树节点类型">
+                    <button v-if="ontologyTreeSearch" type="button" class="tree-search-clear" aria-label="清空搜索" @click="ontologyTreeSearch = ''">×</button>
+                  </label>
                   <p v-if="graphError" class="tree-load-error">{{ graphError }}</p>
-                  <ul v-if="graphOntologyTree" class="tree-root">
-                    <TreeBranch :node="graphOntologyTree" :active-tree-id="selectedOntologyTreeId" :active-node-id="selectedOntologyNodeId" :expanded-ids="expandedOntologyIds" tone="system" @select="selectOntologyTreeNode" @toggle="toggleExpanded" />
+                  <ul v-if="filteredGraphOntologyTree" class="tree-root">
+                    <TreeBranch :node="filteredGraphOntologyTree" :active-tree-id="selectedOntologyTreeId" :active-node-id="selectedOntologyNodeId" :expanded-ids="displayedOntologyExpandedIds" tone="system" @select="selectOntologyTreeNode" @toggle="toggleExpanded" />
                   </ul>
-                  <div v-else class="tree-empty">暂无图谱数据</div>
+                  <div v-else class="tree-empty">{{ normalizedOntologyTreeSearch ? '未找到匹配的节点类型' : '暂无图谱数据' }}</div>
                 </section>
 
                 <section class="card graph-panel graph-panel--ontology">
@@ -2590,10 +2738,23 @@ const TreeBranch: ReturnType<typeof defineComponent> = defineComponent({
                       <div class="eyebrow">{{ activeViewMeta.graphTitle }}</div>
                     </div>
                     <div class="panel-actions">
-                      <div v-if="canEditGraph" class="node-actions">
-                        <button type="button" class="node-action" :disabled="isNodeSaving || !graph" @pointerdown.stop @click.prevent.stop="handleAddClick">新增</button>
-                        <button type="button" class="node-action" :disabled="isNodeSaving || !canModifySelectedNode" @pointerdown.stop @click.prevent.stop="handleEditClick">修改</button>
-                        <button type="button" class="node-action danger" :disabled="isNodeSaving || !canDeleteSelectedNode" @pointerdown.stop @click.stop="deleteSelectedNode">删除</button>
+                      <div class="panel-primary-actions">
+                        <div class="graph-node-search">
+                          <span class="graph-node-search-icon" aria-hidden="true">⌕</span>
+                          <input v-model="graphNodeSearch" type="search" placeholder="按节点名称搜索" aria-label="按节点 name 属性搜索">
+                          <span v-if="normalizedGraphNodeSearch" class="graph-node-search-count">{{ graphNodeSearchMatches.length }} 个</span>
+                          <button v-if="graphNodeSearch" type="button" class="graph-node-search-clear" aria-label="清空节点搜索" @click="graphNodeSearch = ''">×</button>
+                        </div>
+                        <label class="fuzzy-search-toggle" title="允许少字、错字或近似名称命中">
+                          <input v-model="isGraphNodeFuzzySearch" type="checkbox">
+                          <span class="fuzzy-search-switch" aria-hidden="true"></span>
+                          <span>模糊检索</span>
+                        </label>
+                        <div v-if="canEditGraph" class="node-actions">
+                          <button type="button" class="node-action" :disabled="isNodeSaving || !graph" @pointerdown.stop @click.prevent.stop="handleAddClick">新增</button>
+                          <button type="button" class="node-action" :disabled="isNodeSaving || !canModifySelectedNode" @pointerdown.stop @click.prevent.stop="handleEditClick">修改</button>
+                          <button type="button" class="node-action danger" :disabled="isNodeSaving || !canDeleteSelectedNode" @pointerdown.stop @click.stop="deleteSelectedNode">删除</button>
+                        </div>
                       </div>
                       <div class="graph-legend">
                         <span class="graph-zoom-tools">
@@ -2684,7 +2845,7 @@ const TreeBranch: ReturnType<typeof defineComponent> = defineComponent({
                         </g>
                       </svg>
                     </div>
-                    <div v-else class="empty">{{ isLoading ? '加载图谱中...' : '暂无数据' }}</div>
+                    <div v-else class="empty">{{ isLoading ? '加载图谱中...' : normalizedGraphNodeSearch ? '未找到名称匹配的节点' : '暂无数据' }}</div>
                   </div>
                 </section>
               </section>
@@ -2790,9 +2951,9 @@ const TreeBranch: ReturnType<typeof defineComponent> = defineComponent({
                             :fill="node.fill"
                             :class="['graph-node', { active: graphActiveNodeId === node.id }]"
                           />
-                          <text :x="node.x" :y="node.y - 6" class="graph-node-text" text-anchor="middle">
-                            <tspan :x="node.x" class="graph-node-name">{{ node.shortName }}</tspan>
-                            <tspan :x="node.x" dy="18" class="graph-node-level">{{ node.level }}</tspan>
+                          <text :x="node.x" :y="node.y - 8" class="graph-node-text graph-node-text--fault" text-anchor="middle">
+                            <tspan :x="node.x" class="graph-node-level">{{ node.level }}</tspan>
+                            <tspan :x="node.x" dy="20" class="graph-node-name">{{ node.shortName }}</tspan>
                           </text>
                         </g>
                       </svg>
@@ -2868,9 +3029,15 @@ const TreeBranch: ReturnType<typeof defineComponent> = defineComponent({
                 :fill="node.fill"
                 :class="['graph-node', { active: graphActiveNodeId === node.id }]"
               />
-              <text :x="node.x" :y="node.y - 6" class="graph-node-text" text-anchor="middle">
-                <tspan :x="node.x" class="graph-node-name">{{ node.shortName }}</tspan>
-                <tspan :x="node.x" dy="18" class="graph-node-level">{{ node.level }}</tspan>
+              <text :x="node.x" :y="node.y - (isOntologyView ? 6 : 8)" :class="['graph-node-text', { 'graph-node-text--fault': !isOntologyView }]" text-anchor="middle">
+                <template v-if="isOntologyView">
+                  <tspan :x="node.x" class="graph-node-name">{{ node.shortName }}</tspan>
+                  <tspan :x="node.x" dy="18" class="graph-node-level">{{ node.level }}</tspan>
+                </template>
+                <template v-else>
+                  <tspan :x="node.x" class="graph-node-level">{{ node.level }}</tspan>
+                  <tspan :x="node.x" dy="20" class="graph-node-name">{{ node.shortName }}</tspan>
+                </template>
               </text>
             </g>
           </svg>
@@ -2946,6 +3113,23 @@ textarea,.query-input{width:100%;min-height:64px;height:64px;border:1px solid #d
 .panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
 .panel-hint{max-width:460px}
 .panel-actions{display:grid;gap:8px;justify-items:end;min-width:0}
+.panel-primary-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-width:0}
+.graph-node-search{width:320px;height:36px;border:1px solid #cbd8ea;border-radius:10px;background:#fff;display:grid;grid-template-columns:30px minmax(0,1fr) auto 28px;align-items:center;box-shadow:0 6px 14px rgba(33,83,174,.08);transition:border-color .18s ease,box-shadow .18s ease}
+.graph-node-search:focus-within{border-color:#77a2e8;box-shadow:0 0 0 3px rgba(45,130,255,.1)}
+.graph-node-search-icon{display:grid;place-items:center;color:#7890b2;font-size:18px;font-weight:900;line-height:1}
+.graph-node-search input{width:100%;min-width:0;height:34px;border:0;outline:0;background:transparent;color:#17355e;font:inherit;font-size:12px;font-weight:700;padding:0}
+.graph-node-search input::placeholder{color:#91a1b8;font-weight:600}
+.graph-node-search input::-webkit-search-cancel-button{display:none}
+.graph-node-search-count{padding:0 5px;color:#557099;font-size:11px;font-weight:800;white-space:nowrap}
+.graph-node-search-clear{width:24px;height:24px;border:0;border-radius:7px;background:transparent;color:#7187a8;font:inherit;font-size:18px;line-height:1;cursor:pointer;display:grid;place-items:center;padding:0}
+.graph-node-search-clear:hover{background:#edf4ff;color:#285faf}
+.fuzzy-search-toggle{height:32px;display:inline-flex;align-items:center;gap:6px;color:#557099;font-size:11px;font-weight:800;white-space:nowrap;cursor:pointer;user-select:none}
+.fuzzy-search-toggle input{position:absolute;opacity:0;pointer-events:none}
+.fuzzy-search-switch{position:relative;width:30px;height:17px;border-radius:999px;background:#c5d2e3;box-shadow:inset 0 0 0 1px rgba(77,105,145,.12);transition:background .18s ease}
+.fuzzy-search-switch::after{content:"";position:absolute;left:2px;top:2px;width:13px;height:13px;border-radius:999px;background:#fff;box-shadow:0 2px 5px rgba(31,65,112,.25);transition:transform .18s ease}
+.fuzzy-search-toggle input:checked + .fuzzy-search-switch{background:#2d82ff}
+.fuzzy-search-toggle input:checked + .fuzzy-search-switch::after{transform:translateX(13px)}
+.fuzzy-search-toggle input:focus-visible + .fuzzy-search-switch{outline:2px solid #77a2e8;outline-offset:2px}
 .node-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .node-action{border:1px solid #cbd8ea;border-radius:8px;background:#fff;color:#17355e;font:inherit;font-size:12px;font-weight:900;min-height:30px;padding:0 12px;cursor:pointer;box-shadow:0 6px 14px rgba(33,83,174,.08)}
 .node-action:hover:not(:disabled){background:#eef5ff;border-color:#9ab7e8}
@@ -2992,11 +3176,21 @@ box-shadow:inset 0 1px 0 rgba(255,255,255,.9);cursor:zoom-in}
 .graph-node-text{pointer-events:none;paint-order:stroke;stroke:rgba(0,0,0,.08);stroke-width:2px;stroke-linejoin:round}
 .graph-node-name{font-size:11px;font-weight:900;fill:#fff}
 .graph-node-level{font-size:13px;font-weight:900;fill:#f3f8ff}
+.graph-node-text--fault .graph-node-level{font-size:11px}
+.graph-node-text--fault .graph-node-name{font-size:14px}
 .empty{display:grid;place-items:center;min-height:100%;color:#6b81a4;font-weight:800}
 .side-column{display:grid;grid-template-rows:minmax(0,1fr);gap:12px;min-height:0;height:100%}
 .card-hint{margin:6px 0 0;color:#667a98;line-height:1.45;font-size:12px}
 .tree-card{background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(244,249,255,.92));display:flex;flex-direction:column;min-height:0;overflow:hidden;padding:14px 14px 14px 8px}
 .tree-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-left:0}
+.tree-search{height:34px;margin:10px 0 0 6px;border:1px solid #d4e0ef;border-radius:10px;background:#fff;display:grid;grid-template-columns:26px minmax(0,1fr) 28px;align-items:center;transition:border-color .18s ease,box-shadow .18s ease}
+.tree-search:focus-within{border-color:#77a2e8;box-shadow:0 0 0 3px rgba(45,130,255,.1)}
+.tree-search-icon{display:grid;place-items:center;color:#7890b2;font-size:18px;font-weight:900;line-height:1}
+.tree-search input{width:100%;min-width:0;height:32px;border:0;outline:0;background:transparent;color:#17355e;font:inherit;font-size:12px;font-weight:700;padding:0}
+.tree-search input::placeholder{color:#91a1b8;font-weight:600}
+.tree-search input::-webkit-search-cancel-button{display:none}
+.tree-search-clear{width:24px;height:24px;border:0;border-radius:7px;background:transparent;color:#7187a8;font:inherit;font-size:18px;line-height:1;cursor:pointer;display:grid;place-items:center;padding:0}
+.tree-search-clear:hover{background:#edf4ff;color:#285faf}
 .fault-conclusion{flex:0 0 auto;margin:10px 0 0 6px;padding:11px 12px;border:1px solid #cbdcf2;border-left:4px solid #2d82ff;border-radius:10px;background:linear-gradient(135deg,#f5f9ff,#edf5ff);color:#17355e}
 .fault-conclusion strong{display:block;font-size:12px;color:#2d63ad}
 .fault-conclusion p{margin:6px 0 0;font-size:13px;line-height:1.65;font-weight:700}
