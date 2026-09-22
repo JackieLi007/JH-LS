@@ -238,6 +238,11 @@ const nodeFormRelationType = ref('发生阶段')
 const nodeOperationError = ref('')
 const isNodeSaving = ref(false)
 
+// 新增对话框相关状态
+const showQueryDialog = ref(false)
+const dialogQueryResults = ref<QueryTopMatch[]>([])
+const dialogIsLoading = ref(false)
+
 const STAGE_WIDTH = 1600
 const STAGE_HEIGHT = 900
 const GRAPH_WIDTH = 1520
@@ -450,7 +455,6 @@ const nodeMap = computed(() => {
   const nodes = graph.value?.nodes ?? queryResult.value?.subgraph?.nodes ?? []
   return new Map(nodes.map((node) => [node.id, node] as const))
 })
-
 const normalizedGraphNodeSearch = computed(() => graphNodeSearch.value.trim().toLocaleLowerCase('zh-CN'))
 
 function editDistanceSimilarity(leftText: string, rightText: string) {
@@ -511,7 +515,6 @@ const graphNodeSearchMatches = computed(() => {
     .sort((left, right) => right.score - left.score || left.node.name.localeCompare(right.node.name, 'zh-CN'))
     .map((item) => item.node)
 })
-
 function findSimilarParent(parent: Map<string, string>, nodeId: string) {
   let cursor = parent.get(nodeId) ?? nodeId
   const trail: string[] = []
@@ -2102,15 +2105,20 @@ async function applyRouteQuery() {
   await runQuery()
 }
 
+// 修改后的 runQuery - 先显示对话框
 async function runQuery() {
   const text = query.value.trim()
   queryError.value = ''
+
   if (!text) {
     queryError.value = '请输入故障现象'
     return
   }
 
-  isQuerying.value = true
+  // 显示加载状态
+  dialogIsLoading.value = true
+  showQueryDialog.value = true
+
   try {
     const response = await fetch('/api/query', {
       method: 'POST',
@@ -2119,12 +2127,62 @@ async function runQuery() {
       body: JSON.stringify({ text }),
     })
     const payload = await response.json()
+
+    if (!response.ok) {
+      queryError.value = payload.message ?? '查询失败，请稍后重试'
+      showQueryDialog.value = false
+      return
+    }
+
+    // 保存查询结果到对话框
+    dialogQueryResults.value = (payload.result as QueryResult)?.topMatches ?? []
+
+    // 如果没有任何候选结果，直接关闭对话框并显示错误
+    if (dialogQueryResults.value.length === 0) {
+      showQueryDialog.value = false
+      queryError.value = '未找到匹配的故障节点'
+    }
+  } catch {
+    queryError.value = '查询失败，请检查 Flask 服务是否正常'
+    showQueryDialog.value = false
+  } finally {
+    dialogIsLoading.value = false
+  }
+}
+
+// 新增：处理对话框中选择候选结果
+function selectDialogResult(match: QueryTopMatch) {
+  // 更新查询框文本为选中的节点名称
+  query.value = match.name
+
+  // 关闭对话框
+  showQueryDialog.value = false
+
+  // 直接执行查询（使用选中的节点名称）
+  executeQueryWithText(match.name)
+}
+
+// 新增：执行实际查询并更新图谱
+async function executeQueryWithText(searchText: string) {
+  queryError.value = ''
+  isQuerying.value = true
+
+  try {
+    const response = await fetch('/api/query', {
+      method: 'POST',
+      cache: 'no-store',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: searchText }),
+    })
+    const payload = await response.json()
+
     if (!response.ok) {
       queryError.value = payload.message ?? '查询失败，请稍后重试'
       return
     }
+
     queryResult.value = payload.result as QueryResult
-    currentQuery.value = text
+    currentQuery.value = searchText
     activeView.value = 'fault'
     selectedFaultNodeId.value = queryResult.value.nodeId || selectedFaultNodeId.value
     faultGraphPositions.value = {}
@@ -3045,6 +3103,51 @@ const TreeBranch: ReturnType<typeof defineComponent> = defineComponent({
       </div>
     </div>
   </div>
+  <!-- 查询候选结果对话框 -->
+  <div v-if="showQueryDialog" class="dialog-overlay" @click.self="showQueryDialog = false">
+    <div class="dialog-container">
+      <div class="dialog-header">
+        <h3>选择故障现象</h3>
+        <p class="dialog-subtitle">系统检测到以下匹配结果，请选择您要查询的故障：</p>
+        <button class="dialog-close" @click="showQueryDialog = false">×</button>
+      </div>
+
+      <div v-if="dialogIsLoading" class="dialog-loading">
+        查询中...
+      </div>
+
+      <div v-else class="dialog-results">
+        <button
+          v-for="match in dialogQueryResults"
+          :key="match.id"
+          class="dialog-result-item"
+          @click="selectDialogResult(match)"
+        >
+          <div class="dialog-result-rank">{{ match.rank }}</div>
+          <div class="dialog-result-content">
+            <div class="dialog-result-name">{{ match.name }}</div>
+            <div class="dialog-result-meta">
+              <span class="dialog-result-level">{{ match.level }}</span>
+              <span v-if="match.owner" class="dialog-result-owner">{{ match.owner }}</span>
+              <span class="dialog-result-confidence">匹配度：{{ match.confidence }}%</span>
+            </div>
+            <div v-if="match.matchedKeywords.length" class="dialog-result-keywords">
+              命中词：{{ match.matchedKeywords.slice(0, 3).join(' / ') }}
+            </div>
+          </div>
+          <div class="dialog-result-score">{{ match.confidence }}%</div>
+        </button>
+
+        <div v-if="dialogQueryResults.length === 0 && !dialogIsLoading" class="dialog-empty">
+          未找到匹配结果，请尝试其他关键词
+        </div>
+      </div>
+
+      <div class="dialog-footer">
+        <button class="dialog-cancel" @click="showQueryDialog = false">取消</button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <style scoped>
@@ -3235,4 +3338,252 @@ box-shadow:inset 0 1px 0 rgba(255,255,255,.9);cursor:zoom-in}
 .zoom-close{border:0;border-radius:999px;background:linear-gradient(135deg,#2d82ff,#134db7);color:#fff;font-weight:900;padding:0 16px;min-height:38px;cursor:pointer;box-shadow:0 12px 24px rgba(29,89,193,.22)}
 .zoom-board{margin:0 20px 20px;overflow:auto;border-radius:22px;border:1px solid #d8e3f1;background:radial-gradient(circle at 24px 24px,rgba(120,152,208,.14) 1.2px,transparent 1.2px),linear-gradient(180deg,#ffffff,#eef5ff);background-size:28px 28px,100% 100%;scrollbar-gutter:stable both-edges}
 .zoom-svg{width:100%;min-width:1520px;display:block}
+/* 对话框样式 */
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 23, 43, 0.6);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  z-index: 100;
+  backdrop-filter: blur(4px);
+}
+
+.dialog-container {
+  width: min(92vw, 640px);
+  max-height: 80vh;
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: 0 24px 60px rgba(15, 36, 71, 0.3);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: dialogSlideIn 0.25s ease;
+}
+
+@keyframes dialogSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.dialog-header {
+  position: relative;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid #e8edf5;
+  flex-shrink: 0;
+}
+
+.dialog-header h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 900;
+  color: #17355e;
+}
+
+.dialog-subtitle {
+  margin: 6px 0 0;
+  color: #6b81a4;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.dialog-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 999px;
+  background: #f1f5fa;
+  color: #6b81a4;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: all 0.2s ease;
+}
+
+.dialog-close:hover {
+  background: #e8edf5;
+  color: #17355e;
+}
+
+.dialog-loading {
+  padding: 48px 24px;
+  text-align: center;
+  color: #6b81a4;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.dialog-results {
+  padding: 16px 24px 20px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dialog-result-item {
+  width: 100%;
+  border: 1px solid #dce6f2;
+  border-radius: 12px;
+  background: #fafcff;
+  padding: 12px 14px;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  text-align: left;
+  color: #17355e;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dialog-result-item:hover {
+  border-color: #7ba8f4;
+  background: #eef5ff;
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(45, 130, 255, 0.12);
+}
+
+.dialog-result-item:active {
+  transform: scale(0.98);
+}
+
+.dialog-result-rank {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: #dfeaff;
+  color: #2359b0;
+  font-size: 12px;
+  font-weight: 900;
+  flex-shrink: 0;
+}
+
+.dialog-result-content {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dialog-result-name {
+  font-size: 15px;
+  font-weight: 900;
+  color: #17355e;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dialog-result-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+  color: #6b81a4;
+  font-weight: 600;
+}
+
+.dialog-result-level {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #eef2f8;
+  color: #4a6085;
+  font-size: 11px;
+}
+
+.dialog-result-owner {
+  color: #5f7391;
+}
+
+.dialog-result-confidence {
+  color: #0f766e;
+}
+
+.dialog-result-keywords {
+  font-size: 11px;
+  color: #8a9bb5;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dialog-result-score {
+  font-size: 14px;
+  font-weight: 900;
+  color: #0f766e;
+  flex-shrink: 0;
+}
+
+.dialog-empty {
+  padding: 32px 0;
+  text-align: center;
+  color: #8a9bb5;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.dialog-footer {
+  padding: 12px 24px 20px;
+  border-top: 1px solid #e8edf5;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.dialog-cancel {
+  border: 1px solid #dce6f2;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #6b81a4;
+  font-weight: 700;
+  padding: 8px 24px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.dialog-cancel:hover {
+  background: #f1f5fa;
+  border-color: #bccfe2;
+  color: #17355e;
+}
+
+@media (max-width: 640px) {
+  .dialog-container {
+    width: 96vw;
+    max-height: 90vh;
+  }
+
+  .dialog-result-item {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    padding: 10px 12px;
+  }
+
+  .dialog-result-rank {
+    display: none;
+  }
+
+  .dialog-result-score {
+    font-size: 12px;
+    align-self: flex-end;
+  }
+}
 </style>
