@@ -28,6 +28,10 @@ HEADER_PHASE = "任务阶段"
 HEADER_MEASURE = "设计措施"
 
 HEADER_CANONICAL_MAP = {
+    "故障模式": HEADER_UNIT_FAILURE,
+    "高一层次": HEADER_SYSTEM_EFFECT,
+    "高一层级": HEADER_SYSTEM_EFFECT,
+    "严酷等级": HEADER_SEVERITY,
     HEADER_MACHINE: HEADER_MACHINE,
     HEADER_FUNCTION: HEADER_FUNCTION,
     HEADER_UNIT_FAILURE: HEADER_UNIT_FAILURE,
@@ -291,7 +295,14 @@ def split_numbered_texts(value: str) -> List[str]:
     text = normalize_text(value).replace("\uFF1A", ":")
     if not text:
         return []
-    matches = list(re.finditer(r"\d+\s*:", text))
+    # An item marker must start at a text boundary, never inside N1/R6/C16.
+    boundary = r"(?<![^\s。；;,，])\d+\s*"
+    # Colon markers may be followed by digit-leading part IDs (1:1R16).
+    # Prefer the outer colon list so nested '1、开路 2、短路' stays with
+    # its owner instead of being mistaken for another component.
+    matches = list(re.finditer(boundary + r":", text))
+    if not matches:
+        matches = list(re.finditer(boundary + r"(?:、|\.(?!\d))", text))
     if not matches:
         return []
 
@@ -306,16 +317,17 @@ def split_numbered_texts(value: str) -> List[str]:
     tail = text[current_start:].strip(" ;\uFF1B,\uFF0C\u3001")
     if tail:
         segments.append(tail)
-    return segments if len(segments) > 1 else []
+    return segments
 
 
 def split_prefixed_texts(value: str) -> List[Tuple[str, str]]:
     text = normalize_text(value)
+    text = re.sub(r"\s*[（(]\s*共\s*[一二三四五六七八九十百零〇\d]+\s*[个种]\s*故障(?:模式|原因)\s*[）)]\s*[。.]?\s*$", "", text).strip()
     if not text:
         return []
     segments = split_numbered_texts(text)
     if not segments:
-        segments = split_top_level_text(text, {"\n", ";", "；"})
+        segments = split_top_level_text(text, {"\n", ";", "；", "。"})
         if len(segments) <= 1:
             colon_count = sum(1 for ch in text if ch in {":", "："})
             if colon_count > 1:
@@ -324,7 +336,8 @@ def split_prefixed_texts(value: str) -> List[Tuple[str, str]]:
                     segments = segmented
     parsed: List[Tuple[str, str]] = []
     for segment in segments or [text]:
-        parsed.append(split_prefixed_text(segment))
+        owner, mode = split_prefixed_text(segment)
+        parsed.append((owner, mode.rstrip('。.;； ')))
     return parsed
 
 
@@ -368,13 +381,20 @@ def get_sheet_path(xlsx: zipfile.ZipFile, sheet_name: Optional[str]) -> str:
     return f"xl/{target}"
 
 
+class SourceRecord(dict):
+    """Keep original worksheet row numbers without exposing a synthetic column."""
+    def __init__(self, values=(), *, row_number=0):
+        super().__init__(values)
+        self.row_number = row_number
+
+
 def read_xlsx_rows(path: Path, sheet_name: Optional[str]) -> Iterator[Dict[str, str]]:
     with zipfile.ZipFile(path) as xlsx:
         shared_strings = get_shared_strings(xlsx)
         sheet_path = get_sheet_path(xlsx, sheet_name)
         sheet = ET.fromstring(xlsx.read(sheet_path))
         for row in sheet.findall(".//a:sheetData/a:row", NS):
-            current: Dict[str, str] = {}
+            current = SourceRecord(row_number=int(row.attrib['r']))
             for cell in row.findall("a:c", NS):
                 reference = cell.attrib.get("r", "")
                 column = "".join(ch for ch in reference if ch.isalpha())
@@ -396,8 +416,8 @@ def read_xlsx_rows(path: Path, sheet_name: Optional[str]) -> Iterator[Dict[str, 
 def read_csv_rows(path: Path) -> Iterator[Dict[str, str]]:
     with path.open("r", encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle)
-        for row in reader:
-            yield {normalize_text(k): normalize_text(v) for k, v in row.items() if k is not None}
+        for index, row in enumerate(reader, start=2):
+            yield SourceRecord({normalize_text(k): normalize_text(v) for k, v in row.items() if k is not None}, row_number=index)
 
 
 def load_records(
@@ -438,7 +458,7 @@ def merge_records(
 
     merged_records: List[Dict[str, str]] = []
     for index, (primary, extra) in enumerate(zip(primary_records, extra_records), start=2):
-        merged = dict(primary)
+        merged = SourceRecord(primary, row_number=getattr(primary, 'row_number', index))
         for key, value in extra.items():
             if key in merged and value:
                 merged[key] = value
@@ -472,12 +492,12 @@ def rows_to_records(
 
         name_to_column = {name: column for column, name in ordered_headers.items()}
         records = []
-        for row in rows[1:]:
+        for index, row in enumerate(rows[1:], start=2):
             record = {
                 header: normalize_text(row.get(column, ""))
                 for header, column in name_to_column.items()
             }
-            records.append(record)
+            records.append(SourceRecord(record, row_number=getattr(row, 'row_number', index)))
         return records
 
     header_names = {canonicalize_header_name(header) for header in rows[0].keys()}
@@ -485,12 +505,12 @@ def rows_to_records(
     if require_required_headers and missing:
         raise ValueError(f"Missing required headers: {', '.join(missing)}")
     return [
-        {canonicalize_header_name(header): normalize_text(value) for header, value in row.items()}
-        for row in rows
+        SourceRecord({canonicalize_header_name(header): normalize_text(value) for header, value in row.items()}, row_number=getattr(row, 'row_number', index))
+        for index, row in enumerate(rows, start=2)
     ]
 
 
-def build_graph_rows(records: Sequence[Dict[str, str]]) -> List[GraphRow]:
+def build_graph_rows(records: Sequence[Dict[str, str]], preserve_partial: bool = False) -> List[GraphRow]:
     graph_rows: List[GraphRow] = []
 
     def pair_at(pairs: List[Tuple[str, str]], index: int) -> Tuple[str, str]:
@@ -508,7 +528,7 @@ def build_graph_rows(records: Sequence[Dict[str, str]]) -> List[GraphRow]:
         system_effect_raw = normalize_text(record[HEADER_SYSTEM_EFFECT])
         overall_failure_mode = normalize_text(record[HEADER_FINAL_EFFECT])
 
-        if not machine_name or not unit_failure_mode:
+        if not preserve_partial and (not machine_name or not unit_failure_mode):
             continue
 
         component_pairs = split_prefixed_texts(component_reason_raw)
@@ -519,20 +539,21 @@ def build_graph_rows(records: Sequence[Dict[str, str]]) -> List[GraphRow]:
             component_name, component_failure_mode = pair_at(component_pairs, pair_index)
             system_name, system_failure_mode = pair_at(system_pairs, pair_index)
 
-            if not component_name:
-                continue
-            if not component_failure_mode:
-                component_failure_mode = component_reason_raw or "未标注组件级故障模式"
-            if not system_name:
-                system_name = "未标注系统"
-            if not system_failure_mode:
-                system_failure_mode = system_effect_raw or "未标注系统级故障模式"
-            if not overall_failure_mode:
-                overall_failure_mode = "未标注总体级故障模式"
+            # Missing component structure must not discard independent facts.
+            # Keep unknown owners empty instead of inventing placeholder entities.
+            # The legacy CLI writer requires complete rows; the web extractor
+            # explicitly opts into partial rows and handles each fact separately.
+            if not preserve_partial:
+                if not component_name:
+                    continue
+                component_failure_mode = component_failure_mode or component_reason_raw or '未标注组件级故障模式'
+                system_name = system_name or '未标注系统'
+                system_failure_mode = system_failure_mode or system_effect_raw or '未标注系统级故障模式'
+                overall_failure_mode = overall_failure_mode or '未标注总体级故障模式'
 
             graph_rows.append(
                 GraphRow(
-                    row_number=offset,
+                    row_number=getattr(record, 'row_number', offset),
                     machine_name=machine_name,
                     function_name=function_name,
                     unit_failure_mode=unit_failure_mode,

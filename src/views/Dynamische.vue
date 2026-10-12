@@ -221,6 +221,9 @@ const selectedOntologyNodeId = ref('')
 const selectedFaultNodeId = ref('')
 const selectedOntologyTreeId = ref('graph-ontology-tree-root')
 const selectedFaultTreeId = ref('')
+const ontologyTreeSearch = ref('')
+const graphNodeSearch = ref('')
+const isGraphNodeFuzzySearch = ref(false)
 const isInitialOntologySampleMode = ref(false)
 const initialOntologySampleIds = ref<Set<string> | null>(null)
 const expandedOntologyIds = ref<string[]>([])
@@ -247,6 +250,11 @@ const nodeFormParentId = ref('')
 const nodeFormRelationType = ref('发生阶段')
 const nodeOperationError = ref('')
 const isNodeSaving = ref(false)
+
+// 新增对话框相关状态
+const showQueryDialog = ref(false)
+const dialogQueryResults = ref<QueryTopMatch[]>([])
+const dialogIsLoading = ref(false)
 
 const STAGE_WIDTH = 1600
 const STAGE_HEIGHT = 900
@@ -460,7 +468,66 @@ const nodeMap = computed(() => {
   const nodes = graph.value?.nodes ?? queryResult.value?.subgraph?.nodes ?? []
   return new Map(nodes.map((node) => [node.id, node] as const))
 })
+const normalizedGraphNodeSearch = computed(() => graphNodeSearch.value.trim().toLocaleLowerCase('zh-CN'))
 
+function editDistanceSimilarity(leftText: string, rightText: string) {
+  const left = Array.from(leftText)
+  const right = Array.from(rightText)
+  if (!left.length || !right.length) return left.length === right.length ? 1 : 0
+
+  let previous = Array.from({ length: right.length + 1 }, (_, index) => index)
+  for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {
+    const current = [leftIndex]
+    for (let rightIndex = 1; rightIndex <= right.length; rightIndex += 1) {
+      const replaceCost = left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1
+      current[rightIndex] = Math.min(
+        current[rightIndex - 1]! + 1,
+        previous[rightIndex]! + 1,
+        previous[rightIndex - 1]! + replaceCost,
+      )
+    }
+    previous = current
+  }
+
+  return 1 - previous[right.length]! / Math.max(left.length, right.length)
+}
+
+function fuzzyNameSimilarity(name: string, query: string) {
+  const normalizedName = name.toLocaleLowerCase('zh-CN').replace(/\s+/g, '')
+  const normalizedQuery = query.replace(/\s+/g, '')
+  if (!normalizedName || !normalizedQuery) return 0
+  if (normalizedName.includes(normalizedQuery)) return 1
+  if (normalizedQuery.length === 1) return 0
+
+  let bestScore = editDistanceSimilarity(normalizedName, normalizedQuery)
+  const nameCharacters = Array.from(normalizedName)
+  const queryLength = Array.from(normalizedQuery).length
+  const minimumWindowLength = Math.max(1, queryLength - 1)
+  const maximumWindowLength = Math.min(nameCharacters.length, queryLength + 1)
+
+  for (let windowLength = minimumWindowLength; windowLength <= maximumWindowLength; windowLength += 1) {
+    for (let start = 0; start + windowLength <= nameCharacters.length; start += 1) {
+      const candidate = nameCharacters.slice(start, start + windowLength).join('')
+      bestScore = Math.max(bestScore, editDistanceSimilarity(candidate, normalizedQuery))
+    }
+  }
+  return bestScore
+}
+
+const graphNodeSearchMatches = computed(() => {
+  const query = normalizedGraphNodeSearch.value
+  if (!query) return []
+  return (graph.value?.nodes ?? [])
+    .map((node) => ({
+      node,
+      score: isGraphNodeFuzzySearch.value
+        ? fuzzyNameSimilarity(node.name, query)
+        : node.name.toLocaleLowerCase('zh-CN').includes(query) ? 1 : 0,
+    }))
+    .filter((item) => item.score >= 0.6)
+    .sort((left, right) => right.score - left.score || left.node.name.localeCompare(right.node.name, 'zh-CN'))
+    .map((item) => item.node)
+})
 function findSimilarParent(parent: Map<string, string>, nodeId: string) {
   let cursor = parent.get(nodeId) ?? nodeId
   const trail: string[] = []
@@ -698,6 +765,7 @@ function isOntologyTemplateTreeNode(treeNode: TreeNode | null | undefined) {
 
 function isOntologyTemplateRenderModeActive() {
   return isOntologyView.value
+    && !normalizedGraphNodeSearch.value
     && !isInitialOntologySampleMode.value
     && !selectedOntologyNodeId.value
     && isOntologyTemplateTreeNode(selectedOntologyTree.value)
@@ -947,7 +1015,40 @@ function buildFaultChainRenderNodes(positionOverrides: Record<string, NodePoint>
   })
 }
 
+function buildSearchGraphRenderNodes(positionOverrides: Record<string, NodePoint>, activeNodeId: string) {
+  const nodes = graphSubsetNodes.value
+  if (!nodes.length) return []
+
+  const columnCount = Math.min(5, Math.max(1, Math.ceil(Math.sqrt(nodes.length))))
+  const horizontalGap = 250
+  const verticalGap = 180
+  const rowCount = Math.ceil(nodes.length / columnCount)
+  const startY = Math.max(180, 480 - ((rowCount - 1) * verticalGap) / 2)
+
+  return nodes.map((node, index) => {
+    const row = Math.floor(index / columnCount)
+    const column = index % columnCount
+    const itemsInRow = Math.min(columnCount, nodes.length - row * columnCount)
+    const startX = GRAPH_WIDTH / 2 - ((itemsInRow - 1) * horizontalGap) / 2
+    const override = positionOverrides[node.id]
+    return {
+      id: node.id,
+      name: node.name,
+      shortName: node.shortName || node.name,
+      level: node.level,
+      x: override?.x ?? startX + column * horizontalGap,
+      y: override?.y ?? startY + row * verticalGap,
+      r: activeNodeId === node.id ? 60 : 52,
+      fill: toneByNode(node),
+    }
+  })
+}
+
 function buildRenderNodes(positionOverrides: Record<string, NodePoint>, activeNodeId: string) {
+  if (isOntologyView.value && normalizedGraphNodeSearch.value) {
+    return buildSearchGraphRenderNodes(positionOverrides, activeNodeId)
+  }
+
   if (isOntologyTemplateRenderModeActive()) {
     return graphSubsetNodes.value.map((node) => {
       const override = positionOverrides[node.id]
@@ -1448,6 +1549,38 @@ function buildGraphOntologyTree(): TreeNode | null {
 const faultTree = computed(() => buildFaultTree())
 const graphOntologyTree = computed(() => buildGraphOntologyTree())
 
+function filterTreeByNodeType(node: TreeNode, query: string): TreeNode | null {
+  const children = (node.children ?? [])
+    .map((child) => filterTreeByNodeType(child, query))
+    .filter((child): child is TreeNode => Boolean(child))
+  const isMatchingType = !node.nodeId && node.label.toLocaleLowerCase('zh-CN').includes(query)
+
+  if (!isMatchingType && !children.length) return null
+  return { ...node, children: children.length ? children : undefined }
+}
+
+const normalizedOntologyTreeSearch = computed(() => ontologyTreeSearch.value.trim().toLocaleLowerCase('zh-CN'))
+const filteredGraphOntologyTree = computed(() => {
+  const tree = graphOntologyTree.value
+  const query = normalizedOntologyTreeSearch.value
+  if (!tree || !query) return tree
+  return filterTreeByNodeType(tree, query)
+})
+
+const displayedOntologyExpandedIds = computed(() => {
+  if (!normalizedOntologyTreeSearch.value || !filteredGraphOntologyTree.value) return expandedOntologyIds.value
+
+  const ids = new Set(expandedOntologyIds.value)
+  const visit = (node: TreeNode) => {
+    if (node.children?.length) {
+      ids.add(node.id)
+      for (const child of node.children) visit(child)
+    }
+  }
+  visit(filteredGraphOntologyTree.value)
+  return Array.from(ids)
+})
+
 const ontologyTreeNodeMap = computed(() => {
   const map = new Map<string, TreeNode>()
 
@@ -1570,6 +1703,7 @@ const graphActiveNodeId = computed(() => {
 
 const graphSubsetIds = computed(() => {
   if (isOntologyView.value) {
+    if (normalizedGraphNodeSearch.value) return new Set(graphNodeSearchMatches.value.map((node) => node.id))
     if (isOntologyTemplateRenderModeActive()) return new Set(ontologyTemplateRenderNodeIds.value)
     if (!graph.value?.nodes.length) return new Set<string>()
     if (isInitialOntologySampleMode.value && initialOntologySampleIds.value?.size) {
@@ -1643,6 +1777,9 @@ const graphSubsetNodes = computed(() => {
   }
   if (!graph.value) return []
   const ids = graphSubsetIds.value
+  if (isOntologyView.value && normalizedGraphNodeSearch.value) {
+    return graphNodeSearchMatches.value
+  }
   if (isOntologyView.value) return mergeSimilarGraphNodes(graph.value.nodes.filter((node) => ids.has(node.id)))
   if (!queryResult.value && !selectedFaultNodeId.value) return []
   const connectedIds = new Set<string>()
@@ -1665,6 +1802,9 @@ const graphSubsetEdges = computed(() => {
   if (isOntologyView.value) {
     if (!graph.value) return []
     const ids = graphSubsetIds.value
+    if (normalizedGraphNodeSearch.value) {
+      return graph.value.edges.filter((edge) => !isSimilarEdge(edge) && ids.has(edge.from) && ids.has(edge.to))
+    }
     return mergeSimilarGraphEdges(graph.value.edges.filter((edge) => ids.has(edge.from) && ids.has(edge.to)))
   }
 
@@ -2025,15 +2165,20 @@ async function applyRouteQuery() {
   await runQuery()
 }
 
+// 修改后的 runQuery - 先显示对话框
 async function runQuery() {
   const text = query.value.trim()
   queryError.value = ''
+
   if (!text) {
     queryError.value = '请输入故障现象'
     return
   }
 
-  isQuerying.value = true
+  // 显示加载状态
+  dialogIsLoading.value = true
+  showQueryDialog.value = true
+
   try {
     const response = await fetch('/api/query', {
       method: 'POST',
@@ -2042,12 +2187,63 @@ async function runQuery() {
       body: JSON.stringify({ text }),
     })
     const payload = await response.json()
+
+    if (!response.ok) {
+      queryError.value = payload.message ?? '查询失败，请稍后重试'
+      showQueryDialog.value = false
+      return
+    }
+
+    // 保存查询结果到对话框
+    dialogQueryResults.value = (payload.result as QueryResult)?.topMatches ?? []
+
+    // 如果没有任何候选结果，直接关闭对话框并显示错误
+    if (dialogQueryResults.value.length === 0) {
+      showQueryDialog.value = false
+      queryError.value = '未找到匹配的故障节点'
+    }
+  } catch {
+    queryError.value = '查询失败，请检查 Flask 服务是否正常'
+    showQueryDialog.value = false
+  } finally {
+    dialogIsLoading.value = false
+  }
+}
+
+// 新增：处理对话框中选择候选结果
+function selectDialogResult(match: QueryTopMatch) {
+  // 更新查询框文本为选中的节点名称
+  query.value = match.name
+
+  // 关闭对话框
+  showQueryDialog.value = false
+
+  // 直接执行查询（使用选中的节点名称）
+  executeQueryWithText(match.name)
+}
+
+// 新增：执行实际查询并更新图谱
+async function executeQueryWithText(searchText: string) {
+  queryError.value = ''
+  isQuerying.value = true
+
+  try {
+    const response = await fetch('/api/query', {
+      method: 'POST',
+      cache: 'no-store',
+      // 保持与候选召回阶段相同的当前图谱，避免回退到默认图谱查询。
+      headers: graphHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ text: searchText }),
+    })
+    const payload = await response.json()
+
     if (!response.ok) {
       queryError.value = payload.message ?? '查询失败，请稍后重试'
       return
     }
+
     queryResult.value = payload.result as QueryResult
-    currentQuery.value = text
+    currentQuery.value = searchText
     activeView.value = 'fault'
     selectedFaultNodeId.value = queryResult.value.nodeId || selectedFaultNodeId.value
     faultGraphPositions.value = {}
@@ -2494,6 +2690,12 @@ watch(() => route.fullPath, () => {
   void applyRouteQuery()
 })
 
+watch([normalizedGraphNodeSearch, isGraphNodeFuzzySearch], () => {
+  ontologyGraphPositions.value = {}
+  zoomGraphPositions.value = {}
+  void nextTick(() => syncGraphBoardCenter())
+})
+
 onBeforeUnmount(() => {
   window.removeEventListener('resize', syncViewportScale)
   window.removeEventListener('pointermove', handlePointerMove)
@@ -2653,11 +2855,16 @@ const TreeBranch: ReturnType<typeof defineComponent> = defineComponent({
                     <div class="eyebrow">图谱树</div>
                     <span class="tree-load-state">{{ graph ? `${graph.stats.nodeCount} 个节点` : isLoading ? '加载中...' : graphError ? '加载失败' : '本体模板' }}</span>
                   </div>
+                  <label class="tree-search">
+                    <span class="tree-search-icon" aria-hidden="true">⌕</span>
+                    <input v-model="ontologyTreeSearch" type="search" placeholder="搜索节点类型" aria-label="搜索图谱树节点类型">
+                    <button v-if="ontologyTreeSearch" type="button" class="tree-search-clear" aria-label="清空搜索" @click="ontologyTreeSearch = ''">×</button>
+                  </label>
                   <p v-if="graphError" class="tree-load-error">{{ graphError }}</p>
-                  <ul v-if="graphOntologyTree" class="tree-root">
-                    <TreeBranch :node="graphOntologyTree" :active-tree-id="selectedOntologyTreeId" :active-node-id="selectedOntologyNodeId" :expanded-ids="expandedOntologyIds" tone="system" @select="selectOntologyTreeNode" @toggle="toggleExpanded" />
+                  <ul v-if="filteredGraphOntologyTree" class="tree-root">
+                    <TreeBranch :node="filteredGraphOntologyTree" :active-tree-id="selectedOntologyTreeId" :active-node-id="selectedOntologyNodeId" :expanded-ids="displayedOntologyExpandedIds" tone="system" @select="selectOntologyTreeNode" @toggle="toggleExpanded" />
                   </ul>
-                  <div v-else class="tree-empty">暂无图谱数据</div>
+                  <div v-else class="tree-empty">{{ normalizedOntologyTreeSearch ? '未找到匹配的节点类型' : '暂无图谱数据' }}</div>
                 </section>
 
                 <section class="card graph-panel graph-panel--ontology">
@@ -2666,10 +2873,23 @@ const TreeBranch: ReturnType<typeof defineComponent> = defineComponent({
                       <div class="eyebrow">{{ activeViewMeta.graphTitle }}</div>
                     </div>
                     <div class="panel-actions">
-                      <div v-if="canEditGraph" class="node-actions">
-                        <button type="button" class="node-action" :disabled="isNodeSaving || !graph" @pointerdown.stop @click.prevent.stop="handleAddClick">新增</button>
-                        <button type="button" class="node-action" :disabled="isNodeSaving || !canModifySelectedNode" @pointerdown.stop @click.prevent.stop="handleEditClick">修改</button>
-                        <button type="button" class="node-action danger" :disabled="isNodeSaving || !canDeleteSelectedNode" @pointerdown.stop @click.stop="deleteSelectedNode">删除</button>
+                      <div class="panel-primary-actions">
+                        <div class="graph-node-search">
+                          <span class="graph-node-search-icon" aria-hidden="true">⌕</span>
+                          <input v-model="graphNodeSearch" type="search" placeholder="按节点名称搜索" aria-label="按节点 name 属性搜索">
+                          <span v-if="normalizedGraphNodeSearch" class="graph-node-search-count">{{ graphNodeSearchMatches.length }} 个</span>
+                          <button v-if="graphNodeSearch" type="button" class="graph-node-search-clear" aria-label="清空节点搜索" @click="graphNodeSearch = ''">×</button>
+                        </div>
+                        <label class="fuzzy-search-toggle" title="允许少字、错字或近似名称命中">
+                          <input v-model="isGraphNodeFuzzySearch" type="checkbox">
+                          <span class="fuzzy-search-switch" aria-hidden="true"></span>
+                          <span>模糊检索</span>
+                        </label>
+                        <div v-if="canEditGraph" class="node-actions">
+                          <button type="button" class="node-action" :disabled="isNodeSaving || !graph" @pointerdown.stop @click.prevent.stop="handleAddClick">新增</button>
+                          <button type="button" class="node-action" :disabled="isNodeSaving || !canModifySelectedNode" @pointerdown.stop @click.prevent.stop="handleEditClick">修改</button>
+                          <button type="button" class="node-action danger" :disabled="isNodeSaving || !canDeleteSelectedNode" @pointerdown.stop @click.stop="deleteSelectedNode">删除</button>
+                        </div>
                       </div>
                       <div class="graph-legend">
                         <span class="graph-zoom-tools">
@@ -2760,7 +2980,7 @@ const TreeBranch: ReturnType<typeof defineComponent> = defineComponent({
                         </g>
                       </svg>
                     </div>
-                    <div v-else class="empty">{{ isLoading ? '加载图谱中...' : '暂无数据' }}</div>
+                    <div v-else class="empty">{{ isLoading ? '加载图谱中...' : normalizedGraphNodeSearch ? '未找到名称匹配的节点' : '暂无数据' }}</div>
                   </div>
                 </section>
               </section>
@@ -2776,7 +2996,7 @@ const TreeBranch: ReturnType<typeof defineComponent> = defineComponent({
                 </div>
 
                 <div class="query-body">
-                  <textarea class="query-input" v-model="query" placeholder="请输入故障现象，例如“液氧加注阀打不开”" @keydown.enter.prevent="runQuery" />
+                  <textarea class="query-input" v-model="query" placeholder="请输入故障现象，例如“通控制气打不开”" @keydown.enter.prevent="runQuery" />
                   <button class="primary query-action" :disabled="isQuerying || isLoading" @click="runQuery">
                     {{ isQuerying ? '查询中...' : '点击查询' }}
                   </button>
@@ -2866,9 +3086,9 @@ const TreeBranch: ReturnType<typeof defineComponent> = defineComponent({
                             :fill="node.fill"
                             :class="['graph-node', { active: graphActiveNodeId === node.id }]"
                           />
-                          <text :x="node.x" :y="node.y - 6" class="graph-node-text" text-anchor="middle">
-                            <tspan :x="node.x" class="graph-node-name">{{ node.shortName }}</tspan>
-                            <tspan :x="node.x" dy="18" class="graph-node-level">{{ node.level }}</tspan>
+                          <text :x="node.x" :y="node.y - 8" class="graph-node-text graph-node-text--fault" text-anchor="middle">
+                            <tspan :x="node.x" class="graph-node-level">{{ node.level }}</tspan>
+                            <tspan :x="node.x" dy="20" class="graph-node-name">{{ node.shortName }}</tspan>
                           </text>
                         </g>
                       </svg>
@@ -2944,13 +3164,64 @@ const TreeBranch: ReturnType<typeof defineComponent> = defineComponent({
                 :fill="node.fill"
                 :class="['graph-node', { active: graphActiveNodeId === node.id }]"
               />
-              <text :x="node.x" :y="node.y - 6" class="graph-node-text" text-anchor="middle">
-                <tspan :x="node.x" class="graph-node-name">{{ node.shortName }}</tspan>
-                <tspan :x="node.x" dy="18" class="graph-node-level">{{ node.level }}</tspan>
+              <text :x="node.x" :y="node.y - (isOntologyView ? 6 : 8)" :class="['graph-node-text', { 'graph-node-text--fault': !isOntologyView }]" text-anchor="middle">
+                <template v-if="isOntologyView">
+                  <tspan :x="node.x" class="graph-node-name">{{ node.shortName }}</tspan>
+                  <tspan :x="node.x" dy="18" class="graph-node-level">{{ node.level }}</tspan>
+                </template>
+                <template v-else>
+                  <tspan :x="node.x" class="graph-node-level">{{ node.level }}</tspan>
+                  <tspan :x="node.x" dy="20" class="graph-node-name">{{ node.shortName }}</tspan>
+                </template>
               </text>
             </g>
           </svg>
         </div>
+      </div>
+    </div>
+  </div>
+  <!-- 查询候选结果对话框 -->
+  <div v-if="showQueryDialog" class="dialog-overlay" @click.self="showQueryDialog = false">
+    <div class="dialog-container">
+      <div class="dialog-header">
+        <h3>选择故障现象</h3>
+        <p class="dialog-subtitle">系统检测到以下匹配结果，请选择您要查询的故障：</p>
+        <button class="dialog-close" @click="showQueryDialog = false">×</button>
+      </div>
+
+      <div v-if="dialogIsLoading" class="dialog-loading">
+        查询中...
+      </div>
+
+      <div v-else class="dialog-results">
+        <button
+          v-for="match in dialogQueryResults"
+          :key="match.id"
+          class="dialog-result-item"
+          @click="selectDialogResult(match)"
+        >
+          <div class="dialog-result-rank">{{ match.rank }}</div>
+          <div class="dialog-result-content">
+            <div class="dialog-result-name">{{ match.name }}</div>
+            <div class="dialog-result-meta">
+              <span class="dialog-result-level">{{ match.level }}</span>
+              <span v-if="match.owner" class="dialog-result-owner">{{ match.owner }}</span>
+              <span class="dialog-result-confidence">匹配度：{{ match.confidence }}%</span>
+            </div>
+            <div v-if="match.matchedKeywords.length" class="dialog-result-keywords">
+              命中词：{{ match.matchedKeywords.slice(0, 3).join(' / ') }}
+            </div>
+          </div>
+          <div class="dialog-result-score">{{ match.confidence }}%</div>
+        </button>
+
+        <div v-if="dialogQueryResults.length === 0 && !dialogIsLoading" class="dialog-empty">
+          未找到匹配结果，请尝试其他关键词
+        </div>
+      </div>
+
+      <div class="dialog-footer">
+        <button class="dialog-cancel" @click="showQueryDialog = false">取消</button>
       </div>
     </div>
   </div>
@@ -2986,7 +3257,7 @@ const TreeBranch: ReturnType<typeof defineComponent> = defineComponent({
 .menu-item-note{font-size:11px;line-height:1.4;color:#bdd1ef}
 .main{padding:18px;display:grid;gap:14px;overflow:hidden;min-height:0;min-width:0}
 .main--ontology{grid-template-rows:auto minmax(0,1fr)}
-.main--fault{grid-template-rows:auto minmax(0,1fr)}
+.main--fault{grid-template-rows:auto auto minmax(0,1fr)}
 .graph-switcher{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,360px);gap:14px;align-items:end;padding:12px 14px;border:1px solid #cbdcf2;border-radius:16px;background:linear-gradient(135deg,#f7fbff,#eef5ff);color:#17355e}
 .graph-switcher strong{display:block;margin-top:5px;font-size:15px}
 .graph-switcher label{display:grid;gap:6px;color:#5f7598;font-size:12px;font-weight:800}
@@ -3027,6 +3298,23 @@ textarea,.query-input{width:100%;min-height:64px;height:64px;border:1px solid #d
 .panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
 .panel-hint{max-width:460px}
 .panel-actions{display:grid;gap:8px;justify-items:end;min-width:0}
+.panel-primary-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-width:0}
+.graph-node-search{width:320px;height:36px;border:1px solid #cbd8ea;border-radius:10px;background:#fff;display:grid;grid-template-columns:30px minmax(0,1fr) auto 28px;align-items:center;box-shadow:0 6px 14px rgba(33,83,174,.08);transition:border-color .18s ease,box-shadow .18s ease}
+.graph-node-search:focus-within{border-color:#77a2e8;box-shadow:0 0 0 3px rgba(45,130,255,.1)}
+.graph-node-search-icon{display:grid;place-items:center;color:#7890b2;font-size:18px;font-weight:900;line-height:1}
+.graph-node-search input{width:100%;min-width:0;height:34px;border:0;outline:0;background:transparent;color:#17355e;font:inherit;font-size:12px;font-weight:700;padding:0}
+.graph-node-search input::placeholder{color:#91a1b8;font-weight:600}
+.graph-node-search input::-webkit-search-cancel-button{display:none}
+.graph-node-search-count{padding:0 5px;color:#557099;font-size:11px;font-weight:800;white-space:nowrap}
+.graph-node-search-clear{width:24px;height:24px;border:0;border-radius:7px;background:transparent;color:#7187a8;font:inherit;font-size:18px;line-height:1;cursor:pointer;display:grid;place-items:center;padding:0}
+.graph-node-search-clear:hover{background:#edf4ff;color:#285faf}
+.fuzzy-search-toggle{height:32px;display:inline-flex;align-items:center;gap:6px;color:#557099;font-size:11px;font-weight:800;white-space:nowrap;cursor:pointer;user-select:none}
+.fuzzy-search-toggle input{position:absolute;opacity:0;pointer-events:none}
+.fuzzy-search-switch{position:relative;width:30px;height:17px;border-radius:999px;background:#c5d2e3;box-shadow:inset 0 0 0 1px rgba(77,105,145,.12);transition:background .18s ease}
+.fuzzy-search-switch::after{content:"";position:absolute;left:2px;top:2px;width:13px;height:13px;border-radius:999px;background:#fff;box-shadow:0 2px 5px rgba(31,65,112,.25);transition:transform .18s ease}
+.fuzzy-search-toggle input:checked + .fuzzy-search-switch{background:#2d82ff}
+.fuzzy-search-toggle input:checked + .fuzzy-search-switch::after{transform:translateX(13px)}
+.fuzzy-search-toggle input:focus-visible + .fuzzy-search-switch{outline:2px solid #77a2e8;outline-offset:2px}
 .node-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .node-action{border:1px solid #cbd8ea;border-radius:8px;background:#fff;color:#17355e;font:inherit;font-size:12px;font-weight:900;min-height:30px;padding:0 12px;cursor:pointer;box-shadow:0 6px 14px rgba(33,83,174,.08)}
 .node-action:hover:not(:disabled){background:#eef5ff;border-color:#9ab7e8}
@@ -3073,11 +3361,21 @@ box-shadow:inset 0 1px 0 rgba(255,255,255,.9);cursor:zoom-in}
 .graph-node-text{pointer-events:none;paint-order:stroke;stroke:rgba(0,0,0,.08);stroke-width:2px;stroke-linejoin:round}
 .graph-node-name{font-size:11px;font-weight:900;fill:#fff}
 .graph-node-level{font-size:13px;font-weight:900;fill:#f3f8ff}
+.graph-node-text--fault .graph-node-level{font-size:11px}
+.graph-node-text--fault .graph-node-name{font-size:14px}
 .empty{display:grid;place-items:center;min-height:100%;color:#6b81a4;font-weight:800}
 .side-column{display:grid;grid-template-rows:minmax(0,1fr);gap:12px;min-height:0;height:100%}
 .card-hint{margin:6px 0 0;color:#667a98;line-height:1.45;font-size:12px}
 .tree-card{background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(244,249,255,.92));display:flex;flex-direction:column;min-height:0;overflow:hidden;padding:14px 14px 14px 8px}
 .tree-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-left:0}
+.tree-search{height:34px;margin:10px 0 0 6px;border:1px solid #d4e0ef;border-radius:10px;background:#fff;display:grid;grid-template-columns:26px minmax(0,1fr) 28px;align-items:center;transition:border-color .18s ease,box-shadow .18s ease}
+.tree-search:focus-within{border-color:#77a2e8;box-shadow:0 0 0 3px rgba(45,130,255,.1)}
+.tree-search-icon{display:grid;place-items:center;color:#7890b2;font-size:18px;font-weight:900;line-height:1}
+.tree-search input{width:100%;min-width:0;height:32px;border:0;outline:0;background:transparent;color:#17355e;font:inherit;font-size:12px;font-weight:700;padding:0}
+.tree-search input::placeholder{color:#91a1b8;font-weight:600}
+.tree-search input::-webkit-search-cancel-button{display:none}
+.tree-search-clear{width:24px;height:24px;border:0;border-radius:7px;background:transparent;color:#7187a8;font:inherit;font-size:18px;line-height:1;cursor:pointer;display:grid;place-items:center;padding:0}
+.tree-search-clear:hover{background:#edf4ff;color:#285faf}
 .fault-conclusion{flex:0 0 auto;margin:10px 0 0 6px;padding:11px 12px;border:1px solid #cbdcf2;border-left:4px solid #2d82ff;border-radius:10px;background:linear-gradient(135deg,#f5f9ff,#edf5ff);color:#17355e}
 .fault-conclusion strong{display:block;font-size:12px;color:#2d63ad}
 .fault-conclusion p{margin:6px 0 0;font-size:13px;line-height:1.65;font-weight:700}
@@ -3123,4 +3421,252 @@ box-shadow:inset 0 1px 0 rgba(255,255,255,.9);cursor:zoom-in}
 .zoom-close{border:0;border-radius:999px;background:linear-gradient(135deg,#2d82ff,#134db7);color:#fff;font-weight:900;padding:0 16px;min-height:38px;cursor:pointer;box-shadow:0 12px 24px rgba(29,89,193,.22)}
 .zoom-board{margin:0 20px 20px;overflow:auto;border-radius:22px;border:1px solid #d8e3f1;background:radial-gradient(circle at 24px 24px,rgba(120,152,208,.14) 1.2px,transparent 1.2px),linear-gradient(180deg,#ffffff,#eef5ff);background-size:28px 28px,100% 100%;scrollbar-gutter:stable both-edges}
 .zoom-svg{width:100%;min-width:1520px;display:block}
+/* 对话框样式 */
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 23, 43, 0.6);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  z-index: 100;
+  backdrop-filter: blur(4px);
+}
+
+.dialog-container {
+  width: min(92vw, 640px);
+  max-height: 80vh;
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: 0 24px 60px rgba(15, 36, 71, 0.3);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: dialogSlideIn 0.25s ease;
+}
+
+@keyframes dialogSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.dialog-header {
+  position: relative;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid #e8edf5;
+  flex-shrink: 0;
+}
+
+.dialog-header h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 900;
+  color: #17355e;
+}
+
+.dialog-subtitle {
+  margin: 6px 0 0;
+  color: #6b81a4;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.dialog-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 999px;
+  background: #f1f5fa;
+  color: #6b81a4;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: all 0.2s ease;
+}
+
+.dialog-close:hover {
+  background: #e8edf5;
+  color: #17355e;
+}
+
+.dialog-loading {
+  padding: 48px 24px;
+  text-align: center;
+  color: #6b81a4;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.dialog-results {
+  padding: 16px 24px 20px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dialog-result-item {
+  width: 100%;
+  border: 1px solid #dce6f2;
+  border-radius: 12px;
+  background: #fafcff;
+  padding: 12px 14px;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  text-align: left;
+  color: #17355e;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dialog-result-item:hover {
+  border-color: #7ba8f4;
+  background: #eef5ff;
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(45, 130, 255, 0.12);
+}
+
+.dialog-result-item:active {
+  transform: scale(0.98);
+}
+
+.dialog-result-rank {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: #dfeaff;
+  color: #2359b0;
+  font-size: 12px;
+  font-weight: 900;
+  flex-shrink: 0;
+}
+
+.dialog-result-content {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dialog-result-name {
+  font-size: 15px;
+  font-weight: 900;
+  color: #17355e;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dialog-result-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+  color: #6b81a4;
+  font-weight: 600;
+}
+
+.dialog-result-level {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #eef2f8;
+  color: #4a6085;
+  font-size: 11px;
+}
+
+.dialog-result-owner {
+  color: #5f7391;
+}
+
+.dialog-result-confidence {
+  color: #0f766e;
+}
+
+.dialog-result-keywords {
+  font-size: 11px;
+  color: #8a9bb5;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dialog-result-score {
+  font-size: 14px;
+  font-weight: 900;
+  color: #0f766e;
+  flex-shrink: 0;
+}
+
+.dialog-empty {
+  padding: 32px 0;
+  text-align: center;
+  color: #8a9bb5;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.dialog-footer {
+  padding: 12px 24px 20px;
+  border-top: 1px solid #e8edf5;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.dialog-cancel {
+  border: 1px solid #dce6f2;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #6b81a4;
+  font-weight: 700;
+  padding: 8px 24px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.dialog-cancel:hover {
+  background: #f1f5fa;
+  border-color: #bccfe2;
+  color: #17355e;
+}
+
+@media (max-width: 640px) {
+  .dialog-container {
+    width: 96vw;
+    max-height: 90vh;
+  }
+
+  .dialog-result-item {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    padding: 10px 12px;
+  }
+
+  .dialog-result-rank {
+    display: none;
+  }
+
+  .dialog-result-score {
+    font-size: 12px;
+    align-self: flex-end;
+  }
+}
 </style>

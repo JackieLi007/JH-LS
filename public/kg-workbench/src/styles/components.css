@@ -1735,6 +1735,22 @@ textarea {
   font-size: 0.88rem;
 }
 
+.kg-version-actions {
+  display: grid;
+  grid-template-columns: minmax(190px, 260px) auto auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.kg-version-actions label {
+  display: grid;
+  gap: 5px;
+}
+
+.kg-version-actions input {
+  min-width: 0;
+}
+
 .graph-picker {
   display: grid;
   grid-template-columns: minmax(220px, 0.7fr) minmax(260px, 1fr);

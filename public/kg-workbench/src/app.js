@@ -277,6 +277,9 @@ const baseState = {
     loaded: false,
     loading: false,
     rollbacking: false,
+    savingVersionId: '',
+    saveAsNames: {},
+    saveAsResult: null,
     error: '',
     lastRollback: null,
   },
@@ -484,6 +487,13 @@ function mergeExtractionResults(results = [], sourceType = 'table') {
     entities: [...entityMap.values()],
     relations: [...relationCount.entries()].map(([name, count]) => ({ name, count })),
     tripleRows,
+    rowReport: {
+      inputRows: results.reduce((sum, item) => sum + (item.rowReport?.inputRows || 0), 0),
+      retainedRows: results.reduce((sum, item) => sum + (item.rowReport?.retainedRows || 0), 0),
+      skippedRows: results.reduce((sum, item) => sum + (item.rowReport?.skippedRows || 0), 0),
+      issueRows: results.reduce((sum, item) => sum + (item.rowReport?.issueRows || 0), 0),
+      rows: results.flatMap((item) => (item.rowReport?.rows || []).map((row) => ({ ...row, fileName: item.fileName }))),
+    },
     appliedMappings: [],
     counts: {
       triples: tripleRows.length,
@@ -1095,7 +1105,7 @@ export function createApp(root, options = {}) {
     const resultScaleText = isDocument
       ? `${result?.charCount || 0} 字${result?.pageCount ? ` / ${result.pageCount} 页` : ''}`
       : (isImage ? imageSizeText : selectedFiles.length);
-    const resultJsonPath = result?.documentJsonPath || result?.imageJsonPath || '';
+    const resultJsonPath = result?.tripleJsonPath || result?.documentJsonPath || result?.imageJsonPath || '';
     const resultExcelPath = result?.imageExcelPath || '';
     const docItemText = (item, keys) => {
       if (typeof item === 'string') return item;
@@ -1227,6 +1237,12 @@ export function createApp(root, options = {}) {
             </table>
           </div>
           ${resultJsonPath ? `<div class="empty-state empty-state--compact">结果文件：${escapeHtml(resultJsonPath)}</div>` : ''}
+          ${state.sourceType === 'table' && result?.rowReport ? `<details class="table-block" open>
+            <summary>逐行遗漏清单：输入 ${result.rowReport.inputRows} 行，保留 ${result.rowReport.retainedRows} 行，跳过 ${result.rowReport.skippedRows} 行，需核对 ${result.rowReport.issueRows} 行</summary>
+            ${result.rowReport.rows.length ? `<table><thead><tr><th>文件 / 原始行号</th><th>系统树节点</th><th>状态</th><th>未抽取字段及原因</th></tr></thead><tbody>
+              ${result.rowReport.rows.map((row) => `<tr><td>${escapeHtml(row.fileName || result.fileName)} / ${Number(row.rowNumber)}</td><td>${escapeHtml(row.machineName)}</td><td>${row.status === 'skipped' ? '未提取到知识' : '已保留明确知识'}</td><td>${row.omissions.map((item) => `<p><strong>${escapeHtml(item.field)}</strong>：${escapeHtml(item.reason)}<br>原文：${escapeHtml(item.rawText || '（空）')}</p>`).join('')}</td></tr>`).join('')}
+            </tbody></table>` : '<p>未发现遗漏。</p>'}
+          </details>` : ''}
           ${renderKgBuildProgress(kgProgress)}
         </section>
         <section class="panel config-panel">
@@ -1276,6 +1292,7 @@ export function createApp(root, options = {}) {
         </div>
         ${versionState.error ? `<div class="empty-state" style="border-color: rgba(210,52,70,0.45); color:#9f1f2d;">${escapeHtml(versionState.error)}</div>` : ''}
         ${rollbackSummary ? `<div class="empty-state empty-state--compact">最近回退：删除关系 ${rollbackSummary.deleted_relationships || 0}，恢复关系 ${rollbackSummary.restored_relationships || 0}，删除节点 ${rollbackSummary.deleted_nodes || 0}，恢复节点 ${rollbackSummary.restored_nodes || 0}</div>` : ''}
+        ${versionState.saveAsResult ? `<div class="empty-state empty-state--compact">已将历史版本另存为图谱“${escapeHtml(versionState.saveAsResult.graph?.name || '')}”，数据库：${escapeHtml(versionState.saveAsResult.graph?.database || '')}</div>` : ''}
         <div class="table-block">
           <table>
             <thead>
@@ -1303,7 +1320,11 @@ export function createApp(root, options = {}) {
               <p>节点 ${item.counts?.entities || 0} / 关系类型 ${item.counts?.relations || 0} / 三元组 ${item.counts?.triples || 0}</p>
               <p>${escapeHtml(versionWriteText(item))}</p>
             </div>
-            <button class="secondary-btn ${index === 0 ? 'secondary-btn--danger' : ''}" data-kg-rollback-version="${escapeHtml(item.versionId || '')}" ${index === 0 && !versionState.rollbacking ? '' : 'disabled'}>${index === 0 ? '回退此版本' : '需先回退较新版本'}</button>
+            <div class="kg-version-actions">
+              <label><span class="field-label">另存图谱名称</span><input data-kg-save-name="${escapeHtml(item.versionId || '')}" maxlength="80" placeholder="例如：${escapeHtml(currentGraph?.name || '图谱')}-历史副本" value="${escapeHtml(versionState.saveAsNames?.[item.versionId] || '')}"></label>
+              <button class="secondary-btn" data-kg-save-version="${escapeHtml(item.versionId || '')}" ${versionState.savingVersionId ? 'disabled' : ''}>${versionState.savingVersionId === item.versionId ? '正在另存...' : '另存为新图谱'}</button>
+              <button class="secondary-btn ${index === 0 ? 'secondary-btn--danger' : ''}" data-kg-rollback-version="${escapeHtml(item.versionId || '')}" ${index === 0 && !versionState.rollbacking && !versionState.savingVersionId ? '' : 'disabled'}>${index === 0 ? '回退此版本' : '需先回退较新版本'}</button>
+            </div>
           </article>`).join('')}</div>` : `<div class="empty-state">暂无图谱版本记录</div>`)}
       </section>
     </section>`;
@@ -1651,6 +1672,45 @@ export function createApp(root, options = {}) {
     }
   };
 
+  const saveKgVersionAsGraph = async (versionId) => {
+    const graphName = String(state.versioning?.saveAsNames?.[versionId] || '').trim();
+    if (!versionId || !graphName || state.versioning?.savingVersionId) {
+      if (!graphName) {
+        state.versioning = { ...(state.versioning || {}), error: '请输入另存后的新图谱名称。' };
+        render();
+      }
+      return;
+    }
+    state.versioning = {
+      ...(state.versioning || {}),
+      savingVersionId: versionId,
+      error: '',
+      saveAsResult: null,
+    };
+    render();
+    try {
+      const result = await requestGraphJson('/api/kg/versions/save-as', {
+        method: 'POST',
+        body: JSON.stringify({ versionId, graphName }),
+      });
+      state.versioning = {
+        ...(state.versioning || {}),
+        saveAsResult: result,
+        saveAsNames: { ...(state.versioning?.saveAsNames || {}), [versionId]: '' },
+        error: '',
+      };
+      await fetchGraphs({ renderAfter: false });
+    } catch (error) {
+      state.versioning = {
+        ...(state.versioning || {}),
+        error: error.message || '历史版本另存失败',
+      };
+    } finally {
+      state.versioning.savingVersionId = '';
+      render();
+    }
+  };
+
   const bindEvents = () => {
     root.querySelectorAll('[data-page]').forEach((button) => button.addEventListener('click', () => {
       state.currentPage = button.dataset.page;
@@ -1779,6 +1839,13 @@ export function createApp(root, options = {}) {
     const rollbackKgVersionBtn = root.querySelector('#rollback-kg-version-btn');
     if (rollbackKgVersionBtn) rollbackKgVersionBtn.addEventListener('click', rollbackKgVersion);
     root.querySelectorAll('[data-kg-rollback-version]').forEach((button) => button.addEventListener('click', rollbackKgVersion));
+    root.querySelectorAll('[data-kg-save-name]').forEach((input) => input.addEventListener('input', (event) => {
+      const versionId = event.target.dataset.kgSaveName;
+      state.versioning.saveAsNames = { ...(state.versioning.saveAsNames || {}), [versionId]: event.target.value };
+    }));
+    root.querySelectorAll('[data-kg-save-version]').forEach((button) => button.addEventListener('click', () => {
+      void saveKgVersionAsGraph(button.dataset.kgSaveVersion);
+    }));
   };
 
   const bootstrap = async () => {

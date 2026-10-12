@@ -72,6 +72,7 @@ AUTH_EDITOR_API_RULES = {
     ('POST', '/api/extract'),
     ('POST', '/api/kg/build'),
     ('POST', '/api/kg/rollback'),
+    ('POST', '/api/kg/versions/save-as'),
     ('POST', '/api/graphs'),
 }
 
@@ -754,7 +755,7 @@ def build_query_result_payload(
         'nodes': subgraph['nodes'],
         'edges': subgraph['edges'],
     }
-    for key in ('primaryFaultNodeId', 'primaryChainNodeIds', 'focusCauseNodeIds'):
+    for key in ('primaryFaultNodeId', 'primaryChainNodeIds', 'focusCauseNodeIds', 'directFaultNodeIds'):
         if key in subgraph:
             payload_subgraph[key] = subgraph[key]
     return {
@@ -1288,10 +1289,11 @@ def ensure_fault_attribute_nodes_from_properties_once() -> None:
                 ).consume()
 
 
-def fetch_graph_from_neo4j() -> dict[str, list[dict[str, Any]]]:
+def fetch_graph_from_neo4j(*, materialize_attributes: bool = True) -> dict[str, list[dict[str, Any]]]:
     fetch_started = time.perf_counter()
     materialize_started = time.perf_counter()
-    ensure_fault_attribute_nodes_from_properties()
+    if materialize_attributes:
+        ensure_fault_attribute_nodes_from_properties()
     record_fault_chain_step('neo4j_materialize_attributes', materialize_started)
     node_query = 'MATCH (n) RETURN elementId(n) AS id, labels(n)[0] AS label, properties(n) AS props ORDER BY label, coalesce(n.owner, ""), coalesce(n.name, "")'
     edge_query = 'MATCH (a)-[r]->(b) RETURN elementId(a) AS source, type(r) AS relation, elementId(b) AS target ORDER BY relation'
@@ -1358,7 +1360,8 @@ def is_ontology_placeholder_record(record: dict[str, Any]) -> bool:
 
 
 def build_graph_payload() -> dict[str, Any]:
-    graph = fetch_graph_from_neo4j()
+    # Viewing a graph must not rewrite thousands of legacy attributes first.
+    graph = fetch_graph_from_neo4j(materialize_attributes=False)
     return {
         'nodes': graph['nodes'],
         'edges': graph['edges'],
@@ -1834,7 +1837,7 @@ def subgraph_metadata(graph: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
         'averageDepth': 1.0,
         'relationGroupScore': round(sum(relation_scores) / max(1, len(relation_scores)), 6),
     }
-    for key in ('primaryFaultNodeId', 'primaryChainNodeIds', 'focusCauseNodeIds'):
+    for key in ('primaryFaultNodeId', 'primaryChainNodeIds', 'focusCauseNodeIds', 'directFaultNodeIds'):
         if key in graph:
             metadata[key] = graph[key]
     return metadata
@@ -2242,6 +2245,58 @@ def build_query_display_graph(
             target,
         )] = edge
 
+    start_role = semantic_role_for_node(start_node)
+    if start_role == 'entity':
+        direct_fault_node_ids: set[str] = set()
+        for edge in graph['edges']:
+            source = str(edge.get('from') or '')
+            target = str(edge.get('to') or '')
+            neighbor_id = target if source == start_id else source if target == start_id else ''
+            neighbor = node_map.get(neighbor_id)
+            if (
+                neighbor
+                and semantic_role_for_node(neighbor) == 'fault_mode'
+                and relation_group_for_edge(edge) == 'fault_link'
+            ):
+                direct_fault_node_ids.add(neighbor_id)
+                add_edge(edge)
+        return {
+            'nodes': sorted(
+                (node_map[node_id] for node_id in selected_node_ids if node_id in node_map),
+                key=lambda item: (
+                    0 if str(item.get('id') or '') == start_id else 1,
+                    fault_mode_level_rank(item),
+                    str(item.get('name') or ''),
+                ),
+            ),
+            'edges': list(selected_edges.values()),
+            'primaryFaultNodeId': '',
+            'primaryChainNodeIds': [],
+            'focusCauseNodeIds': [],
+            'directFaultNodeIds': sorted(
+                direct_fault_node_ids,
+                key=lambda node_id: (
+                    fault_mode_level_rank(node_map.get(node_id, {})),
+                    str(node_map.get(node_id, {}).get('name') or ''),
+                    node_id,
+                ),
+            ),
+        }
+
+    # Only a selected fault-mode node is allowed to expand a complete causal
+    # chain. Other semantic node types keep a one-hop context.
+    if start_role != 'fault_mode':
+        for edge in graph['edges']:
+            if start_id in {str(edge.get('from') or ''), str(edge.get('to') or '')}:
+                add_edge(edge)
+        return {
+            'nodes': [node_map[node_id] for node_id in selected_node_ids if node_id in node_map],
+            'edges': list(selected_edges.values()),
+            'primaryFaultNodeId': '',
+            'primaryChainNodeIds': [],
+            'focusCauseNodeIds': [],
+        }
+
     # Keep every direct business relation of the matched node. Causal relations
     # are added separately below so only their primary branch is expanded.
     for edge in graph['edges']:
@@ -2585,12 +2640,13 @@ def query_fault_chain_from_neo4j(
                 best_graph,
                 best_id,
             )
-            best_graph = merge_causal_chains_for_focus(
-                session,
-                best_graph,
-                best_id,
-                query_text,
-            )
+            if semantic_role_for_node(best_node) == 'fault_mode':
+                best_graph = merge_causal_chains_for_focus(
+                    session,
+                    best_graph,
+                    best_id,
+                    query_text,
+                )
         focused_best_graph = build_query_display_graph(best_graph, best_id, query_text)
         entries[0]['faultChainSubgraph'] = subgraph_metadata(focused_best_graph)
     record_fault_chain_step('candidate_sort', sort_started, candidates=len(entries), paths=path_count)
@@ -2614,7 +2670,8 @@ def fetch_fault_chain_for_node(
         node = build_node_view(dict(record))
         graph = {'nodes': [node], 'edges': []}
         graph = merge_all_direct_relations(session, graph, node_id)
-        graph = merge_causal_chains_for_focus(session, graph, node_id, query_text)
+        if semantic_role_for_node(node) == 'fault_mode':
+            graph = merge_causal_chains_for_focus(session, graph, node_id, query_text)
     display_graph = build_query_display_graph(graph, node_id, query_text)
     node['faultChainSubgraph'] = subgraph_metadata(display_graph)
     return node, display_graph
@@ -4310,7 +4367,7 @@ def conclusion_display_name(node: dict[str, Any] | None, fallback: str = '') -> 
 def conclusion_sentence(
     focus_node: dict[str, Any],
     current_fault: dict[str, Any],
-    cause: dict[str, Any] | None,
+    causes: list[dict[str, Any]],
     phenomenon: dict[str, Any] | None,
     effect: dict[str, Any] | None,
 ) -> str:
@@ -4318,12 +4375,17 @@ def conclusion_sentence(
     focus_name = conclusion_display_name(focus_node, '当前对象')
     current_name = conclusion_display_name(current_fault, '当前故障')
     has_leading_clause = False
-    if cause:
-        cause_name = conclusion_display_name(cause, '前置故障')
+    if causes:
+        cause_names = list(dict.fromkeys(
+            conclusion_display_name(cause, '前置故障') for cause in causes
+        ))
+        cause_text = '、'.join(f'“{name}”' for name in cause_names)
+        if len(cause_names) > 1:
+            cause_text += '等'
         if focus_role == 'entity':
-            text = f'“{cause_name}”导致了“{focus_name}”的“{current_name}”故障'
+            text = f'{cause_text}导致了“{focus_name}”的“{current_name}”故障'
         else:
-            text = f'“{cause_name}”导致了“{current_name}”故障'
+            text = f'{cause_text}导致了“{current_name}”故障'
         has_leading_clause = True
     elif focus_role == 'entity':
         text = f'“{focus_name}”可能发生“{current_name}”故障'
@@ -4339,7 +4401,7 @@ def conclusion_sentence(
         effect_name = conclusion_display_name(effect, '后续故障')
         connector = '，后续可能导致' if has_leading_clause else '后续可能导致'
         text += f'{connector}“{effect_name}”'
-    elif not cause and not phenomenon and focus_role != 'entity':
+    elif not causes and not phenomenon and focus_role != 'entity':
         text = f'查询命中“{current_name}”故障，当前图谱中未发现明确的前后级因果关系'
     return text.rstrip('。') + '。'
 
@@ -4354,6 +4416,33 @@ def build_fault_chain_conclusion(
     node_map = {str(node.get('id') or ''): node for node in nodes if node.get('id')}
     focus_id = str(focus_node.get('id') or '')
     focus = node_map.get(focus_id, focus_node)
+
+    if semantic_role_for_node(focus) == 'entity':
+        direct_fault_ids = [
+            str(node_id)
+            for node_id in chain.get('directFaultNodeIds', [])
+            if str(node_id) in node_map
+        ]
+        direct_faults = [node_map[node_id] for node_id in direct_fault_ids]
+        if not direct_faults:
+            direct_faults = [
+                node
+                for node_id, node in node_map.items()
+                if node_id != focus_id and semantic_role_for_node(node) == 'fault_mode'
+            ]
+        names = list(dict.fromkeys(
+            conclusion_display_name(node) for node in direct_faults if conclusion_display_name(node)
+        ))
+        if names:
+            return {
+                'text': f'“{conclusion_display_name(focus, "当前实体")}”直接关联的故障模式包括：'
+                        + '、'.join(f'“{name}”' for name in names) + '。',
+                'method': '规则',
+            }
+        return {
+            'text': f'查询命中“{conclusion_display_name(focus, "当前实体")}”，当前图谱中未发现直接关联的故障模式。',
+            'method': '规则',
+        }
 
     primary_id = str(chain.get('primaryFaultNodeId') or '')
     primary_chain_ids = [
@@ -4408,8 +4497,6 @@ def build_fault_chain_conclusion(
         conclusion_stage_rank(item),
         str(item.get('name') or ''),
     ))
-    cause = causes[0] if causes else None
-
     effect = None
     if len(primary_chain_ids) > 1:
         effect = node_map.get(primary_chain_ids[-1])
@@ -4426,7 +4513,7 @@ def build_fault_chain_conclusion(
                 break
 
     return {
-        'text': conclusion_sentence(focus, current_fault, cause, phenomenon, effect),
+        'text': conclusion_sentence(focus, current_fault, causes, phenomenon, effect),
         'method': '规则',
     }
 

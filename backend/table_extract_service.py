@@ -131,6 +131,12 @@ _HEADER_DEFAULT_TYPE_MAP = {
 
 # Compatibility aliases for older column wording.
 _HEADER_ALIASES = {
+    '故障模式': HEADER_UNIT_FAULT,
+    '高一层次': HEADER_HIGHER_IMPACT,
+    '高一层次影响': HEADER_HIGHER_IMPACT,
+    '高一层级': HEADER_HIGHER_IMPACT,
+    '严酷等级': HEADER_SEVERITY,
+    '发生阶段': HEADER_PHASE,
     '\u53d1\u751f\u6982\u7387': HEADER_PROBABILITY,
     '\u4e25\u91cd\u5ea6': HEADER_SEVERITY,
     '\u4e25\u91cd\u5ea6\u7b49\u7ea7': HEADER_SEVERITY,
@@ -165,57 +171,44 @@ def _unique_preserve_order(values: list[str]) -> list[str]:
     return result
 
 
-def _split_numbered_segments(value: str) -> list[str]:
-    normalized = str(value or '').strip().replace('：', ':')
-    if not normalized:
-        return []
-    matches = list(re.finditer(r'\d+\s*:', normalized))
-    if not matches:
-        return []
-
-    segments: list[str] = []
-    current_start = matches[0].end() if matches[0].start() == 0 else 0
-    iter_matches = matches[1:] if matches[0].start() == 0 else matches
-    for match in iter_matches:
-        segment = normalized[current_start:match.start()].strip(' ;；,，、')
-        if segment:
-            segments.append(segment)
-        current_start = match.end()
-    tail = normalized[current_start:].strip(' ;；,，、')
-    if tail:
-        segments.append(tail)
-    return segments if len(segments) > 1 else []
-
-
 def _split_prefixed_pairs(value: str) -> list[tuple[str, str]]:
-    text = str(value or '').strip()
-    if not text:
-        return []
-    normalized = text.replace('：', ':')
-    pairs: list[tuple[str, str]] = []
-    seen: set[tuple[str, str]] = set()
+    # Share the parser with the row loader: do not split component lists such
+    # as C13、C14、C15、C16 before the owner/failure colon.
+    pairs = _load_rocket_fault_namespace()['split_prefixed_texts'](value)
+    return list(dict.fromkeys((owner, mode) for owner, mode in pairs if owner and mode))
 
-    numbered_segments = _split_numbered_segments(normalized)
-    if numbered_segments:
-        segments = numbered_segments
-    else:
-        segments = [segment.strip() for segment in re.split(r'[。；;\n]+', normalized) if segment.strip()]
 
-    # 先按句号/分号/换行拆，再按并列逗号拆，最后按冒号配对。
-    for segment in segments:
-        subsegments = [sub.strip() for sub in re.split(r'[，,、]+', segment) if sub.strip()]
-        for sub in subsegments:
-            if ':' not in sub:
-                continue
-            left, right = sub.split(':', 1)
-            pair = (left.strip(), right.strip())
-            if not pair[0] or not pair[1]:
-                continue
-            if pair in seen:
-                continue
-            seen.add(pair)
-            pairs.append(pair)
-    return pairs
+def _parse_component_reasons(value: str) -> tuple[list[dict], list[str]]:
+    """Conservative owner + failure rules, preserving disjunctions as candidates.
+
+    Unsupported or negated prose remains in the omission report; do not infer
+    component failure modes from the machine's failure mode.
+    """
+    facts: list[dict] = []
+    unresolved: list[str] = []
+    parser = _load_rocket_fault_namespace()['split_prefixed_texts']
+    owner_pattern = r'.{0,60}?(?:连接器|导线|接线|电阻|电容|继电器|传感器|开关|电缆|插头|插座|线圈|焊点处|焊点|保险丝|电磁铁|先导腔|活门/推杆|活门|推杆|孔板|引线|绝缘层|电源|电机|气簧腔|减压阀|进气阀|阀门|阀芯|电路|绕组|电气接口|变频器|变频柜|低压电气)(?:[A-Za-z]+\d+)?'
+    mode_pattern = r'(?:供气/放气|供气|放气|运动|密封|尺寸|流量|温度)?(?:异常变形|异常|卡滞|过小|过大|过低|过高)|故障|断开|断路|短路|开路|失效|松动|松脱|脱落|接触不良|损坏|断线|虚焊|破损|漏气|内漏|泄漏|不输出|无输出|内部存在多余物|内有多余物|受力不均'
+    pattern = re.compile(rf'({owner_pattern})\s*(?:发生|出现)?\s*({mode_pattern})')
+    for owner, mode in parser(value):
+        if owner and mode:
+            facts.append({'owner': owner, 'mode': mode, 'alternative': False})
+            continue
+        raw = mode or owner
+        alternatives = re.split(r'(?:或者|或)', raw)
+        is_alternative = len(alternatives) > 1
+        segments = [part for alternative in alternatives
+                    for part in _load_rocket_fault_namespace()['split_top_level_text'](alternative, {'、', '，', ','})]
+        for segment in segments:
+            segment = segment.strip(' 。；;')
+            match = pattern.fullmatch(segment)
+            if (match and not re.search(r'不|未|无|可能|疑似|排除|检查|导致|由于|是否', match[1])
+                    and not re.search(r'故障|断开|断路|短路|开路|失效|或者|或|和|与|以及|[，,；;：:。]', match[1])):
+                facts.append({'owner': match[1].strip(), 'mode': match[2],
+                              'alternative': is_alternative})
+            else:
+                unresolved.append(segment or raw)
+    return facts, unresolved
 
 
 def _safe_file_stem(file_name: str) -> str:
@@ -237,6 +230,9 @@ def _build_ontology_declarations(graph_payload: dict) -> dict:
     declared_relation_names = _unique_preserve_order(list(ONTOLOGY_RELATION_TYPES))
     found_entity_types = {str(item.get('type', '')).strip() for item in graph_payload.get('entities', [])}
     found_relation_names = {str(item.get('name', '')).strip() for item in graph_payload.get('relations', [])}
+    # Include the candidate-group vocabulary actually emitted by this extraction.
+    declared_entity_types += sorted(found_entity_types - set(declared_entity_types) - {''})
+    declared_relation_names += sorted(found_relation_names - set(declared_relation_names) - {''})
     entity_declarations = [{'entityName': entity_type} for entity_type in declared_entity_types]
     relation_declarations = [{'relationName': relation_name} for relation_name in declared_relation_names]
     missing_entities = [entity_type for entity_type in declared_entity_types if entity_type not in found_entity_types]
@@ -337,7 +333,7 @@ def _build_structured_triple_definition(
     relation_start: int | None = None,
     triple_start: int | None = None,
 ) -> dict:
-    entity_index: dict[tuple[str, str], dict] = {}
+    entity_index: dict[tuple[str, str, str], dict] = {}
     relation_index: dict[tuple[str, str, str], dict] = {}
     triple_rows = list(graph_payload.get('tripleRows', []))
     structured_triples: list[dict] = []
@@ -345,9 +341,9 @@ def _build_structured_triple_definition(
     relation_counter = relation_start if relation_start is not None else _next_relation_number()
     triple_counter = triple_start if triple_start is not None else _next_triple_number()
 
-    def ensure_entity(name: str, entity_type: str) -> str:
+    def ensure_entity(name: str, entity_type: str, scope: str = '') -> str:
         nonlocal entity_counter
-        key = (str(name or '').strip(), str(entity_type or '').strip())
+        key = (str(name or '').strip(), str(entity_type or '').strip(), str(scope or '').strip())
         if not key[0] or not key[1]:
             return ''
         if key not in entity_index:
@@ -357,7 +353,7 @@ def _build_structured_triple_definition(
                 'id': entity_id,
                 'name': key[0],
                 'type': key[1],
-                'properties': {},
+                'properties': {**({'scope': key[2]} if key[2] else {})},
             }
         return entity_index[key]['id']
 
@@ -377,17 +373,22 @@ def _build_structured_triple_definition(
             }
         return relation_index[key]['id']
 
+    for entity in graph_payload.get('entities', []):
+        ensure_entity(entity['name'], entity['type'], entity.get('scope', ''))
+
     for row in triple_rows:
         subject = str(row.get('subject', '')).strip()
         predicate = str(row.get('predicate', '')).strip()
         object_name = str(row.get('object', '')).strip()
         subject_type = str(row.get('subjectType', '')).strip()
         object_type = str(row.get('objectType', '')).strip()
+        subject_scope = str(row.get('subjectScope', '')).strip()
+        object_scope = str(row.get('objectScope', '')).strip()
         if not subject or not predicate or not object_name or not subject_type or not object_type:
             continue
 
-        subject_id = ensure_entity(subject, subject_type)
-        object_id = ensure_entity(object_name, object_type)
+        subject_id = ensure_entity(subject, subject_type, subject_scope)
+        object_id = ensure_entity(object_name, object_type, object_scope)
         predicate_id = ensure_relation(predicate, subject_type, object_type)
         if not subject_id or not object_id or not predicate_id:
             continue
@@ -563,14 +564,14 @@ def _collect_table_graph(serialized_rows: list[dict], mappings: list[dict] | Non
     entity_rows: list[dict] = []
     triple_rows: list[dict] = []
     relation_count: dict[str, int] = {}
-    entity_seen: set[tuple[str, str]] = set()
+    entity_seen: set[tuple[str, str, str]] = set()
 
-    def add_entity(name: str, entity_type: str) -> None:
-        key = (name, entity_type)
+    def add_entity(name: str, entity_type: str, scope: str = '') -> None:
+        key = (name, entity_type, scope)
         if not name or key in entity_seen or _is_ontology_placeholder_entity(name, entity_type):
             return
         entity_seen.add(key)
-        entity_rows.append({'name': name, 'type': entity_type})
+        entity_rows.append({'name': name, 'type': entity_type, **({'scope': scope} if scope else {})})
 
     def add_triple(
         subject: str,
@@ -578,6 +579,8 @@ def _collect_table_graph(serialized_rows: list[dict], mappings: list[dict] | Non
         predicate: str,
         object_name: str,
         object_type: str,
+        subject_scope: str = '',
+        object_scope: str = '',
     ) -> None:
         subject_text = str(subject or '').strip()
         object_text = str(object_name or '').strip()
@@ -585,8 +588,8 @@ def _collect_table_graph(serialized_rows: list[dict], mappings: list[dict] | Non
             return
         if _is_ontology_placeholder_entity(subject_text, subject_type) or _is_ontology_placeholder_entity(object_text, object_type):
             return
-        add_entity(subject_text, subject_type)
-        add_entity(object_text, object_type)
+        add_entity(subject_text, subject_type, subject_scope)
+        add_entity(object_text, object_type, object_scope)
         triple_rows.append(
             {
                 'subject': subject_text,
@@ -594,6 +597,8 @@ def _collect_table_graph(serialized_rows: list[dict], mappings: list[dict] | Non
                 'object': object_text,
                 'subjectType': subject_type,
                 'objectType': object_type,
+                **({'subjectScope': subject_scope} if subject_scope else {}),
+                **({'objectScope': object_scope} if object_scope else {}),
             }
         )
         relation_count[predicate] = relation_count.get(predicate, 0) + 1
@@ -610,19 +615,30 @@ def _collect_table_graph(serialized_rows: list[dict], mappings: list[dict] | Non
         component_reason_raw = str(row.get('component_reason_raw', '')).strip()
         system_effect_raw = str(row.get('system_effect_raw', '')).strip()
 
-        component_pairs = _split_prefixed_pairs(component_reason_raw)
-        if not component_pairs and component_name and component_failure_mode:
-            component_pairs = [(component_name, component_failure_mode)]
+        component_facts, _unresolved = _parse_component_reasons(component_reason_raw)
+        if not component_reason_raw and component_name and component_failure_mode:
+            component_facts = [{'owner': component_name, 'mode': component_failure_mode, 'alternative': False}]
+        component_pairs = [(fact['owner'], fact['mode']) for fact in component_facts]
 
         system_pairs = _split_prefixed_pairs(system_effect_raw)
         if not system_pairs and system_name and system_failure_mode:
             system_pairs = [(system_name, system_failure_mode)]
 
-        component_names = _unique_preserve_order([component_name] + [name for name, _ in component_pairs])
-        system_names = _unique_preserve_order([system_name] + [name for name, _ in system_pairs])
+        # build_graph_rows also exposes the first parsed pair as component_name/system_name.
+        # When the raw cell was successfully split, only trust those cleaned pairs;
+        # otherwise a numbered source such as "1.外管组件" is added beside "外管组件".
+        component_names = _unique_preserve_order([name for name, _ in component_pairs])
+        system_names = _unique_preserve_order([name for name, _ in system_pairs])
 
+        # Preserve explicit standalone facts even when a relationship is unknown.
+        add_entity(machine_name, MACHINE)
+        add_entity(function_name, MACHINE_FUNCTION)
+        add_entity(unit_failure_mode, MACHINE_FAULT, f'{MACHINE}:{machine_name}')
+        if not system_pairs:
+            add_entity(overall_failure_mode, GLOBAL_FAULT, f'{MACHINE}:{machine_name}')
         # 系统 / 单机 / 零部组件 包含关系
-        add_triple(system_name, SYSTEM, BASE_RELATIONS['include'], machine_name, MACHINE)
+        for sys_name in system_names:
+            add_triple(sys_name, SYSTEM, BASE_RELATIONS['include'], machine_name, MACHINE)
         for comp_name in component_names:
             add_triple(machine_name, MACHINE, BASE_RELATIONS['include'], comp_name, COMPONENT)
             for sys_name in system_names:
@@ -630,53 +646,74 @@ def _collect_table_graph(serialized_rows: list[dict], mappings: list[dict] | Non
 
         # 单机基础关系
         add_triple(machine_name, MACHINE, BASE_RELATIONS['has_function'], function_name, MACHINE_FUNCTION)
-        add_triple(machine_name, MACHINE, BASE_RELATIONS['has_fault'], unit_failure_mode, MACHINE_FAULT)
+        machine_fault_scope = f'{MACHINE}:{machine_name}'
+        add_triple(machine_name, MACHINE, BASE_RELATIONS['has_fault'], unit_failure_mode, MACHINE_FAULT, object_scope=machine_fault_scope)
 
         # 故障原因：支持多个冒号配对
-        for comp_name, comp_mode in component_pairs:
-            add_triple(comp_name, COMPONENT, BASE_RELATIONS['has_fault'], comp_mode, COMPONENT_FAULT)
-            add_triple(comp_mode, COMPONENT_FAULT, BASE_RELATIONS['causes'], unit_failure_mode, MACHINE_FAULT)
+        for fact in component_facts:
+            comp_name, comp_mode = fact['owner'], fact['mode']
+            component_fault_scope = f'{COMPONENT}:{comp_name}'
+            alternative = fact['alternative']
+            add_triple(comp_name, COMPONENT, '可能存在故障' if alternative else BASE_RELATIONS['has_fault'], comp_mode, COMPONENT_FAULT, object_scope=component_fault_scope)
+            add_triple(comp_mode, COMPONENT_FAULT, '可能导致' if alternative else BASE_RELATIONS['causes'], unit_failure_mode, MACHINE_FAULT, subject_scope=component_fault_scope, object_scope=machine_fault_scope)
+        if any(fact['alternative'] for fact in component_facts):
+            # An explicit group keeps OR semantics in exported JSON and Neo4j,
+            # even when identical candidate edges are deduplicated downstream.
+            group_scope = f'{machine_fault_scope}:{unit_failure_mode}'
+            add_triple(unit_failure_mode, MACHINE_FAULT, '候选原因（或）', component_reason_raw,
+                       '故障原因组', subject_scope=machine_fault_scope, object_scope=group_scope)
+            for fact in component_facts:
+                if fact['alternative']:
+                    add_triple(component_reason_raw, '故障原因组', '候选项', fact['mode'], COMPONENT_FAULT,
+                               subject_scope=group_scope, object_scope=f"{COMPONENT}:{fact['owner']}")
 
         # 高一层级影响：支持多个冒号配对
         for sys_name, sys_mode in system_pairs:
-            add_triple(sys_name, SYSTEM, BASE_RELATIONS['has_fault'], sys_mode, SYSTEM_FAULT)
-            add_triple(unit_failure_mode, MACHINE_FAULT, BASE_RELATIONS['causes'], sys_mode, SYSTEM_FAULT)
-            add_triple(sys_mode, SYSTEM_FAULT, BASE_RELATIONS['causes'], overall_failure_mode, GLOBAL_FAULT)
+            system_fault_scope = f'{SYSTEM}:{sys_name}'
+            global_fault_scope = f'{SYSTEM}:{sys_name}'
+            add_triple(sys_name, SYSTEM, BASE_RELATIONS['has_fault'], sys_mode, SYSTEM_FAULT, object_scope=system_fault_scope)
+            add_triple(unit_failure_mode, MACHINE_FAULT, BASE_RELATIONS['causes'], sys_mode, SYSTEM_FAULT, subject_scope=machine_fault_scope, object_scope=system_fault_scope)
+            add_triple(sys_mode, SYSTEM_FAULT, BASE_RELATIONS['causes'], overall_failure_mode, GLOBAL_FAULT, subject_scope=system_fault_scope, object_scope=global_fault_scope)
 
         add_triple(
             unit_failure_mode,
             MACHINE_FAULT,
             BASE_RELATIONS['single_point'],
-            str(row.get('is_single_point', '')).strip() or '\u672a\u6807\u6ce8',
+            str(row.get('is_single_point', '')).strip(),
             ATTRIBUTE_VALUE,
+            subject_scope=machine_fault_scope,
         )
         add_triple(
             unit_failure_mode,
             MACHINE_FAULT,
             BASE_RELATIONS['severity'],
-            str(row.get('severity_level', '')).strip() or '\u672a\u6807\u6ce8',
+            str(row.get('severity_level', '')).strip(),
             ATTRIBUTE_VALUE,
+            subject_scope=machine_fault_scope,
         )
         add_triple(
             unit_failure_mode,
             MACHINE_FAULT,
             BASE_RELATIONS['probability'],
-            str(row.get('probability_level', '')).strip() or '\u672a\u6807\u6ce8',
+            str(row.get('probability_level', '')).strip(),
             ATTRIBUTE_VALUE,
+            subject_scope=machine_fault_scope,
         )
         add_triple(
             unit_failure_mode,
             MACHINE_FAULT,
             BASE_RELATIONS['phase'],
-            str(row.get('mission_phase', '')).strip() or '\u672a\u6807\u6ce8',
+            str(row.get('mission_phase', '')).strip(),
             ATTRIBUTE_VALUE,
+            subject_scope=machine_fault_scope,
         )
         add_triple(
             unit_failure_mode,
             MACHINE_FAULT,
             BASE_RELATIONS['measure'],
-            str(row.get('design_measure', '')).strip() or '\u672a\u6807\u6ce8',
+            str(row.get('design_measure', '')).strip(),
             ATTRIBUTE_VALUE,
+            subject_scope=machine_fault_scope,
         )
 
         extra_columns = row.get('extra_columns', {})
@@ -689,7 +726,7 @@ def _collect_table_graph(serialized_rows: list[dict], mappings: list[dict] | Non
                 continue
             value = str(extra_columns.get(header, '')).strip()
             if value:
-                add_triple(unit_failure_mode, MACHINE_FAULT, header, value, entity_type)
+                add_triple(unit_failure_mode, MACHINE_FAULT, header, value, entity_type, subject_scope=machine_fault_scope)
 
     priority_map = {
         GLOBAL_FAULT: 0,
@@ -740,9 +777,12 @@ def get_table_extraction_result(
         extra_file_name,
         extra_file_content,
     )
-    graph_rows = build_graph_rows(records)
-    serialized_rows = serialize_rows(graph_rows)
+    graph_rows = build_graph_rows(records, preserve_partial=True)
+    # The CLI expands pairs; the web collector handles all pairs from raw cells.
+    # Process each source row once to avoid multiplying its triples.
+    serialized_rows = list({row['row_number']: row for row in serialize_rows(graph_rows)}.values())
     graph_payload = _collect_table_graph(serialized_rows, mappings)
+    row_report = _build_row_report(records, serialized_rows, mappings)
     applied_mappings = []
     for item in mappings or []:
         header = str(item.get('header', '')).strip()
@@ -758,6 +798,7 @@ def get_table_extraction_result(
         'extraFileName': extra_file_name or '',
         'sourceType': 'table',
         'appliedMappings': applied_mappings,
+        'rowReport': row_report,
         **graph_payload,
     }
     declaration_payload = _build_ontology_declarations(graph_payload)
@@ -767,5 +808,44 @@ def get_table_extraction_result(
         declaration_payload,
     )
     result['definition'] = declaration_payload
+    triple_definition['rowReport'] = row_report
     result['tripleJsonPath'] = _export_triple_json(triple_definition, primary_file_name)
     return result
+
+
+def _build_row_report(records: list[dict], rows: list[dict], mappings: list[dict] | None) -> dict:
+    """Report source-level losses, including partially parsed cells and empty rows."""
+    parser = _load_rocket_fault_namespace()['split_prefixed_texts']
+    by_number = {row['row_number']: row for row in rows}
+    mapped_headers = {str(item.get('header', '')).strip() for item in mappings or []}
+    issues = []
+    preserved = 0
+    for offset, record in enumerate(records, start=2):
+        number = getattr(record, 'row_number', offset)
+        row = by_number.get(number, {})
+        graph = _collect_table_graph([row], mappings) if row else {'entities': [], 'tripleRows': []}
+        has_facts = bool(graph['entities'])
+        preserved += int(has_facts)
+        omissions = []
+        for header in (HEADER_MACHINE, HEADER_UNIT_FAULT):
+            if not str(record.get(header, '')).strip():
+                omissions.append({'field': header, 'rawText': '', 'reason': '字段为空，相关关系无法建立'})
+        for header in (HEADER_COMPONENT_REASON, HEADER_HIGHER_IMPACT):
+            raw = str(record.get(header, '')).strip()
+            if not raw:
+                omissions.append({'field': header, 'rawText': '', 'reason': '字段为空，未生成对应实体及关系'})
+            elif (_parse_component_reasons(raw)[1] if header == HEADER_COMPONENT_REASON
+                  else any(not owner or not mode for owner, mode in parser(raw))):
+                omissions.append({'field': header, 'rawText': raw, 'reason': '部分或全部内容无法解析为“对象：故障”，未猜测对象；其他明确知识已保留'})
+        for header, value in record.items():
+            if value and _normalize_header_key(_canonical_header_name(header)) not in BASE_HEADERS and header not in mapped_headers:
+                omissions.append({'field': header, 'rawText': str(value), 'reason': '扩展列未配置映射'})
+        if record.get(HEADER_FINAL_IMPACT) and not _split_prefixed_pairs(str(record.get(HEADER_HIGHER_IMPACT, ''))):
+            omissions.append({'field': HEADER_FINAL_IMPACT, 'rawText': record[HEADER_FINAL_IMPACT], 'reason': '最终影响实体已保留，但缺少可解析的系统故障，未建立传播关系'})
+        if omissions or not has_facts:
+            issues.append({'rowNumber': number, 'machineName': record.get(HEADER_MACHINE, ''),
+                           'status': 'partial' if has_facts else 'skipped',
+                           'retainedTripleCount': len(graph['tripleRows']),
+                           'omissions': omissions, 'sourceRow': dict(record)})
+    return {'inputRows': len(records), 'retainedRows': preserved, 'skippedRows': len(records) - preserved,
+            'issueRows': len(issues), 'rows': issues}

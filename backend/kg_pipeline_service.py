@@ -8,15 +8,23 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from backend.graph_registry import (
+    create_registered_graph,
+    delete_registered_graph,
     graph_index_dir,
     graph_report_dir,
+    graph_summary,
     graph_version_history_path,
     request_graph_database,
     touch_graph,
     validate_database_name,
 )
-from kg_tool.neo4j_graph import Neo4jConfig
-from kg_tool.versioning import DEFAULT_MAX_VERSIONS, DEFAULT_VERSION_HISTORY_PATH, list_triple_versions
+from kg_tool.neo4j_graph import Neo4jConfig, _import_driver
+from kg_tool.versioning import (
+    DEFAULT_MAX_VERSIONS,
+    DEFAULT_VERSION_HISTORY_PATH,
+    list_triple_versions,
+    rollback_triple_version_record,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -56,6 +64,88 @@ def _stable_id(prefix: str, *parts: object) -> str:
     raw = '\n'.join(str(part or '').strip() for part in parts)
     digest = hashlib.sha1(raw.encode('utf-8')).hexdigest()[:16]
     return f'{prefix}_{digest}'
+
+
+def _quote_identifier(value: object) -> str:
+    return f"`{str(value or '').replace('`', '``')}`"
+
+
+def _clone_neo4j_database_contents(source_database: str, target_database: str) -> dict[str, Any]:
+    """Copy all nodes and relationships while retaining a source-to-target elementId map."""
+    graph_db = _import_driver()
+    config = get_neo4j_config(database=source_database)
+    driver = graph_db.driver(config.uri, auth=(config.user, config.password))
+    element_id_map: dict[str, str] = {}
+    try:
+        with driver.session(database=source_database) as source_session:
+            node_records = source_session.run(
+                'MATCH (n) RETURN elementId(n) AS id, labels(n) AS labels, properties(n) AS props ORDER BY elementId(n)'
+            ).data()
+            relationship_records = source_session.run(
+                'MATCH (s)-[r]->(o) '
+                'RETURN elementId(s) AS source, type(r) AS relation, elementId(o) AS target, properties(r) AS props '
+                'ORDER BY elementId(r)'
+            ).data()
+
+        with driver.session(database=target_database) as target_session:
+            tx = target_session.begin_transaction()
+            try:
+                for record in node_records:
+                    labels = [str(label) for label in record.get('labels', []) if str(label)]
+                    label_clause = ''.join(f':{_quote_identifier(label)}' for label in labels)
+                    created = tx.run(
+                        f'CREATE (n{label_clause}) SET n = $props RETURN elementId(n) AS id',
+                        props=dict(record.get('props') or {}),
+                    ).single()
+                    element_id_map[str(record.get('id') or '')] = str(created['id'])
+
+                for record in relationship_records:
+                    source_id = element_id_map.get(str(record.get('source') or ''))
+                    target_id = element_id_map.get(str(record.get('target') or ''))
+                    if not source_id or not target_id:
+                        continue
+                    relation = _quote_identifier(record.get('relation'))
+                    tx.run(
+                        'MATCH (s) WHERE elementId(s) = $source '
+                        'MATCH (o) WHERE elementId(o) = $target '
+                        f'CREATE (s)-[r:{relation}]->(o) SET r = $props',
+                        source=source_id,
+                        target=target_id,
+                        props=dict(record.get('props') or {}),
+                    ).consume()
+                tx.commit()
+            except Exception:
+                tx.rollback()
+                raise
+    finally:
+        driver.close()
+    return {
+        'nodeCount': len(node_records),
+        'relationshipCount': len(relationship_records),
+        'elementIdMap': element_id_map,
+    }
+
+
+def _remap_version_element_ids(
+    record: Mapping[str, Any],
+    element_id_map: Mapping[str, str],
+) -> dict[str, Any]:
+    """Move database-local element IDs in a version record to the cloned database."""
+    copied = json.loads(json.dumps(dict(record), ensure_ascii=False, default=str))
+    write_summary = copied.get('write_summary')
+    if not isinstance(write_summary, dict):
+        return copied
+    changes = write_summary.get('link_relationship_changes')
+    if not isinstance(changes, list):
+        return copied
+    for change in changes:
+        if not isinstance(change, dict):
+            continue
+        for field in ('source_element_id', 'target_element_id'):
+            old_id = str(change.get(field) or '')
+            if old_id in element_id_map:
+                change[field] = element_id_map[old_id]
+    return copied
 
 
 def _append_property(properties: dict[str, Any], key: str, value: str) -> None:
@@ -203,8 +293,16 @@ def normalize_extraction_result_to_triple_payload(extraction_result: Mapping[str
             }
         return str(relation_index[key]['id'])
 
-    attribute_groups: dict[tuple[str, str, str, str], list[str]] = {}
-    normal_rows: list[tuple[str, str, str, str, str]] = []
+    attribute_groups: dict[tuple[str, str, str, str, str], list[str]] = {}
+    normal_rows: list[tuple[str, str, str, str, str, str, str]] = []
+
+    # Preserve standalone table facts; attribute nodes are rebuilt below with
+    # their existing grouping semantics.
+    if source_type == 'table':
+        for entity in extraction_result.get('entities', []):
+            entity_type = str(entity.get('type') or '')
+            if entity_type not in ATTRIBUTE_TYPES and entity_type not in ATTRIBUTE_RELATION_NAMES:
+                ensure_entity(entity.get('name', ''), entity_type, entity.get('scope', ''))
 
     for row in triple_rows:
         if not isinstance(row, Mapping):
@@ -215,6 +313,8 @@ def normalize_extraction_result_to_triple_payload(extraction_result: Mapping[str
         obj = str(row.get('object') or '').strip()
         subject_type = str(row.get('subjectType') or row.get('subject_type') or '').strip()
         object_type = str(row.get('objectType') or row.get('object_type') or '').strip()
+        subject_scope = str(row.get('subjectScope') or row.get('subject_scope') or '').strip()
+        object_scope = str(row.get('objectScope') or row.get('object_scope') or '').strip()
         if not subject or not predicate or not obj:
             skipped_rows += 1
             continue
@@ -222,17 +322,17 @@ def normalize_extraction_result_to_triple_payload(extraction_result: Mapping[str
         if object_type in ATTRIBUTE_TYPES or predicate in ATTRIBUTE_RELATION_NAMES or object_type in ATTRIBUTE_RELATION_NAMES:
             grouped_type = object_type if object_type not in ATTRIBUTE_TYPES else predicate
             grouped_type = grouped_type if grouped_type in ATTRIBUTE_RELATION_NAMES else object_type
-            group_key = (subject_type, subject, predicate, grouped_type)
+            group_key = (subject_type, subject, subject_scope, predicate, grouped_type)
             values = attribute_groups.setdefault(group_key, [])
             if obj not in values:
                 values.append(obj)
             continue
 
-        normal_rows.append((subject, subject_type, predicate, obj, object_type))
+        normal_rows.append((subject, subject_type, subject_scope, predicate, obj, object_type, object_scope))
 
-    for subject, subject_type, predicate, obj, object_type in normal_rows:
-        subject_id = ensure_entity(subject, subject_type)
-        object_id = ensure_entity(obj, object_type)
+    for subject, subject_type, subject_scope, predicate, obj, object_type, object_scope in normal_rows:
+        subject_id = ensure_entity(subject, subject_type, subject_scope)
+        object_id = ensure_entity(obj, object_type, object_scope)
         relation_id = ensure_relation(predicate, subject_type, object_type)
         triple_key = (subject_id, relation_id, object_id)
         if not subject_id or not object_id or not relation_id or triple_key in seen_triples:
@@ -251,13 +351,13 @@ def normalize_extraction_result_to_triple_payload(extraction_result: Mapping[str
             }
         )
 
-    for (subject_type, subject, predicate, object_type), values in attribute_groups.items():
+    for (subject_type, subject, subject_scope, predicate, object_type), values in attribute_groups.items():
         clean_values = [value for value in values if value]
         if not clean_values:
             continue
         obj = ' / '.join(clean_values)
         scope = f'{subject_type}:{subject}:{predicate}'
-        subject_id = ensure_entity(subject, subject_type)
+        subject_id = ensure_entity(subject, subject_type, subject_scope)
         object_id = ensure_entity(obj, object_type, scope=scope)
         relation_id = ensure_relation(predicate, subject_type, object_type)
         triple_key = (subject_id, relation_id, object_id)
@@ -473,3 +573,112 @@ def rollback_latest_kg_version(*, graph_database: str | None = None) -> dict[str
         'summary': json.loads(json.dumps(summary, ensure_ascii=False, default=str)),
         'history': list_kg_versions(graph_database=database),
     }
+
+
+def save_kg_version_as_new_graph(
+    version_id: object,
+    graph_name: object,
+    *,
+    source_database: str | None = None,
+) -> dict[str, Any]:
+    """Rebuild the cumulative state at one recorded version in a new database."""
+    source = validate_database_name(source_database or request_graph_database())
+    requested_version = str(version_id or '').strip()
+    requested_name = str(graph_name or '').strip()
+    if not requested_version:
+        raise ValueError('请选择需要另存的历史版本。')
+    if not requested_name:
+        raise ValueError('请输入新图谱名称。')
+
+    versions = list_triple_versions(history_path=graph_version_history_path(source))
+    target_index = next(
+        (
+            index
+            for index, record in enumerate(versions)
+            if isinstance(record, Mapping) and str(record.get('version_id') or '') == requested_version
+        ),
+        -1,
+    )
+    if target_index < 0:
+        raise ValueError('指定历史版本不存在，请刷新版本列表后重试。')
+
+    selected_versions = [
+        dict(record)
+        for record in versions[:target_index + 1]
+        if isinstance(record, Mapping)
+    ]
+    newer_versions = [
+        dict(record)
+        for record in versions[target_index + 1:]
+        if isinstance(record, Mapping)
+    ]
+    created_graph = create_registered_graph(
+        requested_name,
+        f'由图谱 {source} 的历史版本 {requested_version} 另存',
+    )
+    target_database = str(created_graph['database'])
+    try:
+        from kg_tool.indexing import build_semantic_index
+        from kg_tool.neo4j_graph import load_graph_from_neo4j
+
+        target_config = get_neo4j_config(database=target_database)
+        clone_summary = _clone_neo4j_database_contents(source, target_database)
+        rollback_summaries = [
+            rollback_triple_version_record(
+                target_config,
+                record,
+                element_id_map=clone_summary['elementIdMap'],
+            )
+            for record in reversed(newer_versions)
+        ]
+
+        target_versions = [
+            _remap_version_element_ids(record, clone_summary['elementIdMap'])
+            for record in selected_versions
+        ]
+
+        target_history_path = graph_version_history_path(target_database)
+        target_history_path.parent.mkdir(parents=True, exist_ok=True)
+        target_history_path.write_text(
+            json.dumps(
+                {'schema_version': 1, 'versions': target_versions},
+                ensure_ascii=False,
+                indent=2,
+            ) + '\n',
+            encoding='utf-8',
+        )
+
+        index_summary: dict[str, Any]
+        try:
+            snapshot = load_graph_from_neo4j(target_config)
+            index_artifacts = build_semantic_index(snapshot, artifact_dir=graph_index_dir(target_database))
+            index_summary = {
+                'status': 'ok',
+                'nodeCount': len(index_artifacts.node_order),
+                'artifactDir': str(graph_index_dir(target_database)),
+            }
+        except Exception as exc:
+            index_summary = {'status': 'skipped', 'error': str(exc)}
+
+        touch_graph(target_database)
+        return {
+            'status': 'ok',
+            'message': '历史版本已另存为新图谱。',
+            'sourceDatabase': source,
+            'sourceVersionId': requested_version,
+            'copiedVersions': len(selected_versions),
+            'rolledBackVersions': len(newer_versions),
+            'graph': graph_summary(created_graph),
+            'copy': {
+                'nodes': clone_summary['nodeCount'],
+                'relationships': clone_summary['relationshipCount'],
+                'rollback': rollback_summaries,
+            },
+            'index': index_summary,
+        }
+    except Exception:
+        try:
+            delete_registered_graph(target_database)
+        except Exception:
+            pass
+        raise

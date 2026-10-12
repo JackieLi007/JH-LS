@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -26,6 +27,7 @@ except ModuleNotFoundError:
     sys.modules["neo4j"] = neo4j_stub
 
 from backend import graph_registry
+from backend import kg_pipeline_service
 from backend.kg_pipeline_service import list_kg_versions
 from kg_tool.versioning import record_triple_version
 
@@ -130,6 +132,74 @@ class MultiGraphRegistryTest(unittest.TestCase):
     def test_default_graph_cannot_be_deleted(self) -> None:
         with self.assertRaises(graph_registry.GraphRegistryError):
             graph_registry.delete_registered_graph(graph_registry.default_graph()["database"])
+
+    def test_historical_version_is_saved_by_cloning_then_rolling_back_newer_versions(self) -> None:
+        source = self._create_graph("CZ-8A")
+        records = []
+        for index in range(3):
+            records.append(record_triple_version(
+                {"fileName": f"v{index + 1}.xlsx", "entities": [], "relations": [], "triples": []},
+                {"created_nodes": index + 1},
+                history_path=graph_registry.graph_version_history_path(source["database"]),
+            ))
+
+        created_target = {
+            "database": "kg-cz-8a-history-12345678",
+            "name": "CZ-8A 历史副本",
+            "description": "",
+            "isDefault": False,
+        }
+        clone_summary = {
+            "nodeCount": 12,
+            "relationshipCount": 18,
+            "elementIdMap": {"old-source": "new-source", "old-target": "new-target"},
+        }
+        source_history_path = graph_registry.graph_version_history_path(source["database"])
+        source_history = json.loads(source_history_path.read_text(encoding="utf-8"))
+        source_history["versions"][1]["write_summary"]["link_relationship_changes"] = [{
+            "source_element_id": "old-source",
+            "target_element_id": "old-target",
+        }]
+        source_history_path.write_text(json.dumps(source_history), encoding="utf-8")
+        records = source_history["versions"]
+
+        fake_indexing = ModuleType("kg_tool.indexing")
+        fake_indexing.build_semantic_index = unittest.mock.Mock(side_effect=RuntimeError("index unavailable"))
+        fake_neo4j_graph = ModuleType("kg_tool.neo4j_graph")
+        fake_neo4j_graph.load_graph_from_neo4j = unittest.mock.Mock(return_value=SimpleNamespace())
+        with (
+            patch.dict(sys.modules, {
+                "kg_tool.indexing": fake_indexing,
+                "kg_tool.neo4j_graph": fake_neo4j_graph,
+            }),
+            patch.object(kg_pipeline_service, "create_registered_graph", return_value=created_target),
+            patch.object(kg_pipeline_service, "_clone_neo4j_database_contents", return_value=clone_summary),
+            patch.object(kg_pipeline_service, "rollback_triple_version_record", return_value={"rolled_back": True}) as rollback,
+            patch.object(kg_pipeline_service, "touch_graph"),
+            patch.object(kg_pipeline_service, "graph_summary", return_value={**created_target, "available": True}),
+        ):
+            result = kg_pipeline_service.save_kg_version_as_new_graph(
+                records[1]["version_id"],
+                created_target["name"],
+                source_database=source["database"],
+            )
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["copiedVersions"], 2)
+        self.assertEqual(result["rolledBackVersions"], 1)
+        rollback.assert_called_once()
+        rolled_record = rollback.call_args.args[1]
+        self.assertEqual(rolled_record["version_id"], records[2]["version_id"])
+        target_history = json.loads(
+            graph_registry.graph_version_history_path(created_target["database"]).read_text(encoding="utf-8")
+        )
+        self.assertEqual(
+            [item["version_id"] for item in target_history["versions"]],
+            [records[0]["version_id"], records[1]["version_id"]],
+        )
+        saved_link_change = target_history["versions"][1]["write_summary"]["link_relationship_changes"][0]
+        self.assertEqual(saved_link_change["source_element_id"], "new-source")
+        self.assertEqual(saved_link_change["target_element_id"], "new-target")
 
     def _create_graph(self, name: str) -> dict[str, object]:
         fake_driver = _FakeDriver()
