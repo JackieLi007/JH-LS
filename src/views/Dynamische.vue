@@ -62,6 +62,15 @@ type GraphPayload = {
   version?: Record<string, unknown> | null
 }
 
+type KnowledgeGraph = {
+  database: string
+  name: string
+  description?: string
+  nodeCount?: number
+  edgeCount?: number
+  available?: boolean
+}
+
 type QueryStep = {
   stage: string
   nodeId: string
@@ -204,6 +213,10 @@ const graphError = ref('')
 const queryError = ref('')
 const graph = ref<GraphPayload | null>(null)
 const queryResult = ref<QueryResult | null>(null)
+const knowledgeGraphs = ref<KnowledgeGraph[]>([])
+const selectedGraphDatabase = ref(localStorage.getItem('fmeafront-selected-graph') || '')
+const graphCatalogLoading = ref(false)
+const graphCatalogError = ref('')
 const selectedOntologyNodeId = ref('')
 const selectedFaultNodeId = ref('')
 const selectedOntologyTreeId = ref('graph-ontology-tree-root')
@@ -673,6 +686,9 @@ const addParentOptions = computed(() => {
 const topMatches = computed(() => queryResult.value?.topMatches ?? [])
 const isOntologyView = computed(() => activeView.value === 'ontology')
 const canEditGraph = computed(() => auth.user?.role === 'editor')
+const selectedKnowledgeGraph = computed(() => (
+  knowledgeGraphs.value.find((item) => item.database === selectedGraphDatabase.value) ?? null
+))
 const activeViewMeta = computed(() => {
   if (activeView.value === 'ontology') {
     return {
@@ -1885,15 +1901,59 @@ function graphPayloadFromResponse(payload: Record<string, any>): GraphPayload | 
 
 type LoadGraphOptions = {
   resetViewState?: boolean
+  force?: boolean
+}
+
+function graphHeaders(headers: Record<string, string> = {}) {
+  const database = selectedGraphDatabase.value.trim()
+  return database ? { ...headers, 'X-KG-Database': database } : headers
+}
+
+async function loadGraphCatalog() {
+  graphCatalogLoading.value = true
+  graphCatalogError.value = ''
+  try {
+    const response = await fetch('/api/graphs', { cache: 'no-store' })
+    const payload = await response.json()
+    if (!response.ok) throw new Error(payload?.message || '图谱列表读取失败')
+    knowledgeGraphs.value = Array.isArray(payload?.graphs) ? payload.graphs as KnowledgeGraph[] : []
+    const exists = knowledgeGraphs.value.some((item) => item.database === selectedGraphDatabase.value)
+    if (!exists) selectedGraphDatabase.value = String(payload?.defaultDatabase || knowledgeGraphs.value[0]?.database || '')
+    if (selectedGraphDatabase.value) localStorage.setItem('fmeafront-selected-graph', selectedGraphDatabase.value)
+  } catch (error) {
+    graphCatalogError.value = error instanceof Error ? error.message : '图谱列表读取失败'
+  } finally {
+    graphCatalogLoading.value = false
+  }
+}
+
+async function changeKnowledgeGraph(event: Event) {
+  const database = String((event.target as HTMLSelectElement).value || '').trim()
+  if (!database || database === selectedGraphDatabase.value) return
+  selectedGraphDatabase.value = database
+  localStorage.setItem('fmeafront-selected-graph', database)
+  graph.value = null
+  queryResult.value = null
+  currentQuery.value = ''
+  selectedOntologyNodeId.value = ''
+  selectedFaultNodeId.value = ''
+  selectedOntologyTreeId.value = ONTOLOGY_TEMPLATE_TREE_ROOT_ID
+  selectedFaultTreeId.value = ''
+  ontologyGraphPositions.value = {}
+  faultGraphPositions.value = {}
+  zoomGraphPositions.value = {}
+  ontologyMapPositions.value = {}
+  const loaded = await loadGraph({ resetViewState: true, force: true })
+  if (loaded && activeView.value === 'fault' && query.value.trim()) await runQuery()
 }
 
 async function loadGraph(options: LoadGraphOptions = {}) {
-  const { resetViewState = true } = options
-  if (graph.value) return true
+  const { resetViewState = true, force = false } = options
+  if (graph.value && !force) return true
   graphError.value = ''
   isLoading.value = true
   try {
-    const response = await fetch('/api/graph', { cache: 'no-store' })
+    const response = await fetch('/api/graph', { cache: 'no-store', headers: graphHeaders() })
     const payload = await response.json()
     const nextGraph = graphPayloadFromResponse(payload)
     if (!nextGraph) throw new Error('empty graph payload')
@@ -1933,7 +1993,7 @@ async function refreshQueryResultAfterGraphChange() {
     const response = await fetch('/api/query', {
       method: 'POST',
       cache: 'no-store',
-      headers: { 'Content-Type': 'application/json' },
+      headers: graphHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ text }),
     })
     const payload = await response.json()
@@ -2026,7 +2086,7 @@ async function submitNodeOperation() {
     const response = await fetch(url, {
       method: isEdit ? 'PATCH' : 'POST',
       cache: 'no-store',
-      headers: { 'Content-Type': 'application/json' },
+      headers: graphHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(body),
     })
     const payload = await response.json()
@@ -2059,7 +2119,7 @@ async function deleteSelectedNode() {
   nodeOperationError.value = ''
   isNodeSaving.value = true
   try {
-    const response = await fetch(`/api/graph/nodes/${encodeURIComponent(selected.id)}`, { method: 'DELETE', cache: 'no-store' })
+    const response = await fetch(`/api/graph/nodes/${encodeURIComponent(selected.id)}`, { method: 'DELETE', cache: 'no-store', headers: graphHeaders() })
     const payload = await response.json()
     if (!response.ok || payload.success === false) {
       nodeOperationError.value = payload.message ?? '节点删除失败。'
@@ -2123,7 +2183,7 @@ async function runQuery() {
     const response = await fetch('/api/query', {
       method: 'POST',
       cache: 'no-store',
-      headers: { 'Content-Type': 'application/json' },
+      headers: graphHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ text }),
     })
     const payload = await response.json()
@@ -2171,7 +2231,8 @@ async function executeQueryWithText(searchText: string) {
     const response = await fetch('/api/query', {
       method: 'POST',
       cache: 'no-store',
-      headers: { 'Content-Type': 'application/json' },
+      // 保持与候选召回阶段相同的当前图谱，避免回退到默认图谱查询。
+      headers: graphHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ text: searchText }),
     })
     const payload = await response.json()
@@ -2247,7 +2308,7 @@ async function focusFaultNode(nodeId: string, errorLabel = '节点聚焦失败')
     const response = await fetch('/api/query/node', {
       method: 'POST',
       cache: 'no-store',
-      headers: { 'Content-Type': 'application/json' },
+      headers: graphHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({
         text,
         nodeId,
@@ -2620,6 +2681,7 @@ onMounted(async () => {
   window.addEventListener('pointercancel', stopDrag)
   window.addEventListener('contextmenu', suppressGraphAreaContextMenu)
   syncOntologyExpandedState()
+  await loadGraphCatalog()
   await applyRouteQuery()
   ensureGraphLoadedForOntology()
 })
@@ -2771,6 +2833,21 @@ const TreeBranch: ReturnType<typeof defineComponent> = defineComponent({
           </aside>
 
           <main :class="['main', isOntologyView ? 'main--ontology' : 'main--fault']">
+            <section class="graph-switcher" aria-label="当前知识图谱选择">
+              <div>
+                <div class="eyebrow">当前图谱</div>
+                <strong>{{ selectedKnowledgeGraph?.name || '正在读取图谱列表' }}</strong>
+              </div>
+              <label>
+                <span>图谱数据库</span>
+                <select :value="selectedGraphDatabase" :disabled="graphCatalogLoading || !knowledgeGraphs.length" @change="changeKnowledgeGraph">
+                  <option v-for="item in knowledgeGraphs" :key="item.database" :value="item.database" :disabled="item.available === false">
+                    {{ item.name }}{{ item.available === false ? '（不可用）' : '' }}
+                  </option>
+                </select>
+              </label>
+              <p v-if="graphCatalogError" class="graph-switcher__error">{{ graphCatalogError }}</p>
+            </section>
             <template v-if="isOntologyView">
               <section class="view-grid view-grid--ontology">
                 <section class="card tree-card">
@@ -2919,7 +2996,7 @@ const TreeBranch: ReturnType<typeof defineComponent> = defineComponent({
                 </div>
 
                 <div class="query-body">
-                  <textarea class="query-input" v-model="query" placeholder="请输入故障现象，例如“液氧加注阀打不开”" @keydown.enter.prevent="runQuery" />
+                  <textarea class="query-input" v-model="query" placeholder="请输入故障现象，例如“通控制气打不开”" @keydown.enter.prevent="runQuery" />
                   <button class="primary query-action" :disabled="isQuerying || isLoading" @click="runQuery">
                     {{ isQuerying ? '查询中...' : '点击查询' }}
                   </button>
@@ -3179,8 +3256,13 @@ const TreeBranch: ReturnType<typeof defineComponent> = defineComponent({
 .menu-item-title{font-size:14px;font-weight:900;color:#fff}
 .menu-item-note{font-size:11px;line-height:1.4;color:#bdd1ef}
 .main{padding:18px;display:grid;gap:14px;overflow:hidden;min-height:0;min-width:0}
-.main--ontology{grid-template-rows:minmax(0,1fr)}
-.main--fault{grid-template-rows:auto minmax(0,1fr)}
+.main--ontology{grid-template-rows:auto minmax(0,1fr)}
+.main--fault{grid-template-rows:auto auto minmax(0,1fr)}
+.graph-switcher{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,360px);gap:14px;align-items:end;padding:12px 14px;border:1px solid #cbdcf2;border-radius:16px;background:linear-gradient(135deg,#f7fbff,#eef5ff);color:#17355e}
+.graph-switcher strong{display:block;margin-top:5px;font-size:15px}
+.graph-switcher label{display:grid;gap:6px;color:#5f7598;font-size:12px;font-weight:800}
+.graph-switcher select{min-height:38px;padding:0 10px;border:1px solid #b9cbe5;border-radius:10px;background:#fff;color:#17355e;font:inherit;font-weight:700}
+.graph-switcher__error{grid-column:1 / -1;margin:0;color:#b42318;font-size:12px;font-weight:700}
 .view-header{display:flex;align-items:center;min-height:118px}
 .view-header-copy{display:grid;gap:6px}
 .view-header h2{margin:0;font-size:28px;line-height:1.05;color:#17355e}
@@ -3329,6 +3411,7 @@ box-shadow:inset 0 1px 0 rgba(255,255,255,.9);cursor:zoom-in}
 @media (max-width: 1200px){
   .query-body{grid-template-columns:minmax(0,1fr)}
   .primary{min-height:40px}
+  .graph-switcher{grid-template-columns:1fr}
 }
 .zoom-overlay{position:fixed;inset:0;background:rgba(10,23,43,.42);display:grid;place-items:center;padding:24px;z-index:50}
 .zoom-dialog{width:min(96vw,1480px);height:min(92vh,980px);background:rgba(255,255,255,.98);border:1px solid #dbe6f3;border-radius:28px;box-shadow:0 24px 60px rgba(15,36,71,.24);display:grid;grid-template-rows:auto minmax(0,1fr);overflow:hidden}

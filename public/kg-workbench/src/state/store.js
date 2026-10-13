@@ -2,6 +2,12 @@ export const state = {
   currentPage: 'ontology',
   sourceType: 'table',
   schema: { entityTypes: [], relationTypes: [] },
+  graphs: [],
+  graphsLoading: false,
+  graphError: '',
+  selectedGraphDatabase: localStorage.getItem('fmeafront-selected-graph') || '',
+  graphCreateName: '',
+  graphCreating: false,
   ontology: {
     nodes: [],
     edges: [],

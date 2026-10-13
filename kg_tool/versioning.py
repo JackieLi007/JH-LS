@@ -192,8 +192,34 @@ def rollback_latest_triple_version(
         return {"rolled_back": False, "reason": "no version history"}
 
     record = deepcopy(versions[-1])
+    result = rollback_triple_version_record(config, record)
+
+    history["versions"] = versions[:-1]
+    _save_history(history_path, history)
+    return {
+        **result,
+        "remaining_versions": len(history["versions"]),
+    }
+
+
+def rollback_triple_version_record(
+    config: Neo4jConfig,
+    record: Mapping[str, Any],
+    *,
+    element_id_map: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    """Reverse one version without mutating a history file."""
+    record = deepcopy(dict(record))
     write_summary = record.get("write_summary", {})
-    link_relationship_changes = list(write_summary.get("link_relationship_changes", []))
+    link_relationship_changes = deepcopy(list(write_summary.get("link_relationship_changes", [])))
+    if element_id_map:
+        for change in link_relationship_changes:
+            source = str(change.get("source_element_id") or "")
+            target = str(change.get("target_element_id") or "")
+            if source in element_id_map:
+                change["source_element_id"] = element_id_map[source]
+            if target in element_id_map:
+                change["target_element_id"] = element_id_map[target]
     relationship_changes = list(write_summary.get("relationship_changes", []))
     entity_changes = list(write_summary.get("entity_changes", []))
 
@@ -234,8 +260,6 @@ def rollback_latest_triple_version(
     finally:
         driver.close()
 
-    history["versions"] = versions[:-1]
-    _save_history(history_path, history)
     return {
         "rolled_back": True,
         "version_id": record.get("version_id"),
@@ -246,5 +270,4 @@ def rollback_latest_triple_version(
         "restored_link_relationships": restored_link_relationships,
         "deleted_nodes": deleted_nodes,
         "restored_nodes": restored_nodes,
-        "remaining_versions": len(history["versions"]),
     }

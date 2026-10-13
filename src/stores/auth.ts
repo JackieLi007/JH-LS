@@ -16,6 +16,18 @@ type AuthResponse = {
   result?: AuthUser | null
 }
 
+async function readAuthResponse(response: Response): Promise<AuthResponse> {
+  const body = await response.text()
+  if (!body.trim()) {
+    throw new Error('登录服务未返回数据。请确认 Flask 后端已启动，且 Vite 代理端口配置正确。')
+  }
+  try {
+    return JSON.parse(body) as AuthResponse
+  } catch {
+    throw new Error(`登录服务返回了非 JSON 数据（HTTP ${response.status}）。请检查后端服务地址和运行日志。`)
+  }
+}
+
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<AuthUser | null>(null)
   const initialized = ref(false)
@@ -28,7 +40,7 @@ export const useAuthStore = defineStore('auth', () => {
         cache: 'no-store',
         credentials: 'include',
       })
-      const payload = await response.json() as AuthResponse
+      const payload = await readAuthResponse(response)
       user.value = response.ok && payload.success !== false ? payload.result ?? null : null
     } catch {
       user.value = null
@@ -46,7 +58,7 @@ export const useAuthStore = defineStore('auth', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
     })
-    const payload = await response.json() as AuthResponse
+    const payload = await readAuthResponse(response)
     if (!response.ok || payload.success === false || !payload.result) {
       throw new Error(payload.message || '登录失败，请检查用户名和密码。')
     }

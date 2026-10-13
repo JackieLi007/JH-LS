@@ -33,7 +33,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     },
     'relationGroups': {
         'hierarchy': ['包含', 'INCLUDE', '功能', 'HAS_FUNCTION'],
-        'fault_link': ['故障模式', 'HAS_FAILURE_MODE'],
+        'fault_link': ['存在故障', '故障模式', 'HAS_FAILURE_MODE'],
         'attribute_link': [
             '有', 'HAS',
             '发生阶段', '发生概率', '严酷度等级', '是否单点',

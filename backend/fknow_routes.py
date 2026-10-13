@@ -23,6 +23,7 @@ from backend.kg_pipeline_service import (
     kg_auto_build_enabled,
     list_kg_versions,
     rollback_latest_kg_version,
+    save_kg_version_as_new_graph,
 )
 from backend.table_extract_service import (
     get_table_extraction_result,
@@ -164,3 +165,18 @@ def register_fknow_routes(app: Flask) -> None:
             return jsonify(rollback_latest_kg_version())
         except Exception as exc:
             return jsonify({'status': 'failed', 'error': str(exc)}), 500
+
+    @app.route('/api/kg/versions/save-as', methods=['POST', 'OPTIONS'])
+    def fknow_kg_version_save_as() -> Any:
+        if request.method == 'OPTIONS':
+            return ('', 204)
+        payload = request.get_json(silent=True) or {}
+        try:
+            return jsonify(save_kg_version_as_new_graph(
+                payload.get('versionId'),
+                payload.get('graphName'),
+            ))
+        except ValueError as exc:
+            return jsonify({'status': 'failed', 'error': str(exc), 'message': str(exc)}), 400
+        except Exception as exc:
+            return jsonify({'status': 'failed', 'error': str(exc), 'message': str(exc)}), 500

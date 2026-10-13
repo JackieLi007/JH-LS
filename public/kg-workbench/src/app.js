@@ -277,6 +277,9 @@ const baseState = {
     loaded: false,
     loading: false,
     rollbacking: false,
+    savingVersionId: '',
+    saveAsNames: {},
+    saveAsResult: null,
     error: '',
     lastRollback: null,
   },
@@ -484,6 +487,13 @@ function mergeExtractionResults(results = [], sourceType = 'table') {
     entities: [...entityMap.values()],
     relations: [...relationCount.entries()].map(([name, count]) => ({ name, count })),
     tripleRows,
+    rowReport: {
+      inputRows: results.reduce((sum, item) => sum + (item.rowReport?.inputRows || 0), 0),
+      retainedRows: results.reduce((sum, item) => sum + (item.rowReport?.retainedRows || 0), 0),
+      skippedRows: results.reduce((sum, item) => sum + (item.rowReport?.skippedRows || 0), 0),
+      issueRows: results.reduce((sum, item) => sum + (item.rowReport?.issueRows || 0), 0),
+      rows: results.flatMap((item) => (item.rowReport?.rows || []).map((row) => ({ ...row, fileName: item.fileName }))),
+    },
     appliedMappings: [],
     counts: {
       triples: tripleRows.length,
@@ -708,6 +718,105 @@ export function createApp(root, options = {}) {
     extract: T.pageExtract,
     versions: T.pageVersion,
   }[state.currentPage] || T.pageOntology);
+
+  const selectedGraph = () => state.graphs.find((item) => item.database === state.selectedGraphDatabase) || null;
+  const graphRequestOptions = (options = {}) => {
+    const database = String(state.selectedGraphDatabase || '').trim();
+    if (!database) return options;
+    return {
+      ...options,
+      headers: {
+        ...(options.headers || {}),
+        'X-KG-Database': database,
+      },
+    };
+  };
+  const requestGraphJson = (path, options = {}) => requestJson(path, graphRequestOptions(options));
+  const graphOptionMarkup = () => state.graphs.map((item) => `<option value="${escapeHtml(item.database)}" ${item.database === state.selectedGraphDatabase ? 'selected' : ''}>${escapeHtml(item.name)}${item.available === false ? '（不可用）' : ''}</option>`).join('');
+  const graphPickerMarkup = ({ allowCreate = false, compact = false } = {}) => {
+    const current = selectedGraph();
+    return `<div class="graph-picker ${compact ? 'graph-picker--compact' : ''}">
+      <div class="graph-picker__heading"><div><p class="panel__eyebrow">当前图谱</p><strong>${escapeHtml(current?.name || '加载图谱列表中')}</strong></div>${current ? `<span class="graph-picker__meta">${current.nodeCount || 0} 节点 / ${current.edgeCount || 0} 关系</span>` : ''}</div>
+      <label class="graph-picker__field"><span class="field-label">存入/查看图谱</span><select id="graph-select" ${state.graphsLoading ? 'disabled' : ''}>${state.graphs.length ? graphOptionMarkup() : '<option>暂无可用图谱</option>'}</select></label>
+      ${allowCreate ? `<div class="graph-picker__create"><label><span class="field-label">新图谱名称</span><input id="graph-create-name" value="${escapeHtml(state.graphCreateName || '')}" maxlength="80" placeholder="例如：CZ-8A"></label><button class="secondary-btn" id="graph-create-btn" ${state.graphCreating ? 'disabled' : ''}>${state.graphCreating ? '正在创建...' : '创建并选中'}</button></div>` : ''}
+      ${state.graphError ? `<p class="graph-picker__error">${escapeHtml(state.graphError)}</p>` : ''}
+    </div>`;
+  };
+
+  const fetchGraphs = async ({ renderAfter = true } = {}) => {
+    state.graphsLoading = true;
+    state.graphError = '';
+    try {
+      const result = await requestJson('/api/graphs');
+      state.graphs = Array.isArray(result?.graphs) ? result.graphs : [];
+      const availableDatabases = new Set(state.graphs.map((item) => item.database));
+      if (!availableDatabases.has(state.selectedGraphDatabase)) {
+        state.selectedGraphDatabase = String(result?.defaultDatabase || state.graphs[0]?.database || '');
+      }
+      if (state.selectedGraphDatabase) localStorage.setItem('fmeafront-selected-graph', state.selectedGraphDatabase);
+    } catch (error) {
+      state.graphs = [];
+      state.graphError = error.message || '图谱列表读取失败';
+    } finally {
+      state.graphsLoading = false;
+      if (renderAfter) render();
+    }
+  };
+
+  const selectGraph = async (database) => {
+    const nextDatabase = String(database || '').trim();
+    if (!nextDatabase || nextDatabase === state.selectedGraphDatabase) return;
+    state.selectedGraphDatabase = nextDatabase;
+    localStorage.setItem('fmeafront-selected-graph', nextDatabase);
+    state.versioning = { ...state.versioning, versions: [], loaded: false, error: '', lastRollback: null };
+    state.kgBuildProgress = null;
+    render();
+    if (state.currentPage === 'versions') await fetchKgVersions();
+  };
+
+  const createGraph = async () => {
+    const name = String(state.graphCreateName || '').trim();
+    if (!name || state.graphCreating) return;
+    state.graphCreating = true;
+    state.graphError = '';
+    render();
+    try {
+      const result = await requestJson('/api/graphs', {
+        method: 'POST',
+        body: JSON.stringify({ name }),
+      });
+      const database = String(result?.graph?.database || '').trim();
+      state.graphCreateName = '';
+      await fetchGraphs({ renderAfter: false });
+      if (database) await selectGraph(database);
+    } catch (error) {
+      state.graphError = error.message || '图谱创建失败';
+    } finally {
+      state.graphCreating = false;
+      render();
+    }
+  };
+
+  const deleteGraph = async (database) => {
+    const target = state.graphs.find((item) => item.database === database);
+    if (!target || target.isDefault) return;
+    if (!window.confirm(`确定删除图谱“${target.name}”吗？该操作会删除图谱数据库及其版本记录，无法恢复。`)) return;
+    state.graphError = '';
+    try {
+      const result = await requestJson(`/api/graphs/${encodeURIComponent(database)}`, { method: 'DELETE' });
+      await fetchGraphs({ renderAfter: false });
+      if (state.selectedGraphDatabase === database) {
+        state.selectedGraphDatabase = String(result?.defaultDatabase || state.graphs[0]?.database || '');
+        if (state.selectedGraphDatabase) localStorage.setItem('fmeafront-selected-graph', state.selectedGraphDatabase);
+      }
+      state.versioning = { ...state.versioning, versions: [], loaded: false, error: '', lastRollback: null };
+      if (state.currentPage === 'versions') await fetchKgVersions();
+    } catch (error) {
+      state.graphError = error.message || '图谱删除失败';
+    } finally {
+      render();
+    }
+  };
 
   const ontologyNode = () => state.ontology.nodes.find((node) => node.id === state.ontology.selectedNodeId) || state.ontology.nodes[0] || null;
   const activeOntologyEdge = () => state.ontology.edges.find((edge) => edge.id === state.ontology.activeEdgeId) || null;
@@ -996,7 +1105,7 @@ export function createApp(root, options = {}) {
     const resultScaleText = isDocument
       ? `${result?.charCount || 0} 字${result?.pageCount ? ` / ${result.pageCount} 页` : ''}`
       : (isImage ? imageSizeText : selectedFiles.length);
-    const resultJsonPath = result?.documentJsonPath || result?.imageJsonPath || '';
+    const resultJsonPath = result?.tripleJsonPath || result?.documentJsonPath || result?.imageJsonPath || '';
     const resultExcelPath = result?.imageExcelPath || '';
     const docItemText = (item, keys) => {
       if (typeof item === 'string') return item;
@@ -1102,6 +1211,7 @@ export function createApp(root, options = {}) {
               </div>
               <div class="tab-group extract-stage__tabs">${sourceTabs}</div>
             </div>
+            ${graphPickerMarkup({ allowCreate: true })}
             ${uploadPanel}
           </section>
         </div>
@@ -1127,6 +1237,12 @@ export function createApp(root, options = {}) {
             </table>
           </div>
           ${resultJsonPath ? `<div class="empty-state empty-state--compact">结果文件：${escapeHtml(resultJsonPath)}</div>` : ''}
+          ${state.sourceType === 'table' && result?.rowReport ? `<details class="table-block" open>
+            <summary>逐行遗漏清单：输入 ${result.rowReport.inputRows} 行，保留 ${result.rowReport.retainedRows} 行，跳过 ${result.rowReport.skippedRows} 行，需核对 ${result.rowReport.issueRows} 行</summary>
+            ${result.rowReport.rows.length ? `<table><thead><tr><th>文件 / 原始行号</th><th>系统树节点</th><th>状态</th><th>未抽取字段及原因</th></tr></thead><tbody>
+              ${result.rowReport.rows.map((row) => `<tr><td>${escapeHtml(row.fileName || result.fileName)} / ${Number(row.rowNumber)}</td><td>${escapeHtml(row.machineName)}</td><td>${row.status === 'skipped' ? '未提取到知识' : '已保留明确知识'}</td><td>${row.omissions.map((item) => `<p><strong>${escapeHtml(item.field)}</strong>：${escapeHtml(item.reason)}<br>原文：${escapeHtml(item.rawText || '（空）')}</p>`).join('')}</td></tr>`).join('')}
+            </tbody></table>` : '<p>未发现遗漏。</p>'}
+          </details>` : ''}
           ${renderKgBuildProgress(kgProgress)}
         </section>
         <section class="panel config-panel">
@@ -1149,36 +1265,46 @@ export function createApp(root, options = {}) {
     const versionState = state.versioning || {};
     const versions = Array.isArray(versionState.versions) ? versionState.versions : [];
     const latest = versions[0] || null;
+    const currentGraph = selectedGraph();
+    const graphRows = state.graphs || [];
     const rollbackSummary = versionState.lastRollback?.summary?.rollback || null;
-    const totalCounts = versions.reduce((acc, item) => {
-      acc.entities += Number(item.counts?.entities || 0);
-      acc.relations += Number(item.counts?.relations || 0);
-      acc.triples += Number(item.counts?.triples || 0);
-      return acc;
-    }, { entities: 0, relations: 0, triples: 0 });
     return `<section class="version-page-stack extract-page-shell">
       <section class="panel">
         <div class="panel__header panel__header--compact">
-          <div><p class="panel__eyebrow">${T.pageVersion}</p><h3>图谱修改记录</h3><p class="panel__desc">保留最近 10 次三元组导入记录，回退操作会撤销最新一次导入并重建索引。</p></div>
+          <div><p class="panel__eyebrow">${T.pageVersion}</p><h3>全部图谱</h3></div>
+          <button class="secondary-btn" id="refresh-graphs-btn" ${state.graphsLoading ? 'disabled' : ''}>${state.graphsLoading ? '正在刷新...' : '刷新图谱列表'}</button>
+        </div>
+        ${graphPickerMarkup({ compact: true })}
+        <div class="table-block graph-catalog-table">
+          <table>
+            <thead><tr><th>图谱名称</th><th>数据库</th><th>版本数</th><th>节点</th><th>关系</th><th>最新变更</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody>${graphRows.length ? graphRows.map((item) => `<tr class="${item.database === state.selectedGraphDatabase ? 'graph-catalog-table__selected' : ''}"><td><strong>${escapeHtml(item.name || item.database)}</strong></td><td>${escapeHtml(item.database)}</td><td>${Number(item.versionCount || 0)}</td><td>${Number(item.nodeCount || 0)}</td><td>${Number(item.edgeCount || 0)}</td><td>${escapeHtml(item.latestVersionAt ? formatVersionTime(item.latestVersionAt) : '--')}</td><td>${item.available === false ? `<span class="status-chip graph-status--error">不可用</span>` : '<span class="status-chip status-chip--online">可用</span>'}</td><td class="graph-catalog-actions"><button class="secondary-btn" data-graph-select="${escapeHtml(item.database)}" ${item.database === state.selectedGraphDatabase ? 'disabled' : ''}>${item.database === state.selectedGraphDatabase ? '当前图谱' : '选择'}</button>${item.isDefault ? '' : `<button class="secondary-btn secondary-btn--danger" data-graph-delete="${escapeHtml(item.database)}">删除</button>`}</td></tr>`).join('') : '<tr><td colspan="8">暂无已登记图谱</td></tr>'}</tbody>
+          </table>
+        </div>
+      </section>
+      <section class="panel">
+        <div class="panel__header panel__header--compact">
+          <div><p class="panel__eyebrow">${T.pageVersion}</p><h3>${escapeHtml(currentGraph?.name || '当前图谱')}的修改记录</h3></div>
           <div class="toolbar-actions">
-            <button class="secondary-btn" id="refresh-kg-versions-btn" ${versionState.loading || versionState.rollbacking ? 'disabled' : ''}>刷新</button>
-            <button class="secondary-btn secondary-btn--danger" id="rollback-kg-version-btn" ${latest && !versionState.loading && !versionState.rollbacking ? '' : 'disabled'}>${versionState.rollbacking ? '正在回退...' : '回退上一版'}</button>
+            <button class="secondary-btn" id="refresh-kg-versions-btn" ${versionState.loading || versionState.rollbacking || !currentGraph ? 'disabled' : ''}>刷新</button>
+            <button class="secondary-btn secondary-btn--danger" id="rollback-kg-version-btn" ${latest && !versionState.loading && !versionState.rollbacking && currentGraph ? '' : 'disabled'}>${versionState.rollbacking ? '正在回退...' : '回退上一版'}</button>
           </div>
         </div>
         ${versionState.error ? `<div class="empty-state" style="border-color: rgba(210,52,70,0.45); color:#9f1f2d;">${escapeHtml(versionState.error)}</div>` : ''}
         ${rollbackSummary ? `<div class="empty-state empty-state--compact">最近回退：删除关系 ${rollbackSummary.deleted_relationships || 0}，恢复关系 ${rollbackSummary.restored_relationships || 0}，删除节点 ${rollbackSummary.deleted_nodes || 0}，恢复节点 ${rollbackSummary.restored_nodes || 0}</div>` : ''}
+        ${versionState.saveAsResult ? `<div class="empty-state empty-state--compact">已将历史版本另存为图谱“${escapeHtml(versionState.saveAsResult.graph?.name || '')}”，数据库：${escapeHtml(versionState.saveAsResult.graph?.database || '')}</div>` : ''}
         <div class="table-block">
           <table>
             <thead>
-              <tr><th>记录数</th><th>最新版本时间</th><th>累计节点</th><th>累计关系类型</th><th>累计三元组</th></tr>
+              <tr><th>修改次数</th><th>最新版本时间</th><th>当前节点</th><th>当前关系类型</th><th>当前三元组</th></tr>
             </thead>
             <tbody>
               <tr>
-                <td>${versions.length}</td>
-                <td>${latest ? escapeHtml(formatVersionTime(latest.createdAt)) : '--'}</td>
-                <td>${totalCounts.entities}</td>
-                <td>${totalCounts.relations}</td>
-                <td>${totalCounts.triples}</td>
+                <td>${currentGraph?.versionCount ?? versions.length}</td>
+                <td>${latest ? escapeHtml(formatVersionTime(latest.createdAt)) : escapeHtml(currentGraph?.latestVersionAt ? formatVersionTime(currentGraph.latestVersionAt) : '--')}</td>
+                <td>${currentGraph?.nodeCount ?? 0}</td>
+                <td>${currentGraph?.relationTypeCount ?? 0}</td>
+                <td>${currentGraph?.edgeCount ?? 0}</td>
               </tr>
             </tbody>
           </table>
@@ -1194,7 +1320,11 @@ export function createApp(root, options = {}) {
               <p>节点 ${item.counts?.entities || 0} / 关系类型 ${item.counts?.relations || 0} / 三元组 ${item.counts?.triples || 0}</p>
               <p>${escapeHtml(versionWriteText(item))}</p>
             </div>
-            <button class="secondary-btn ${index === 0 ? 'secondary-btn--danger' : ''}" data-kg-rollback-version="${escapeHtml(item.versionId || '')}" ${index === 0 && !versionState.rollbacking ? '' : 'disabled'}>${index === 0 ? '回退此版本' : '需先回退较新版本'}</button>
+            <div class="kg-version-actions">
+              <label><span class="field-label">另存图谱名称</span><input data-kg-save-name="${escapeHtml(item.versionId || '')}" maxlength="80" placeholder="例如：${escapeHtml(currentGraph?.name || '图谱')}-历史副本" value="${escapeHtml(versionState.saveAsNames?.[item.versionId] || '')}"></label>
+              <button class="secondary-btn" data-kg-save-version="${escapeHtml(item.versionId || '')}" ${versionState.savingVersionId ? 'disabled' : ''}>${versionState.savingVersionId === item.versionId ? '正在另存...' : '另存为新图谱'}</button>
+              <button class="secondary-btn ${index === 0 ? 'secondary-btn--danger' : ''}" data-kg-rollback-version="${escapeHtml(item.versionId || '')}" ${index === 0 && !versionState.rollbacking && !versionState.savingVersionId ? '' : 'disabled'}>${index === 0 ? '回退此版本' : '需先回退较新版本'}</button>
+            </div>
           </article>`).join('')}</div>` : `<div class="empty-state">暂无图谱版本记录</div>`)}
       </section>
     </section>`;
@@ -1379,14 +1509,14 @@ export function createApp(root, options = {}) {
         form.append('sourceType', state.sourceType);
         form.append('file', state.selectedFile);
         if (state.extraTableFile) form.append('extraFile', state.extraTableFile);
-        result = await requestJson('/api/parse-preview', { method: 'POST', body: form });
+        result = await requestGraphJson('/api/parse-preview', { method: 'POST', body: form });
       } else if ((state.sourceType === 'document' || state.sourceType === 'image') && state.selectedFile) {
         const form = new FormData();
         form.append('sourceType', state.sourceType);
         form.append('file', state.selectedFile);
-        result = await requestJson('/api/parse-preview', { method: 'POST', body: form });
+        result = await requestGraphJson('/api/parse-preview', { method: 'POST', body: form });
       } else {
-        result = await requestJson('/api/parse-preview', {
+        result = await requestGraphJson('/api/parse-preview', {
           method: 'POST',
           body: JSON.stringify({ sourceType: state.sourceType, fileName: state.selectedFileName }),
         });
@@ -1420,16 +1550,16 @@ export function createApp(root, options = {}) {
           form.append('sourceType', state.sourceType);
           form.append('file', file);
           form.append('mappings', JSON.stringify(mappings));
-          batchResults.push(await requestJson('/api/extract', { method: 'POST', body: form }));
+          batchResults.push(await requestGraphJson('/api/extract', { method: 'POST', body: form }));
         }
         result = mergeExtractionResults(batchResults, state.sourceType);
       } else if (state.sourceType === 'document' || state.sourceType === 'image') {
         const form = new FormData();
         form.append('sourceType', state.sourceType);
         form.append('file', state.selectedFile);
-        result = await requestJson('/api/extract', { method: 'POST', body: form });
+        result = await requestGraphJson('/api/extract', { method: 'POST', body: form });
       } else {
-        result = await requestJson('/api/extract', {
+        result = await requestGraphJson('/api/extract', {
           method: 'POST',
           body: JSON.stringify({ sourceType: state.sourceType, fileName: state.selectedFileName, mappings }),
         });
@@ -1442,7 +1572,7 @@ export function createApp(root, options = {}) {
         state.kgBuildProgress = { ...kgProgressBuilding(result), requestId };
         render();
         try {
-          const kgBuild = await requestJson('/api/kg/build', {
+          const kgBuild = await requestGraphJson('/api/kg/build', {
             method: 'POST',
             body: JSON.stringify({ extractionResult: result, recordVersion: true }),
           });
@@ -1480,10 +1610,17 @@ export function createApp(root, options = {}) {
   };
 
   const fetchKgVersions = async () => {
-    state.versioning = { ...(state.versioning || {}), loading: true, error: '' };
+    const requestedDatabase = state.selectedGraphDatabase;
+    const requestId = `${Date.now()}-${Math.random()}`;
+    state.versioning = { ...(state.versioning || {}), loading: true, error: '', requestId };
     render();
     try {
-      const result = await requestJson('/api/kg/versions?limit=10');
+      const result = await requestGraphJson('/api/kg/versions?limit=10');
+      if (state.versioning?.requestId !== requestId) return;
+      const returnedDatabase = String(result?.graphDatabase || '').trim();
+      if (returnedDatabase && returnedDatabase !== requestedDatabase) {
+        throw new Error('版本记录与当前选中图谱不一致，请刷新后重试。');
+      }
       state.versioning = {
         ...(state.versioning || {}),
         versions: Array.isArray(result?.versions) ? result.versions : [],
@@ -1491,14 +1628,17 @@ export function createApp(root, options = {}) {
         error: '',
       };
     } catch (error) {
+      if (state.versioning?.requestId !== requestId) return;
       state.versioning = {
         ...(state.versioning || {}),
         loaded: true,
         error: error.message || '版本记录读取失败',
       };
     } finally {
-      state.versioning.loading = false;
-      render();
+      if (state.versioning?.requestId === requestId) {
+        state.versioning.loading = false;
+        render();
+      }
     }
   };
 
@@ -1509,7 +1649,7 @@ export function createApp(root, options = {}) {
     state.versioning = { ...(state.versioning || {}), rollbacking: true, error: '' };
     render();
     try {
-      const result = await requestJson('/api/kg/rollback', { method: 'POST', body: JSON.stringify({}) });
+      const result = await requestGraphJson('/api/kg/rollback', { method: 'POST', body: JSON.stringify({}) });
       state.versioning = {
         ...(state.versioning || {}),
         versions: Array.isArray(result?.history?.versions) ? result.history.versions : [],
@@ -1532,6 +1672,45 @@ export function createApp(root, options = {}) {
     }
   };
 
+  const saveKgVersionAsGraph = async (versionId) => {
+    const graphName = String(state.versioning?.saveAsNames?.[versionId] || '').trim();
+    if (!versionId || !graphName || state.versioning?.savingVersionId) {
+      if (!graphName) {
+        state.versioning = { ...(state.versioning || {}), error: '请输入另存后的新图谱名称。' };
+        render();
+      }
+      return;
+    }
+    state.versioning = {
+      ...(state.versioning || {}),
+      savingVersionId: versionId,
+      error: '',
+      saveAsResult: null,
+    };
+    render();
+    try {
+      const result = await requestGraphJson('/api/kg/versions/save-as', {
+        method: 'POST',
+        body: JSON.stringify({ versionId, graphName }),
+      });
+      state.versioning = {
+        ...(state.versioning || {}),
+        saveAsResult: result,
+        saveAsNames: { ...(state.versioning?.saveAsNames || {}), [versionId]: '' },
+        error: '',
+      };
+      await fetchGraphs({ renderAfter: false });
+    } catch (error) {
+      state.versioning = {
+        ...(state.versioning || {}),
+        error: error.message || '历史版本另存失败',
+      };
+    } finally {
+      state.versioning.savingVersionId = '';
+      render();
+    }
+  };
+
   const bindEvents = () => {
     root.querySelectorAll('[data-page]').forEach((button) => button.addEventListener('click', () => {
       state.currentPage = button.dataset.page;
@@ -1539,6 +1718,21 @@ export function createApp(root, options = {}) {
       if (state.currentPage === 'versions' && !state.versioning?.loaded) fetchKgVersions();
     }));
     root.querySelectorAll('[data-source-type]').forEach((button) => button.addEventListener('click', () => changeExtractSourceType(button.dataset.sourceType)));
+    root.querySelectorAll('#graph-select').forEach((select) => select.addEventListener('change', (event) => {
+      void selectGraph(event.target.value);
+    }));
+    root.querySelectorAll('[data-graph-select]').forEach((button) => button.addEventListener('click', () => {
+      void selectGraph(button.dataset.graphSelect);
+    }));
+    root.querySelectorAll('[data-graph-delete]').forEach((button) => button.addEventListener('click', () => {
+      void deleteGraph(button.dataset.graphDelete);
+    }));
+    const refreshGraphsBtn = root.querySelector('#refresh-graphs-btn');
+    if (refreshGraphsBtn) refreshGraphsBtn.addEventListener('click', () => { void fetchGraphs(); });
+    const graphCreateName = root.querySelector('#graph-create-name');
+    if (graphCreateName) graphCreateName.addEventListener('input', (event) => { state.graphCreateName = event.target.value; });
+    const graphCreateBtn = root.querySelector('#graph-create-btn');
+    if (graphCreateBtn) graphCreateBtn.addEventListener('click', () => { void createGraph(); });
     root.querySelectorAll('[data-ontology-edge-id]').forEach((item) => item.addEventListener('click', () => setActiveOntologyEdge(item.dataset.ontologyEdgeId)));
     root.querySelectorAll('[data-ontology-version-id]').forEach((button) => button.addEventListener('click', () => restoreOntologyVersion(button.dataset.ontologyVersionId)));
     root.querySelectorAll('[data-mapping-index]').forEach((select) => select.addEventListener('change', (event) => updateExtractMappingType(Number(event.target.dataset.mappingIndex), event.target.value)));
@@ -1645,13 +1839,21 @@ export function createApp(root, options = {}) {
     const rollbackKgVersionBtn = root.querySelector('#rollback-kg-version-btn');
     if (rollbackKgVersionBtn) rollbackKgVersionBtn.addEventListener('click', rollbackKgVersion);
     root.querySelectorAll('[data-kg-rollback-version]').forEach((button) => button.addEventListener('click', rollbackKgVersion));
+    root.querySelectorAll('[data-kg-save-name]').forEach((input) => input.addEventListener('input', (event) => {
+      const versionId = event.target.dataset.kgSaveName;
+      state.versioning.saveAsNames = { ...(state.versioning.saveAsNames || {}), [versionId]: event.target.value };
+    }));
+    root.querySelectorAll('[data-kg-save-version]').forEach((button) => button.addEventListener('click', () => {
+      void saveKgVersionAsGraph(button.dataset.kgSaveVersion);
+    }));
   };
 
   const bootstrap = async () => {
     let serverSchema = { entityTypes: [], relationTypes: [] };
     let localSchema = {};
     let localOntology = {};
-    try { serverSchema = await requestJson('/api/schema'); } catch {}
+    await fetchGraphs({ renderAfter: false });
+    try { serverSchema = await requestGraphJson('/api/schema'); } catch {}
     try { localSchema = JSON.parse(localStorage.getItem(SCHEMA_STORAGE_KEY) || '{}'); } catch {}
     try { localOntology = JSON.parse(localStorage.getItem(ONTOLOGY_STORAGE_KEY) || '{}'); } catch {}
     state.schema = {
